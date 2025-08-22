@@ -1,0 +1,60 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_URL") // Your database connection string
+}
+
+// Enum for TaskStatus, mirroring the one in TypeScript
+enum TaskStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    FAILED
+}
+
+// New: User model
+model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    name      String?
+    password  String // Remember to hash passwords
+    campaigns MarketingCampaign[]
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("users")
+}
+
+// New: MarketingCampaign model
+model MarketingCampaign {
+    id          String   @id @default(cuid())
+    name        String
+    description String?
+    status      String   @default("DRAFT") // e.g., DRAFT, ACTIVE, ARCHIVED
+    user        User     @relation(fields: [userId], references: [id])
+    userId      String
+    tasks       Task[]
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@map("marketing_campaigns")
+}
+
+// Updated: Task model
+model Task {
+    id          String      @id @default(cuid())
+    campaign    MarketingCampaign @relation(fields: [campaignId], references: [id])
+    campaignId  String      // Foreign key to MarketingCampaign
+    status      TaskStatus  @default(PENDING)
+    priority    Int         @default(1)
+    input       Json
+    result      Json?
+    error       String?
+    createdAt   DateTime    @default(now())
+    updatedAt   DateTime    @updatedAt
+
+    @@map("tasks")
+}
