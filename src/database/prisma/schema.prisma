@@ -24,6 +24,7 @@ model User {
     campaigns MarketingCampaign[]
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+    deletedAt  DateTime?
 
     @@map("users")
 }
