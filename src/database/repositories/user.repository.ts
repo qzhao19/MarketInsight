@@ -27,6 +27,11 @@ type CreateUserData = {
 };
 type UpdateUserData = Partial<Omit<CreateUserData, 'email'>> & { email?: string };
 type ListUsersOptions = { skip?: number; take?: number; includeCampaigns?: boolean };
+type TransactionClient = Omit<
+  PrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
 
 /**
  * User Repository - implements all database operations related to the User entity
@@ -257,9 +262,11 @@ export class UserRepository {
    * @param fn - Function to execute inside transaction
    * @returns Result of the function
    */
-  async transaction<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (tx: TransactionClient) => Promise<T>): Promise<T> {
+    // FIX: The type of 'tx' in the callback must match what Prisma provides.
     return this.prisma.$transaction(async (tx) => {
-      return await fn(tx as unknown as PrismaClient);
+      // We pass the correctly-typed transaction client 'tx' to the function.
+      return await fn(tx);
     });
   }
 
