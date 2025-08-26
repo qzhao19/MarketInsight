@@ -97,7 +97,10 @@ export interface User {
     id: string;
     email: string;
     name: string | null;
-    campaigns?: MarketingCampaign[]; // Add the related campaigns array, make it optional
+    campaigns?: MarketingCampaign[]; // add the related campaigns array, make it optional
+    createdAt: Date; // add this field
+    updatedAt: Date; // add this field
+    deletedAt?: Date | null; // add this optional/nullable field
     // Note: The password hash should never be included in types used for API responses.
 }
 
