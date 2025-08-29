@@ -1,20 +1,3 @@
-jest.mock('@prisma/client', () => {
-  return {
-    PrismaClient: jest.fn().mockImplementation(() => ({
-      user: {
-        findUnique: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-        findMany: jest.fn(),
-        count: jest.fn()
-      },
-      $disconnect: jest.fn(),
-      $transaction: jest.fn()
-    }))
-  };
-});
-
 import { PrismaClient } from '@prisma/client';
 import {
   UserRepository,
@@ -22,11 +5,12 @@ import {
   UserAlreadyExistsException,
 } from '../src/database/repositories/user.repository';
 import { User } from '../src/types/task.types';
-
+import { PrismaService } from '../src/database/prisma.service';
 
 describe('UserRepository', () => {
   let userRepository: UserRepository;
-  let mockPrisma: PrismaClient;
+  // type of mockPrismaService shoule be any 
+  let mockPrismaService: any;
   let originalConsoleError: typeof console.error;
 
   const mockUser: User = {
@@ -35,69 +19,81 @@ describe('UserRepository', () => {
     name: 'Test User',
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null // deletedAt attribute
+    deletedAt: null,
   };
 
   beforeAll(() => {
-    // keep raw console.error
     originalConsoleError = console.error;
-    // replace console.error to a void function
     console.error = jest.fn();
   });
 
   afterAll(() => {
-    // restore the original console.error after the test ends
     console.error = originalConsoleError;
   });
 
   beforeEach(() => {
-    mockPrisma = new PrismaClient();
-    userRepository = new UserRepository(mockPrisma);
+    // 4. create a mock PrismaService object
+    // this object needs to have the same structure as PrismaClient
+    mockPrismaService = {
+      user: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+
+    // inject the mocked service into the constructor of UserRepository
+    userRepository = new UserRepository(mockPrismaService as PrismaService);
   });
 
   describe('createUser', () => {
     it('should create a new user successfully', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.user.create as jest.Mock).mockResolvedValue(mockUser);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrismaService.user.create as jest.Mock).mockResolvedValue(mockUser);
 
       const newUser = { email: 'test@example.com', password: 'hashedpassword' };
       const result = await userRepository.createUser(newUser);
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ 
-        where: { email: newUser.email } 
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { email: newUser.email },
       });
-      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
         data: { ...newUser, deletedAt: null },
       });
       expect(result).toEqual(mockUser);
     });
 
     it('should throw UserAlreadyExistsException if user exists', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+
       const newUser = { email: 'test@example.com', password: 'hashedpassword' };
-      
-      await expect(userRepository.createUser(newUser))
-        .rejects.toThrow(UserAlreadyExistsException);
-      
-      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+
+      await expect(userRepository.createUser(newUser)).rejects.toThrow(
+        UserAlreadyExistsException
+      );
+
+      expect(mockPrismaService.user.create).not.toHaveBeenCalled();
     });
   });
 
   describe('getUserById', () => {
     it('should return user when found', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
 
       const result = await userRepository.getUserById('user-1');
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: 'user-1', deletedAt: null },
       });
       expect(result).toEqual(mockUser);
     });
 
     it('should throw UserNotFoundException when user not found', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(userRepository.getUserById('non-existent-id')).rejects.toThrow(
         UserNotFoundException
@@ -107,9 +103,9 @@ describe('UserRepository', () => {
 
   describe('getUserByEmail', () => {
     it('should return user when found by email', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
       const result = await userRepository.getUserByEmail('test@example.com');
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { email: 'test@example.com', deletedAt: null },
       });
       expect(result).toEqual(mockUser);
@@ -119,12 +115,13 @@ describe('UserRepository', () => {
   describe('updateUser', () => {
     it('should update user successfully', async () => {
       const updatedUser = { ...mockUser, name: 'Updated Name' };
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
-      (mockPrisma.user.update as jest.Mock).mockResolvedValue(updatedUser as any);
+      // Mock the internal getUserById call
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
+      (mockPrismaService.user.update as jest.Mock).mockResolvedValue(updatedUser as any);
 
       const result = await userRepository.updateUser('user-1', { name: 'Updated Name' });
 
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
         data: { name: 'Updated Name' },
       });
@@ -139,12 +136,12 @@ describe('UserRepository', () => {
         deletedAt: new Date(),
         email: expect.stringContaining('deleted_'),
       };
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
-      (mockPrisma.user.update as jest.Mock).mockResolvedValue(softDeletedUser as any);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
+      (mockPrismaService.user.update as jest.Mock).mockResolvedValue(softDeletedUser as any);
 
       const result = await userRepository.softDeleteUser('user-1');
 
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
         data: {
           deletedAt: expect.any(Date),
@@ -157,11 +154,11 @@ describe('UserRepository', () => {
 
   describe('hardDeleteUser', () => {
     it('should permanently delete a user', async () => {
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(mockUser as any);
-      (mockPrisma.user.delete as jest.Mock).mockResolvedValue(mockUser as any);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValueOnce(mockUser as any);
+      (mockPrismaService.user.delete as jest.Mock).mockResolvedValue(mockUser as any);
 
       await userRepository.hardDeleteUser('user-1');
-      expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
     });
   });
 
@@ -169,8 +166,8 @@ describe('UserRepository', () => {
     it('should return campaigns for a user', async () => {
       const userWithCampaigns = { ...mockUser, campaigns: [{ id: 'campaign-1' }] };
       // Mock the internal getUserById call
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(mockUser as any);
-      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(userWithCampaigns as any);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValueOnce(mockUser as any);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValueOnce(userWithCampaigns as any);
 
       const result = await userRepository.getUserCampaigns('user-1');
 
@@ -180,26 +177,25 @@ describe('UserRepository', () => {
   
   describe('getUserCount', () => {
     it('should return the count of non-deleted users', async () => {
-      (mockPrisma.user.count as jest.Mock).mockResolvedValue(5);
+      (mockPrismaService.user.count as jest.Mock).mockResolvedValue(5);
       const result = await userRepository.getUserCount();
 
-      expect(mockPrisma.user.count).toHaveBeenCalledWith({ where: { deletedAt: null } });
+      expect(mockPrismaService.user.count).toHaveBeenCalledWith({ where: { deletedAt: null } });
       expect(result).toBe(5);
     });
   });
 
+  // (softDeleteUser, hardDeleteUser, getUserCampaigns, getUserCount, transaction)
   describe('transaction', () => {
     it('should execute a function within a transaction', async () => {
       const fn = jest.fn().mockResolvedValue('transaction result');
-      (mockPrisma.$transaction as jest.Mock).mockImplementation(callback => callback(mockPrisma));
+      (mockPrismaService.$transaction as jest.Mock).mockImplementation(callback => callback(mockPrismaService));
 
       const result = await userRepository.transaction(fn);
 
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(fn).toHaveBeenCalledWith(mockPrisma);
+      expect(mockPrismaService.$transaction).toHaveBeenCalled();
+      expect(fn).toHaveBeenCalledWith(mockPrismaService);
       expect(result).toBe('transaction result');
     });
   });
-
-
 });
