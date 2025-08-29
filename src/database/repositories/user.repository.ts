@@ -1,8 +1,8 @@
+import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { User, MarketingCampaign } from '../../types/task.types';
-
-const prisma = new PrismaClient();
+import { PrismaService } from '../prisma.service';
 
 // Custom exceptions
 export class UserNotFoundException extends Error {
@@ -32,20 +32,16 @@ type TransactionClient = Omit<
   '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
 >;
 
-
 /**
  * User Repository - implements all database operations related to the User entity
  */
+@Injectable() 
 export class UserRepository {
-  private prisma: PrismaClient;
 
   /**
-   * Creates a new UserRepository instance
-   * @param prismaClient - Optional Prisma client for dependency injection
+   * Initializes the service with a PrismaService
    */
-  constructor(prismaClient?: PrismaClient) {
-    this.prisma = prismaClient || new PrismaClient();
-  }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Centralized error handler for Prisma operations
@@ -269,14 +265,5 @@ export class UserRepository {
       return await fn(tx);
     });
   }
-
-  /**
-   * Closes the Prisma connection
-   */
-  async disconnect(): Promise<void> {
-    await this.prisma.$disconnect();
-  }
-
-
 }
 
