@@ -5,7 +5,7 @@ import {
   TaskNotFoundException,
   CampaignNotFoundException,
 } from '../src/database/repositories/task.repository';
-import { PrismaService } from '../src/database/prisma.service';
+import { PrismaService } from '../src/database/prisma/prisma.service';
 import { Task, TaskStatus, LLMInput, MarketingCampaign, CampaignStatus, User } from '../src/types/task.types';
 
 describe('TaskRepository', () => {
