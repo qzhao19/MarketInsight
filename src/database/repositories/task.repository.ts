@@ -44,12 +44,21 @@ type UpdateTaskData = Partial<{
 type ListTasksOptions = {
   skip?: number;
   take?: number;
-  status?: TaskStatus;
-  priority?: number;
+  // use Prisma's Where type to enhance flexibility
+  where?: { 
+    campaignId?: string;
+    status?: TaskStatus;
+    priority?: number;
+    createdAt?: {
+      gte?: Date; // "greater than or equal to"
+      lte?: Date; // "less than or equal to"
+    };
+  };
   orderBy?: {
     field: 'createdAt' | 'priority' | 'updatedAt';
     direction: 'asc' | 'desc';
   };
+  includeCampaign?: boolean;
 };
 
 
@@ -111,12 +120,14 @@ export class TaskRepository {
   }
 
   /**
-   * @param task 
-   * @returns 
+   * Creates a new task in the database associated with a marketing campaign.
+   * 
+   * @param task The data required to create the task, including `campaignId` and `input`.
+   * @returns A `Promise` that resolves to the newly created `Task` object.
    */
   async createTask(task: CreateTaskData): Promise<Task> {
     try {
-      // check campaign activities exists
+      // check if campaign activities exists
       // still keep following code even handlePrismaError can catch such error
       const campaignExists = await this.prisma.marketingCampaign.findUnique({
         where: {id: task.campaignId},
@@ -141,7 +152,7 @@ export class TaskRepository {
         ...newTask,
         input: newTask.input as unknown as LLMInput,
         result: newTask.result as unknown as LLMResult | null,
-        // cast status to your TaskStatus type
+        // cast status to TaskStatus type
         status: newTask.status as TaskStatus, 
       };
 
@@ -158,6 +169,7 @@ export class TaskRepository {
    * 
    * @param id - The task ID
    * @param includeCampaign - Whether to load the related MarketingCampaign object
+   * @returns A `Promise` that resolves to the deleted `Task` object.
    */
   async getTaskById(id: string, includeCampaign: boolean = true): Promise<Task> {
     try {
@@ -190,6 +202,7 @@ export class TaskRepository {
     includeCampaign: boolean = true
   ): Promise<Task> {
     try {
+      // define var of Prisma.TaskUpdateInput type 
       const updateData: Prisma.TaskUpdateInput = {};
 
       // build object for existed atributes
@@ -203,6 +216,12 @@ export class TaskRepository {
         updateData.result = data.result as unknown as Prisma.JsonObject;
       }
 
+      // handle empty update
+      if (Object.keys(updateData).length === 0) {
+        console.warn(`Attempted to update task ${id} with empty data. No action taken.`);
+        return this.getTaskById(id, includeCampaign);
+      }
+
       const updatedTask = await this.prisma.task.update({
         where: { id },
         data: updateData,
@@ -212,6 +231,63 @@ export class TaskRepository {
       return this.mapPrismaTaskToDomain(updatedTask, includeCampaign) as Task;
     } catch (error) {
       throw this.handlePrismaError(error, `Failed to update task: ${id}`);
+    }
+  }
+
+  /**
+   * Deletes a task by its ID.
+   * 
+   * @param id - The ID of the task to delete.
+   * @param includeCampaign - Whether to load the related MarketingCampaign object.
+   * @returns A `Promise` that resolves to the deleted `Task` object.
+   */
+  async deleteTask(id: string, includeCampaign: boolean): Promise<Task> {
+    try {
+      const deletedTask = await this.prisma.task.delete({
+        where: { id },
+        include: { campaign: includeCampaign }
+      });
+
+      return this.mapPrismaTaskToDomain(deletedTask, includeCampaign) as Task;
+    } catch (error) {
+      throw this.handlePrismaError(error, `Failed to delete task: ${id}`);
+    }
+  }
+
+  /**
+   * Retrieves a list of tasks based on flexible filtering
+   * @param options - The options for filtering, sorting, and pagination.
+   * @returns A `Promise` that resolves to an array of `Task` objects.
+   */
+  async listTasks(options: ListTasksOptions = {}): Promise<Task[]> {
+    const {
+      skip = 0,
+      take = 20,
+      where = {},
+      orderBy = { field: 'createdAt', direction: 'desc' },
+      includeCampaign = false, // default not load campaign
+    } = options;
+
+    try {
+      // build sorting condition
+      const orderByObj: Prisma.TaskOrderByWithRelationInput = {
+        [orderBy.field]: orderBy.direction
+      };
+
+      const tasks = await this.prisma.task.findMany({
+        where,
+        skip,
+        take,
+        orderBy: orderByObj,
+        include: { campaign: includeCampaign }
+      });
+
+      return tasks
+        .map(task => this.mapPrismaTaskToDomain(task, includeCampaign))
+        .filter(Boolean) as Task[];
+
+    } catch (error) {
+      throw this.handlePrismaError(error, 'Failed to list tasks');
     }
   }
 
