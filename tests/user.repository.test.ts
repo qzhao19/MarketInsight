@@ -5,7 +5,7 @@ import {
   UserAlreadyExistsException,
 } from '../src/database/repositories/user.repository';
 import { User } from '../src/types/task.types';
-import { PrismaService } from '../src/database/prisma.service';
+import { PrismaService } from '../src/database/prisma/prisma.service';
 
 describe('UserRepository', () => {
   let userRepository: UserRepository;
