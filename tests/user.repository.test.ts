@@ -165,13 +165,22 @@ describe('UserRepository', () => {
   describe('getUserCampaigns', () => {
     it('should return campaigns for a user', async () => {
       const userWithCampaigns = { ...mockUser, campaigns: [{ id: 'campaign-1' }] };
-      // Mock the internal getUserById call
-      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValueOnce(mockUser as any);
-      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValueOnce(userWithCampaigns as any);
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(userWithCampaigns as any);
 
       const result = await userRepository.getUserCampaigns('user-1');
 
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        include: { campaigns: { orderBy: { createdAt: 'desc' } } },
+      });
       expect(result).toEqual([{ id: 'campaign-1' }]);
+    });
+    
+    it('should throw UserNotFoundException when user not found', async () => {
+      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(null);
+      await expect(userRepository.getUserCampaigns('non-existent-id')).rejects.toThrow(
+        UserNotFoundException
+      );
     });
   });
   
