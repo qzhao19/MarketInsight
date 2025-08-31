@@ -54,10 +54,11 @@ type ListTasksOptions = {
       lte?: Date; // "less than or equal to"
     };
   };
-  orderBy?: {
+  orderBy?: Array<{
     field: 'createdAt' | 'priority' | 'updatedAt';
     direction: 'asc' | 'desc';
-  };
+  }>;
+
   includeCampaign?: boolean;
 };
 
@@ -259,20 +260,20 @@ export class TaskRepository {
    * @param options - The options for filtering, sorting, and pagination.
    * @returns A `Promise` that resolves to an array of `Task` objects.
    */
-  async listTasks(options: ListTasksOptions = {}): Promise<Task[]> {
+  async listTasksByOptions(options: ListTasksOptions = {}): Promise<Task[]> {
     const {
       skip = 0,
       take = 20,
       where = {},
-      orderBy = { field: 'createdAt', direction: 'desc' },
-      includeCampaign = false, // default not load campaign
+      orderBy = [{ field: 'createdAt', direction: 'desc' }],
+      includeCampaign = true, // default not load campaign
     } = options;
 
     try {
       // build sorting condition
-      const orderByObj: Prisma.TaskOrderByWithRelationInput = {
-        [orderBy.field]: orderBy.direction
-      };
+      const orderByObj = orderBy.map(sort => ({
+        [sort.field]: sort.direction,
+      }));
 
       const tasks = await this.prisma.task.findMany({
         where,
@@ -291,7 +292,51 @@ export class TaskRepository {
     }
   }
 
+  /**
+   * Retrieves a list of tasks for a specific marketing campaign.
+   * 
+   * @param campaignId - The ID of the marketing campaign.
+   * @param options - All the same options available in listTasks (filtering, sorting, pagination)
+   * @returns A `Promise` that resolves to an array of `Task` objects.
+   */
+  async listTasksByCampaignId(
+    campaignId: string,
+    options: Omit<ListTasksOptions, 'where'> & { 
+      where?: Omit<ListTasksOptions['where'], 'campaignId'> 
+    } = {}
+  ): Promise<Task[]> {
+    // reuse the main listTasks function, passing through all options
+    return this.listTasksByOptions({
+      ...options,
+      where: {
+        ...options.where,
+        campaignId
+      },
+    });
+  }
 
+  /**
+   * Retrieves pending tasks for task scheduling, ordered by priority and creation time.
+   *
+   * @param limit - Maximum number of tasks to return (default: 100)
+   * @param includeCampaign - Whether to include campaign details (default: false)
+   * @returns A `Promise` that resolves to an array of pending `Task` objects
+   */
+  async listTasksByPendingStatus(
+    limit: number = 100, 
+    includeCampaign: boolean = false
+  ): Promise<Task[]> {
+
+    return this.listTasksByOptions({
+      where: {status: TaskStatus.PENDING},
+      take: limit,
+      orderBy: [
+        { field: 'priority', direction: 'desc' },
+        { field: 'createdAt', direction: 'asc' }
+      ],
+      includeCampaign,
+    });
+  }
 
 }
 
