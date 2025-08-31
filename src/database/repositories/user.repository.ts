@@ -87,13 +87,15 @@ export class UserRepository {
    */
   async createUser(data: CreateUserData): Promise<User> {
       try {
-        const exists = await this.prisma.user.findUnique({ where: { email: data.email } });
+        const exists = await this.prisma.user.findUnique({ 
+          where: { email: data.email } 
+        });
         if (exists) throw new UserAlreadyExistsException(data.email);
 
         const user = await this.prisma.user.create({ 
           data: {
             ...data,
-            deletedAt: null // Ensure the user starts as not deleted
+            deletedAt: null // ensure the user starts as not deleted
           } 
         });
         return user as User;
@@ -146,15 +148,13 @@ export class UserRepository {
    */
   async updateUser(id: string, data: UpdateUserData): Promise<User> {
     try {
-      // Check if user exists first (will throw if not found)
-      await this.getUserById(id);
-      
       const user = await this.prisma.user.update({ 
         where: { id }, 
         data 
       });
       return user as User;
     } catch (error) {
+      // if the user doesn't exist, Prisma throws P2025
       throw this.handlePrismaError(error, `Failed to update user: ${id}`);
     }
   }
@@ -166,9 +166,6 @@ export class UserRepository {
    */
   async softDeleteUser(id: string): Promise<User> {
     try {
-      // First check if the user exists
-      await this.getUserById(id);
-      
       const user = await this.prisma.user.update({
         where: { id },
         data: {
@@ -189,9 +186,6 @@ export class UserRepository {
    */
   async hardDeleteUser(id: string): Promise<User> {
     try {
-      // First check if the user exists (will throw if not found)
-      await this.getUserById(id);
-      
       const user = await this.prisma.user.delete({ where: { id } });
       return user as User;
     } catch (error) {
@@ -228,13 +222,15 @@ export class UserRepository {
    */
   async getUserCampaigns(userId: string): Promise<MarketingCampaign[]> {
     try {
-      // First check if the user exists (will throw if not found)
-      await this.getUserById(userId);
-      
       const userWithCampaigns = await this.prisma.user.findUnique({
         where: { id: userId },
         include: { campaigns: { orderBy: { createdAt: 'desc' } } },
       });
+
+      if (!userWithCampaigns) {
+        throw new UserNotFoundException(userId);
+      }
+
       return (userWithCampaigns?.campaigns || []) as MarketingCampaign[];
     } catch (error) {
       throw this.handlePrismaError(error, `Failed to get campaigns for user: ${userId}`);
