@@ -12,8 +12,9 @@ describe('TaskRepository', () => {
   let taskRepository: TaskRepository;
   let mockPrismaService: any;
   let originalConsoleError: typeof console.error;
+  let originalConsoleWarn: typeof console.warn; 
 
-  // --- 使用完整的模拟数据 ---
+  // use complete mock data
   const mockCampaign: MarketingCampaign = {
     id: 'campaign-1',
     userId: 'user-1',
@@ -34,33 +35,37 @@ describe('TaskRepository', () => {
     error: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    campaign: mockCampaign, // 包含完整的 campaign 对象
+    campaign: mockCampaign, // full campaign object
   };
 
   beforeAll(() => {
     originalConsoleError = console.error;
-    console.error = jest.fn(); // 抑制测试期间的 console.error 输出
+    originalConsoleWarn = console.warn;
+    console.error = jest.fn();
+    console.warn = jest.fn();
   });
 
   afterAll(() => {
     console.error = originalConsoleError;
+    console.warn = originalConsoleWarn;
   });
 
   beforeEach(() => {
-    // 创建一个包含所需 mock 委托的 PrismaService 模拟对象
+    // create a PrismaService mock
     mockPrismaService = {
       task: {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         findMany: jest.fn(),
+        delete: jest.fn(),
       },
       marketingCampaign: {
         findUnique: jest.fn(),
       },
     };
 
-    // 将模拟的服务注入到 TaskRepository 的构造函数中
+    // inject this mocked service into the TaskRepository constructor,
     taskRepository = new TaskRepository(mockPrismaService as PrismaService);
   });
 
@@ -68,13 +73,12 @@ describe('TaskRepository', () => {
     it('should create a new task successfully', async () => {
       const createTaskData = { campaignId: 'campaign-1', input: { prompt: 'new prompt' } };
       
-      // 模拟依赖
+      // mock its dependencies
       (mockPrismaService.marketingCampaign.findUnique as jest.Mock).mockResolvedValue({ id: 'campaign-1' });
       (mockPrismaService.task.create as jest.Mock).mockResolvedValue(mockTask);
 
       const result = await taskRepository.createTask(createTaskData);
 
-      // 断言
       expect(mockPrismaService.marketingCampaign.findUnique).toHaveBeenCalledWith({
         where: { id: createTaskData.campaignId },
         select: { id: true },
@@ -144,7 +148,7 @@ describe('TaskRepository', () => {
 
     it('should throw TaskNotFoundException if task to update does not exist', async () => {
       const updateData = { status: TaskStatus.PROCESSING };
-      // 模拟 Prisma 的 P2025 错误（记录未找到）
+      // 
       const prismaError = new PrismaClientKnownRequestError(
         'An operation failed because it depends on one or more records that were required but not found.',
         { code: 'P2025', clientVersion: 'x.x.x' }
@@ -157,14 +161,211 @@ describe('TaskRepository', () => {
     });
 
     it('should not perform a database write if update data is empty', async () => {
-      // 模拟在不更新时发生的内部 getTaskById 调用
       (mockPrismaService.task.findUnique as jest.Mock).mockResolvedValue(mockTask);
       
       const result = await taskRepository.updateTask('task-1', {});
 
-      // 断言
       expect(mockPrismaService.task.update).not.toHaveBeenCalled();
-      expect(result.id).toEqual(mockTask.id); // 应该返回原始任务
+      expect(result.id).toEqual(mockTask.id);
     });
   });
+
+  describe('deleteTask', () => {
+    it('should delete a task successfully', async () => {
+      (mockPrismaService.task.delete as jest.Mock).mockResolvedValue(mockTask as any);
+
+      const result = await taskRepository.deleteTask('task-1', false);
+
+      expect(mockPrismaService.task.delete).toHaveBeenCalledWith({
+        where: { id: 'task-1' },
+        include: { campaign: false },
+      });
+      expect(result.id).toEqual(mockTask.id);
+    });
+  });
+
+
+  describe('listTasksByOptions', () => {
+    it('should return a list of tasks with default options', async () => {
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([mockTask]);
+
+      const result = await taskRepository.listTasksByOptions();
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
+        where: {},
+        skip: 0,
+        take: 20,
+        orderBy: [{ createdAt: 'desc' }],
+        include: { campaign: true },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toEqual(mockTask.id);
+    });
+
+    it('should apply custom filtering, sorting, and pagination options', async () => {
+      const customOptions = {
+        where: { status: TaskStatus.COMPLETED },
+        skip: 5,
+        take: 10,
+        orderBy: [{ field: 'priority' as 'priority', direction: 'asc' as 'asc' }],
+        includeCampaign: false,
+      };
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
+
+      await taskRepository.listTasksByOptions(customOptions);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
+        where: customOptions.where,
+        skip: customOptions.skip,
+        take: customOptions.take,
+        orderBy: [{ priority: 'asc' }],
+        include: { campaign: false },
+      });
+    });
+
+    it('should handle database errors correctly', async () => {
+        const dbError = new Error('Database connection failed');
+        (mockPrismaService.task.findMany as jest.Mock).mockRejectedValue(dbError);
+        
+        await expect(taskRepository.listTasksByOptions()).rejects.toThrow();
+      });
+
+      it('should return an empty array when no tasks match the criteria', async () => {
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
+      
+      const result = await taskRepository.listTasksByOptions({
+        where: { status: TaskStatus.COMPLETED }
+      });
+      
+      expect(result).toEqual([]);
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it('should correctly apply multiple sort criteria', async () => {
+      const sortOptions = {
+        orderBy: [
+          { field: 'priority' as const, direction: 'desc' as const },
+          { field: 'createdAt' as const, direction: 'asc' as const }
+        ]
+      };
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
+      
+      await taskRepository.listTasksByOptions(sortOptions);
+      
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [
+            { priority: 'desc' },
+            { createdAt: 'asc' }
+          ]
+        })
+      );
+    });
+
+    it('should handle complex filtering conditions', async () => {
+      const complexWhere = {
+        where: {
+          status: TaskStatus.PENDING,
+          priority: 3,
+          campaignId: 'test-campaign'
+        }
+      };
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
+      
+      await taskRepository.listTasksByOptions(complexWhere);
+      
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: complexWhere.where
+        })
+      );
+    });
+
+    it('should respect includeCampaign=false option', async () => {
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([mockTask]);
+      
+      await taskRepository.listTasksByOptions({ includeCampaign: false });
+      
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: { campaign: false }
+        })
+      );
+    });
+
+    it('should correctly map prisma results to domain objects', async () => {
+      const rawPrismaTasks = [{
+        ...mockTask,
+        status: 'COMPLETED',
+        input: { prompt: 'mapped prompt' },
+        result: null
+      }];
+      
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue(rawPrismaTasks);
+      
+      const result = await taskRepository.listTasksByOptions();
+      
+      expect(result[0]).toHaveProperty('status', TaskStatus.COMPLETED);
+      expect(result[0].input).toEqual({ prompt: 'mapped prompt' });
+    });
+    
+    it('should handle extreme pagination values', async () => {
+      const extremeOptions = {
+        skip: 1000,
+        take: 100
+      };
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
+      
+      await taskRepository.listTasksByOptions(extremeOptions);
+      
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 1000,
+          take: 100
+        })
+      );
+    });
+  });
+
+  describe('listTasksByCampaignId', () => {
+    it('should call listTasksByOptions with the correct campaignId in where clause', async () => {
+      const campaignId = 'campaign-for-listing';
+      const options = { where: { priority: 5 } };
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
+
+      await taskRepository.listTasksByCampaignId(campaignId, options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaignId: campaignId,
+            priority: 5,
+          },
+        })
+      );
+    });
+  });
+
+  describe('listTasksByPendingStatus', () => {
+    it('should call listTasksByOptions with correct filters for pending tasks', async () => {
+      const limit = 50;
+      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
+
+      await taskRepository.listTasksByPendingStatus(limit, false);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
+        where: { status: TaskStatus.PENDING },
+        take: limit,
+        orderBy: [
+          { priority: 'desc' },
+          { createdAt: 'asc' },
+        ],
+        include: { campaign: false },
+        skip: 0, // from default options
+      });
+    });
+  });
+
+
+
 });
