@@ -9,23 +9,10 @@ import {
   LLMResult, 
   MarketingCampaign,
   CampaignStatus
-} from '../../types/task.types';
+} from '../../types/domain.types';
+import { TaskNotFoundException, CampaignNotFoundException } from '../../common/exceptions';
 
-// define exception 
-export class TaskNotFoundException extends Error {
-  constructor(taskId: string) {
-    super(`Task with ID ${taskId} not found`);
-    this.name = 'TaskNotFoundException';
-  }
-}
-
-export class CampaignNotFoundException extends Error {
-  constructor(campaignId: string) {
-    super(`Marketing campaign with ID ${campaignId} not found`);
-    this.name = 'CampaignNotFoundException';
-  }
-}
-
+// Define more specific types for method inputs
 type CreateTaskData = {
   campaignId: string;
   input: LLMInput;
