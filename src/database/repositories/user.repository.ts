@@ -1,23 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { User, MarketingCampaign } from '../../types/task.types';
+import { User, MarketingCampaign } from '../../types/domain.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserAlreadyExistsException, UserNotFoundException } from '../../common/exceptions';
 
-// Custom exceptions
-export class UserNotFoundException extends Error {
-  constructor(userId: string) {
-    super(`User with ID ${userId} not found`);
-    this.name = 'UserNotFoundException';
-  }
-}
-
-export class UserAlreadyExistsException extends Error {
-  constructor(email: string) {
-    super(`User with email ${email} already exists`);
-    this.name = 'UserAlreadyExistsException';
-  }
-}
 
 // Define more specific types for method inputs to improve clarity and type safety.
 type CreateUserData = {
@@ -149,7 +136,7 @@ export class UserRepository {
   async updateUser(id: string, data: UpdateUserData): Promise<User> {
     try {
       const user = await this.prisma.user.update({ 
-        where: { id }, 
+        where: { id, deletedAt: null }, 
         data 
       });
       return user as User;
@@ -223,7 +210,7 @@ export class UserRepository {
   async getUserCampaigns(userId: string): Promise<MarketingCampaign[]> {
     try {
       const userWithCampaigns = await this.prisma.user.findUnique({
-        where: { id: userId },
+        where: { id: userId, deletedAt: null },
         include: { campaigns: { orderBy: { createdAt: 'desc' } } },
       });
 
