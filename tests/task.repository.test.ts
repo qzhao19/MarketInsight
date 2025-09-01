@@ -1,12 +1,12 @@
 import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import {TaskRepository } from '../src/database/repositories/task.repository';
 import {
-  TaskRepository,
   TaskNotFoundException,
   CampaignNotFoundException,
-} from '../src/database/repositories/task.repository';
+} from '../src/common/exceptions';
 import { PrismaService } from '../src/database/prisma/prisma.service';
-import { Task, TaskStatus, LLMInput, MarketingCampaign, CampaignStatus, User } from '../src/types/task.types';
+import { Task, TaskStatus, LLMInput, MarketingCampaign, CampaignStatus, User } from '../src/types/domain.types';
 
 describe('TaskRepository', () => {
   let taskRepository: TaskRepository;
