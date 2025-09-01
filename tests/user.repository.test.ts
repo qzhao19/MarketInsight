@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
+import { UserRepository } from '../src/database/repositories/user.repository';
 import {
-  UserRepository,
   UserNotFoundException,
   UserAlreadyExistsException,
-} from '../src/database/repositories/user.repository';
-import { User } from '../src/types/task.types';
+} from '../src/common/exceptions';
+import { User } from '../src/types/domain.types';
 import { PrismaService } from '../src/database/prisma/prisma.service';
 
 describe('UserRepository', () => {
@@ -122,7 +122,7 @@ describe('UserRepository', () => {
       const result = await userRepository.updateUser('user-1', { name: 'Updated Name' });
 
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
+        where: { id: 'user-1', deletedAt: null },
         data: { name: 'Updated Name' },
       });
       expect(result).toEqual(updatedUser);
@@ -170,7 +170,7 @@ describe('UserRepository', () => {
       const result = await userRepository.getUserCampaigns('user-1');
 
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
+        where: { id: 'user-1', deletedAt: null },
         include: { campaigns: { orderBy: { createdAt: 'desc' } } },
       });
       expect(result).toEqual([{ id: 'campaign-1' }]);
