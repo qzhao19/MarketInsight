@@ -75,6 +75,12 @@ export enum CampaignStatus {
     ARCHIVED = 'ARCHIVED',
 }
 
+export const VALID_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
+  DRAFT: [CampaignStatus.ACTIVE, CampaignStatus.ARCHIVED],
+  ACTIVE: [CampaignStatus.ARCHIVED],
+  ARCHIVED: [],
+};
+
 /**
  * data structure for a Marketing Campaign.
  */
@@ -108,3 +114,5 @@ export interface User {
  * NEW: API - response body for user data returned to the client.
  */
 export type UserResponse = Omit<User, 'password'>;
+
+
