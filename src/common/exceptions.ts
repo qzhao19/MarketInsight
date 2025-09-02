@@ -1,4 +1,4 @@
-// define exception 
+import { CampaignStatus } from '../types/domain.types';
 
 // Custom exceptions
 export class UserNotFoundException extends Error {
@@ -29,3 +29,13 @@ export class CampaignNotFoundException extends Error {
   }
 }
 
+export class InvalidStatusTransitionException extends Error {
+  constructor(
+    from: CampaignStatus,
+    to: CampaignStatus,
+    message: string = `Invalid status transition from ${from} to ${to}`
+  ) {
+    super(message);
+    this.name = 'InvalidStatusTransitionException';
+  }
+}
