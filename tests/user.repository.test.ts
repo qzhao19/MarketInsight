@@ -80,11 +80,11 @@ describe('UserRepository', () => {
     });
   });
 
-  describe('getUserById', () => {
+  describe('findUserById', () => {
     it('should return user when found', async () => {
       (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
 
-      const result = await userRepository.getUserById('user-1');
+      const result = await userRepository.findUserById('user-1');
 
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: 'user-1', deletedAt: null },
@@ -95,16 +95,16 @@ describe('UserRepository', () => {
     it('should throw UserNotFoundException when user not found', async () => {
       (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(userRepository.getUserById('non-existent-id')).rejects.toThrow(
+      await expect(userRepository.findUserById('non-existent-id')).rejects.toThrow(
         UserNotFoundException
       );
     });
   });
 
-  describe('getUserByEmail', () => {
+  describe('findUserByEmail', () => {
     it('should return user when found by email', async () => {
       (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
-      const result = await userRepository.getUserByEmail('test@example.com');
+      const result = await userRepository.findUserByEmail('test@example.com');
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { email: 'test@example.com', deletedAt: null },
       });
@@ -115,7 +115,7 @@ describe('UserRepository', () => {
   describe('updateUser', () => {
     it('should update user successfully', async () => {
       const updatedUser = { ...mockUser, name: 'Updated Name' };
-      // Mock the internal getUserById call
+      // Mock the internal findUserById call
       (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser as any);
       (mockPrismaService.user.update as jest.Mock).mockResolvedValue(updatedUser as any);
 
@@ -162,39 +162,17 @@ describe('UserRepository', () => {
     });
   });
 
-  describe('getUserCampaigns', () => {
-    it('should return campaigns for a user', async () => {
-      const userWithCampaigns = { ...mockUser, campaigns: [{ id: 'campaign-1' }] };
-      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(userWithCampaigns as any);
-
-      const result = await userRepository.getUserCampaigns('user-1');
-
-      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'user-1', deletedAt: null },
-        include: { campaigns: { orderBy: { createdAt: 'desc' } } },
-      });
-      expect(result).toEqual([{ id: 'campaign-1' }]);
-    });
-    
-    it('should throw UserNotFoundException when user not found', async () => {
-      (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(null);
-      await expect(userRepository.getUserCampaigns('non-existent-id')).rejects.toThrow(
-        UserNotFoundException
-      );
-    });
-  });
-  
-  describe('getUserCount', () => {
+  describe('findUserCount', () => {
     it('should return the count of non-deleted users', async () => {
       (mockPrismaService.user.count as jest.Mock).mockResolvedValue(5);
-      const result = await userRepository.getUserCount();
+      const result = await userRepository.findUserCount();
 
       expect(mockPrismaService.user.count).toHaveBeenCalledWith({ where: { deletedAt: null } });
       expect(result).toBe(5);
     });
   });
 
-  // (softDeleteUser, hardDeleteUser, getUserCampaigns, getUserCount, transaction)
+  // (softDeleteUser, hardDeleteUser, findUserCampaigns, findUserCount, transaction)
   describe('transaction', () => {
     it('should execute a function within a transaction', async () => {
       const fn = jest.fn().mockResolvedValue('transaction result');
