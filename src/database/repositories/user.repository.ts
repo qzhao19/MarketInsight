@@ -97,7 +97,7 @@ export class UserRepository {
    * @returns The found user
    * @throws UserNotFoundException if no user with the ID exists
    */
-  async getUserById(id: string): Promise<User> {
+  async findUserById(id: string): Promise<User> {
     try {
       const user = await this.prisma.user.findUnique({ 
         where: { id, deletedAt: null } // Only find non-deleted users
@@ -106,7 +106,7 @@ export class UserRepository {
       if (!user) throw new UserNotFoundException(id);
       return user as User;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to get user by ID: ${id}`);
+      throw this.handlePrismaError(error, `Failed to find user by ID: ${id}`);
     }
   }
 
@@ -115,14 +115,14 @@ export class UserRepository {
    * @param email - The user's email address
    * @returns The found user or null if not found
    */
-  async getUserByEmail(email: string): Promise<User | null> {
+  async findUserByEmail(email: string): Promise<User | null> {
     try {
       const user = await this.prisma.user.findUnique({ 
         where: { email, deletedAt: null } // Only find non-deleted users
       });
       return user as User | null;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to get user by email: ${email}`);
+      throw this.handlePrismaError(error, `Failed to find user by email: ${email}`);
     }
   }
 
@@ -185,7 +185,7 @@ export class UserRepository {
    * @param options - Pagination and include options
    * @returns Array of users matching criteria
    */
-  async listUsers(options: ListUsersOptions = {}): Promise<User[]> {
+  async findManyUsersByOptions(options: ListUsersOptions = {}): Promise<User[]> {
     const { skip = 0, take = 20, includeCampaigns = false } = options;
     try {
       const users = await this.prisma.user.findMany({
@@ -202,37 +202,14 @@ export class UserRepository {
   }
 
   /**
-   * Gets all marketing campaigns associated with a user
-   * @param userId - The user's unique ID
-   * @returns Array of marketing campaigns
-   * @throws UserNotFoundException if no user with the ID exists
-   */
-  async getUserCampaigns(userId: string): Promise<MarketingCampaign[]> {
-    try {
-      const userWithCampaigns = await this.prisma.user.findUnique({
-        where: { id: userId, deletedAt: null },
-        include: { campaigns: { orderBy: { createdAt: 'desc' } } },
-      });
-
-      if (!userWithCampaigns) {
-        throw new UserNotFoundException(userId);
-      }
-
-      return (userWithCampaigns?.campaigns || []) as MarketingCampaign[];
-    } catch (error) {
-      throw this.handlePrismaError(error, `Failed to get campaigns for user: ${userId}`);
-    }
-  }
-
-  /**
    * Gets the total count of non-deleted users
    * @returns The count of users
    */
-  async getUserCount(): Promise<number> {
+  async findUserCount(): Promise<number> {
     try {
       return await this.prisma.user.count({ where: { deletedAt: null } });
     } catch (error) {
-      throw this.handlePrismaError(error, 'Failed to get user count');
+      throw this.handlePrismaError(error, 'Failed to find user count');
     }
   }
 
