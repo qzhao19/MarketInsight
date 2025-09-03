@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
+import { TaskRepository } from './task.repository';
 import { 
   MarketingCampaign, 
   CampaignStatus, 
@@ -30,6 +31,13 @@ type CreateCampaignData = {
     priority?: number;
     status?: TaskStatus;
   }>;
+};
+
+type AddTaskData = {
+  campaignId: string;
+  input: LLMInput;
+  priority?: number;
+  status?: TaskStatus; // default is PENDING
 };
 
 @Injectable()
@@ -137,7 +145,7 @@ export class MarketingCampaignRepository {
    * @param id The unique identifier of the marketing campaign.
    * @returns A Promise that resolves to the MarketingCampaign object.
    */
-  async getCampaignById(id: string): Promise<MarketingCampaign> {
+  async findCampaignById(id: string): Promise<MarketingCampaign> {
     try {
       const campaign = await this.prisma.marketingCampaign.findUnique({
         where: {id},
@@ -219,7 +227,7 @@ export class MarketingCampaignRepository {
    * @param options Options for pagination and filtering by campaign status.
    * @returns A Promise that resolves to an array of MarketingCampaign objects, each including its tasks.
    */
-  async findCampaigsByUserId(
+  async findManyCampaigsByUserId(
     userId: string, 
     options: {
       skip?: number; 
@@ -332,7 +340,6 @@ export class MarketingCampaignRepository {
         options.includeTasks ?? false,
         false,
       );
-
     } catch (error) {
       throw this.handlePrismaError(
         error,
@@ -340,6 +347,42 @@ export class MarketingCampaignRepository {
       );
     }
   }
+
+  async addTaskToCampaign(id: string, task: AddTaskData): Promise<Task> {
+    try {
+      const campaign = await this.prisma.marketingCampaign.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!campaign) {
+        throw new CampaignNotFoundException(id);
+      }
+
+      const createdTask = await this.prisma.task.create({
+        data: {
+          campaignId: id,
+          input: task.input as unknown as Prisma.JsonObject,
+          priority: task.priority ?? 0,
+          status: task.status ?? TaskStatus.PENDING,
+        },
+      });
+
+      return {
+        ...createdTask,
+        input: createdTask.input as unknown as LLMInput,
+        result: createdTask.result as unknown as LLMResult,
+      } as Task;
+
+    } catch (error) {
+      throw this.handlePrismaError(
+        error,
+        `Failed to add task to campaign ${id}`,
+      );
+    }
+
+
+  }
+
 
 };
 
