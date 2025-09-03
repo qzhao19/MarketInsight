@@ -107,11 +107,11 @@ describe('TaskRepository', () => {
     });
   });
 
-  describe('getTaskById', () => {
+  describe('findTaskById', () => {
     it('should return a task with its campaign when found', async () => {
       (mockPrismaService.task.findUnique as jest.Mock).mockResolvedValue(mockTask);
 
-      const result = await taskRepository.getTaskById('task-1', true);
+      const result = await taskRepository.findTaskById('task-1', true);
 
       expect(mockPrismaService.task.findUnique).toHaveBeenCalledWith({
         where: { id: 'task-1' },
@@ -124,7 +124,7 @@ describe('TaskRepository', () => {
     it('should throw TaskNotFoundException when task is not found', async () => {
       (mockPrismaService.task.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(taskRepository.getTaskById('non-existent-id')).rejects.toThrow(
+      await expect(taskRepository.findTaskById('non-existent-id')).rejects.toThrow(
         TaskNotFoundException
       );
     });
@@ -185,11 +185,11 @@ describe('TaskRepository', () => {
   });
 
 
-  describe('listTasksByOptions', () => {
-    it('should return a list of tasks with default options', async () => {
+  describe('findManyTasksByOptions', () => {
+    it('should return a find of tasks with default options', async () => {
       (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([mockTask]);
 
-      const result = await taskRepository.listTasksByOptions();
+      const result = await taskRepository.findManyTasksByOptions();
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
         where: {},
@@ -212,7 +212,7 @@ describe('TaskRepository', () => {
       };
       (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
 
-      await taskRepository.listTasksByOptions(customOptions);
+      await taskRepository.findManyTasksByOptions(customOptions);
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
         where: customOptions.where,
@@ -227,13 +227,13 @@ describe('TaskRepository', () => {
         const dbError = new Error('Database connection failed');
         (mockPrismaService.task.findMany as jest.Mock).mockRejectedValue(dbError);
         
-        await expect(taskRepository.listTasksByOptions()).rejects.toThrow();
+        await expect(taskRepository.findManyTasksByOptions()).rejects.toThrow();
       });
 
       it('should return an empty array when no tasks match the criteria', async () => {
       (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
       
-      const result = await taskRepository.listTasksByOptions({
+      const result = await taskRepository.findManyTasksByOptions({
         where: { status: TaskStatus.COMPLETED }
       });
       
@@ -250,7 +250,7 @@ describe('TaskRepository', () => {
       };
       (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
       
-      await taskRepository.listTasksByOptions(sortOptions);
+      await taskRepository.findManyTasksByOptions(sortOptions);
       
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -272,7 +272,7 @@ describe('TaskRepository', () => {
       };
       (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
       
-      await taskRepository.listTasksByOptions(complexWhere);
+      await taskRepository.findManyTasksByOptions(complexWhere);
       
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -284,7 +284,7 @@ describe('TaskRepository', () => {
     it('should respect includeCampaign=false option', async () => {
       (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([mockTask]);
       
-      await taskRepository.listTasksByOptions({ includeCampaign: false });
+      await taskRepository.findManyTasksByOptions({ includeCampaign: false });
       
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -303,7 +303,7 @@ describe('TaskRepository', () => {
       
       (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue(rawPrismaTasks);
       
-      const result = await taskRepository.listTasksByOptions();
+      const result = await taskRepository.findManyTasksByOptions();
       
       expect(result[0]).toHaveProperty('status', TaskStatus.COMPLETED);
       expect(result[0].input).toEqual({ prompt: 'mapped prompt' });
@@ -316,7 +316,7 @@ describe('TaskRepository', () => {
       };
       (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
       
-      await taskRepository.listTasksByOptions(extremeOptions);
+      await taskRepository.findManyTasksByOptions(extremeOptions);
       
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -326,46 +326,4 @@ describe('TaskRepository', () => {
       );
     });
   });
-
-  describe('listTasksByCampaignId', () => {
-    it('should call listTasksByOptions with the correct campaignId in where clause', async () => {
-      const campaignId = 'campaign-for-listing';
-      const options = { where: { priority: 5 } };
-      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
-
-      await taskRepository.listTasksByCampaignId(campaignId, options);
-
-      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            campaignId: campaignId,
-            priority: 5,
-          },
-        })
-      );
-    });
-  });
-
-  describe('listTasksByPendingStatus', () => {
-    it('should call listTasksByOptions with correct filters for pending tasks', async () => {
-      const limit = 50;
-      (mockPrismaService.task.findMany as jest.Mock).mockResolvedValue([]);
-
-      await taskRepository.listTasksByPendingStatus(limit, false);
-
-      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
-        where: { status: TaskStatus.PENDING },
-        take: limit,
-        orderBy: [
-          { priority: 'desc' },
-          { createdAt: 'asc' },
-        ],
-        include: { campaign: false },
-        skip: 0, // from default options
-      });
-    });
-  });
-
-
-
 });
