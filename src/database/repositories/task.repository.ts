@@ -159,7 +159,7 @@ export class TaskRepository {
    * @param includeCampaign - Whether to load the related MarketingCampaign object
    * @returns A `Promise` that resolves to the deleted `Task` object.
    */
-  async getTaskById(id: string, includeCampaign: boolean = true): Promise<Task> {
+  async findTaskById(id: string, includeCampaign: boolean = true): Promise<Task> {
     try {
       const task = await this.prisma.task.findUnique({
         where: { id },
@@ -173,7 +173,7 @@ export class TaskRepository {
       // return Prisma.MarketingCampaign type 
       return this.mapPrismaTaskToDomain(task, includeCampaign) as Task;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to get task by ID: ${id}`);
+      throw this.handlePrismaError(error, `Failed to find task by ID: ${id}`);
     }
   }
 
@@ -207,7 +207,7 @@ export class TaskRepository {
       // handle empty update
       if (Object.keys(updateData).length === 0) {
         console.warn(`Attempted to update task ${id} with empty data. No action taken.`);
-        return this.getTaskById(id, includeCampaign);
+        return this.findTaskById(id, includeCampaign);
       }
 
       const updatedTask = await this.prisma.task.update({
@@ -247,7 +247,7 @@ export class TaskRepository {
    * @param options - The options for filtering, sorting, and pagination.
    * @returns A `Promise` that resolves to an array of `Task` objects.
    */
-  async listTasksByOptions(options: ListTasksOptions = {}): Promise<Task[]> {
+  async findManyTasksByOptions(options: ListTasksOptions = {}): Promise<Task[]> {
     const {
       skip = 0,
       take = 20,
@@ -278,53 +278,6 @@ export class TaskRepository {
       throw this.handlePrismaError(error, 'Failed to list tasks');
     }
   }
-
-  /**
-   * Retrieves a list of tasks for a specific marketing campaign.
-   * 
-   * @param campaignId - The ID of the marketing campaign.
-   * @param options - All the same options available in listTasks (filtering, sorting, pagination)
-   * @returns A `Promise` that resolves to an array of `Task` objects.
-   */
-  async listTasksByCampaignId(
-    campaignId: string,
-    options: Omit<ListTasksOptions, 'where'> & { 
-      where?: Omit<ListTasksOptions['where'], 'campaignId'> 
-    } = {}
-  ): Promise<Task[]> {
-    // reuse the main listTasks function, passing through all options
-    return this.listTasksByOptions({
-      ...options,
-      where: {
-        ...options.where,
-        campaignId
-      },
-    });
-  }
-
-  /**
-   * Retrieves pending tasks for task scheduling, ordered by priority and creation time.
-   *
-   * @param limit - Maximum number of tasks to return (default: 100)
-   * @param includeCampaign - Whether to include campaign details (default: false)
-   * @returns A `Promise` that resolves to an array of pending `Task` objects
-   */
-  async listTasksByPendingStatus(
-    limit: number = 100, 
-    includeCampaign: boolean = false
-  ): Promise<Task[]> {
-
-    return this.listTasksByOptions({
-      where: {status: TaskStatus.PENDING},
-      take: limit,
-      orderBy: [
-        { field: 'priority', direction: 'desc' },
-        { field: 'createdAt', direction: 'asc' }
-      ],
-      includeCampaign,
-    });
-  }
-
 }
 
 
