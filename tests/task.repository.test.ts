@@ -63,6 +63,9 @@ describe('TaskRepository', () => {
       marketingCampaign: {
         findUnique: jest.fn(),
       },
+      // handlePrismaError: jest.fn((error) => { throw error; }),
+      handlePrismaError: (error: unknown, context: string) =>
+        PrismaService.prototype.handlePrismaError.call(mockPrismaService, error, context),
     };
 
     // inject this mocked service into the TaskRepository constructor,
@@ -151,7 +154,7 @@ describe('TaskRepository', () => {
       // 
       const prismaError = new PrismaClientKnownRequestError(
         'An operation failed because it depends on one or more records that were required but not found.',
-        { code: 'P2025', clientVersion: 'x.x.x' }
+        { code: 'P2025', clientVersion: 'x.x.x', meta: { modelName: 'Task' } }
       );
       (mockPrismaService.task.update as jest.Mock).mockRejectedValue(prismaError);
 
