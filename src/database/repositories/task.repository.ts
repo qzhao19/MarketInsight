@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   Task, 
   TaskStatus, 
   LLMInput, 
   LLMResult, 
-  MarketingCampaign,
   CampaignStatus
 } from '../../types/domain.types';
 import { TaskNotFoundException, CampaignNotFoundException } from '../../common/exceptions';
@@ -54,57 +52,44 @@ type ListTasksOptions = {
 export class TaskRepository {
   constructor(private prisma: PrismaService) {}
 
-  private handlePrismaError(error: unknown, context: string): never {
-    console.error(`${context}:`, error);
-
-    // throw custom exception
-    if (error instanceof PrismaClientKnownRequestError) {
-      switch (error.code) {
-        case 'P2025': 
-          throw new TaskNotFoundException('unknown');
-        case 'P2003':
-          // foreign-key constraint failed: the referenced campaign does not exist
-          let campaignId = 'unknown';
-          if ((error.meta?.field_name as string)?.includes('campaignId')) {
-            if (typeof error.meta?.model === 'string') {
-              // Prisma error meta sometimes includes model and target
-              campaignId = (error.meta?.target as string) || 'unknown';
-            }
-          }
-          throw new CampaignNotFoundException(campaignId);
-        default:
-          throw new Error(`Database error (${error.code}): ${error.message}`);
-      } 
-    }
-    throw error instanceof Error ? error : new Error(`${context}: ${String(error)}`);
-  }
-
   /**
-   * @param task 
-   * @param includeCampaign 
-   * @returns 
+   * Maps a Prisma Task object to the domain Task model.
+   * It correctly handles type casting for enums and JSON fields, and conditionally
+   * includes the related campaign object.
+   *
+   * @param task - The Prisma Task object, potentially including the campaign relation.
+   * @param includeCampaign - A flag to determine if the campaign should be in the final object.
+   * @returns The mapped domain Task object, or null if the input is null.
    */
   private mapPrismaTaskToDomain(
-    task: Prisma.TaskGetPayload<{ include: { campaign: true } }>,
+    task: Prisma.TaskGetPayload<{ include: { campaign?: boolean } }>,
     includeCampaign: boolean = true
   ): Task | null {
+    if (!task) {
+      return null;
+    }
 
-    if (!task) return null;
+    // 1. Destructure to separate the campaign from the rest of the task properties.
+    // This avoids the type conflict during the initial spread.
+    const { campaign, ...restOfTask } = task;
 
-    const campaign = task.campaign
-      ? {
-        ...task.campaign,
-        status: task.campaign.status as CampaignStatus,
-       }
-      : undefined;
-    
-    return {
-      ...task,
-      input: task.input as unknown as LLMInput,
-      result: task.result as unknown as LLMResult | null,
-      status: task.status as TaskStatus,
-      campaign: campaign,
+    // 2. Create the base domain task, casting its own properties to the correct domain types.
+    const domainTask: Task = {
+      ...restOfTask,
+      status: restOfTask.status as TaskStatus,
+      input: restOfTask.input as unknown as LLMInput,
+      result: restOfTask.result as LLMResult | null,
     };
+
+    // 3. Conditionally map and add the campaign object if requested and available.
+    if (includeCampaign && campaign) {
+      domainTask.campaign = {
+        ...campaign,
+        status: campaign.status as CampaignStatus,
+      };
+    }
+
+    return domainTask;
   }
 
   /**
@@ -145,7 +130,7 @@ export class TaskRepository {
       };
 
     } catch (error) {
-      throw this.handlePrismaError(
+      throw this.prisma.handlePrismaError(
         error, 
         `Failed to create task for campaign ${task.campaignId}`
       );
@@ -173,16 +158,18 @@ export class TaskRepository {
       // return Prisma.MarketingCampaign type 
       return this.mapPrismaTaskToDomain(task, includeCampaign) as Task;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to find task by ID: ${id}`);
+      throw this.prisma.handlePrismaError(error, `Failed to find task by ID: ${id}`);
     }
   }
 
   /**
+   * This function selectively updates fields of a task based on the `data` object.
    * 
-   * @param id 
-   * @param data 
-   * @param includeCampaign 
-   * @returns 
+   * @param id - The unique identifier of the task to update.
+   * @param data - An object containing the task fields to be updated.
+   * @param includeCampaign - Optional. If true, the related MarketingCampaign will be included in the returned Task object. Defaults to true.
+   * @returns A `Promise` that resolves to the updated `Task` object.
+   * @throws TaskNotFoundException If the task with the specified ID does not exist.
    */
   async updateTask(
     id: string, 
@@ -218,7 +205,7 @@ export class TaskRepository {
 
       return this.mapPrismaTaskToDomain(updatedTask, includeCampaign) as Task;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to update task: ${id}`);
+      throw this.prisma.handlePrismaError(error, `Failed to update task: ${id}`);
     }
   }
 
@@ -238,7 +225,7 @@ export class TaskRepository {
 
       return this.mapPrismaTaskToDomain(deletedTask, includeCampaign) as Task;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to delete task: ${id}`);
+      throw this.prisma.handlePrismaError(error, `Failed to delete task: ${id}`);
     }
   }
 
@@ -275,7 +262,7 @@ export class TaskRepository {
         .filter(Boolean) as Task[];
 
     } catch (error) {
-      throw this.handlePrismaError(error, 'Failed to list tasks');
+      throw this.prisma.handlePrismaError(error, 'Failed to list tasks');
     }
   }
 }
