@@ -65,7 +65,11 @@ describe('MarketingCampaignRepository', () => {
       user: {
         findUnique: jest.fn(),
       },
+      // handlePrismaError: jest.fn((error) => { throw error; }),
+      handlePrismaError: (error: unknown, context: string) =>
+        PrismaService.prototype.handlePrismaError.call(mockPrismaService, error, context),
     };
+    
     campaignRepository = new MarketingCampaignRepository(
       mockPrismaService as PrismaService,
     );
@@ -109,74 +113,74 @@ describe('MarketingCampaignRepository', () => {
     });
 
     it('should create a campaign and multiple tasks successfully', async () => {
-    const campaignWithTasks = {
-      ...mockCampaign,
-      tasks: [
-        {
-          id: 'task-1',
-          input: { prompt: 'test1' },
-          result: null,
-          priority: 1,
-          status: TaskStatus.PENDING,
-        },
-        {
-          id: 'task-2',
-          input: { prompt: 'test2' },
-          result: null,
-          priority: 2,
-          status: TaskStatus.PENDING,
-        },
-      ],
-    };
-    (mockPrismaService.marketingCampaign.create as jest.Mock).mockResolvedValue(campaignWithTasks);
+      const campaignWithTasks = {
+        ...mockCampaign,
+        tasks: [
+          {
+            id: 'task-1',
+            input: { prompt: 'test1' },
+            result: null,
+            priority: 1,
+            status: TaskStatus.PENDING,
+          },
+          {
+            id: 'task-2',
+            input: { prompt: 'test2' },
+            result: null,
+            priority: 2,
+            status: TaskStatus.PENDING,
+          },
+        ],
+      };
+      (mockPrismaService.marketingCampaign.create as jest.Mock).mockResolvedValue(campaignWithTasks);
 
-    const createData = {
-      userId: 'user-1',
-      name: 'Test Campaign',
-      tasks: [
-        { input: { prompt: 'test1' }, priority: 1 },
-        { input: { prompt: 'test2' }, priority: 2 },
-      ],
-    };
+      const createData = {
+        userId: 'user-1',
+        name: 'Test Campaign',
+        tasks: [
+          { input: { prompt: 'test1' }, priority: 1 },
+          { input: { prompt: 'test2' }, priority: 2 },
+        ],
+      };
 
-    const result = await campaignRepository.createCampaign(createData);
+      const result = await campaignRepository.createCampaign(createData);
 
-    expect(mockPrismaService.marketingCampaign.create).toHaveBeenCalledWith({
-      data: {
-        user: { connect: { id: createData.userId } },
-        name: createData.name,
-        description: '',
-        status: CampaignStatus.DRAFT,
-        tasks: {
-          create: [
-            {
-              input: { prompt: 'test1' },
-              result: Prisma.JsonNull,
-              priority: 1,
-              status: TaskStatus.PENDING,
-            },
-            {
-              input: { prompt: 'test2' },
-              result: Prisma.JsonNull,
-              priority: 2,
-              status: TaskStatus.PENDING,
-            },
-          ],
+      expect(mockPrismaService.marketingCampaign.create).toHaveBeenCalledWith({
+        data: {
+          user: { connect: { id: createData.userId } },
+          name: createData.name,
+          description: '',
+          status: CampaignStatus.DRAFT,
+          tasks: {
+            create: [
+              {
+                input: { prompt: 'test1' },
+                result: Prisma.JsonNull,
+                priority: 1,
+                status: TaskStatus.PENDING,
+              },
+              {
+                input: { prompt: 'test2' },
+                result: Prisma.JsonNull,
+                priority: 2,
+                status: TaskStatus.PENDING,
+              },
+            ],
+          },
         },
-      },
-      include: { tasks: true, user: true },
+        include: { tasks: true, user: true },
+      });
+      expect(result.tasks).toHaveLength(2);
+      expect(result.tasks!.length).toBe(2);
+      expect(result.tasks![0].input).toEqual({ prompt: 'test1' });
+      expect(result.tasks![1].input).toEqual({ prompt: 'test2' });
     });
-    expect(result.tasks).toHaveLength(2);
-    expect(result.tasks!.length).toBe(2);
-    expect(result.tasks![0].input).toEqual({ prompt: 'test1' });
-    expect(result.tasks![1].input).toEqual({ prompt: 'test2' });
-  });
 
 
     it('should throw UserNotFoundException if user does not exist', async () => {
       const prismaError = new PrismaClientKnownRequestError(
         'An operation failed because it depends on one or more records that were required but not found.',
-        { code: 'P2025', clientVersion: 'x.x.x' },
+        { code: 'P2025', clientVersion: 'x.x.x', meta: { modelName: 'MarketingCampaign' } },
       );
       (
         mockPrismaService.marketingCampaign.create as jest.Mock
