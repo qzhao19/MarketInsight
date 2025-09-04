@@ -43,7 +43,7 @@ describe('UserRepository', () => {
         findMany: jest.fn(),
         count: jest.fn(),
       },
-      $transaction: jest.fn(),
+      handlePrismaError: jest.fn((error) => { throw error; }),
     };
 
     // inject the mocked service into the constructor of UserRepository
@@ -172,17 +172,38 @@ describe('UserRepository', () => {
     });
   });
 
-  // (softDeleteUser, hardDeleteUser, findUserCampaigns, findUserCount, transaction)
-  describe('transaction', () => {
-    it('should execute a function within a transaction', async () => {
-      const fn = jest.fn().mockResolvedValue('transaction result');
-      (mockPrismaService.$transaction as jest.Mock).mockImplementation(callback => callback(mockPrismaService));
+  describe('findManyUsersByOptions', () => {
+    it('should return users with default pagination and no campaigns', async () => {
+      const users = [mockUser];
+      (mockPrismaService.user.findMany as jest.Mock).mockResolvedValue(users);
 
-      const result = await userRepository.transaction(fn);
+      const result = await userRepository.findManyUsersByOptions();
 
-      expect(mockPrismaService.$transaction).toHaveBeenCalled();
-      expect(fn).toHaveBeenCalledWith(mockPrismaService);
-      expect(result).toBe('transaction result');
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
+        skip: 0,
+        take: 20,
+        where: { deletedAt: null },
+        include: { campaigns: false },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(result).toEqual(users);
+    });
+
+    it('should return users with custom pagination and include campaigns', async () => {
+      const usersWithCampaigns = [{ ...mockUser, campaigns: [{ id: 'camp-1' }] }];
+      (mockPrismaService.user.findMany as jest.Mock).mockResolvedValue(usersWithCampaigns);
+
+      const options = { skip: 5, take: 10, includeCampaigns: true };
+      const result = await userRepository.findManyUsersByOptions(options);
+
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
+        skip: 5,
+        take: 10,
+        where: { deletedAt: null },
+        include: { campaigns: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(result).toEqual(usersWithCampaigns);
     });
   });
 });
