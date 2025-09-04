@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { User, MarketingCampaign } from '../../types/domain.types';
+import { User } from '../../types/domain.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserAlreadyExistsException, UserNotFoundException } from '../../common/exceptions';
-
 
 // Define more specific types for method inputs to improve clarity and type safety.
 type CreateUserData = {
@@ -14,10 +11,6 @@ type CreateUserData = {
 };
 type UpdateUserData = Partial<Omit<CreateUserData, 'email'>> & { email?: string };
 type ListUsersOptions = { skip?: number; take?: number; includeCampaigns?: boolean };
-type TransactionClient = Omit<
-  PrismaClient,
-  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
->;
 
 /**
  * User Repository - implements all database operations related to the User entity
@@ -29,33 +22,6 @@ export class UserRepository {
    * Initializes the service with a PrismaService
    */
   constructor(private prisma: PrismaService) {}
-
-  /**
-   * Centralized error handler for Prisma operations
-   * @param error - The caught error
-   * @param context - Description of the operation that failed
-   */
-  private handlePrismaError(error: unknown, context: string): never {
-    console.error(`${context}:`, error);
-    
-    if (error instanceof UserNotFoundException || error instanceof UserAlreadyExistsException) {
-      throw error; // Re-throw our custom exceptions without modification
-    }
-    
-    if (error instanceof PrismaClientKnownRequestError) {
-      switch (error.code) {
-        case 'P2002':
-          throw new UserAlreadyExistsException(
-            error.meta?.target ? String(error.meta.target) : 'unknown'
-          );
-        case 'P2025':
-          throw new UserNotFoundException('unknown');
-        default:
-          throw new Error(`Database error (${error.code}): ${error.message}`);
-      }
-    }
-    throw error instanceof Error ? error : new Error(`${context}: ${String(error)}`);
-  }
 
   /**
    * Generates a unique email for deleted users to maintain the unique constraint
@@ -87,7 +53,7 @@ export class UserRepository {
         });
         return user as User;
       } catch (error) {
-        throw this.handlePrismaError(error, `Failed to create user: ${data.email}`);
+        throw this.prisma.handlePrismaError(error, `Failed to create user: ${data.email}`);
       }
   }
 
@@ -106,7 +72,7 @@ export class UserRepository {
       if (!user) throw new UserNotFoundException(id);
       return user as User;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to find user by ID: ${id}`);
+      throw this.prisma.handlePrismaError(error, `Failed to find user by ID: ${id}`);
     }
   }
 
@@ -122,7 +88,7 @@ export class UserRepository {
       });
       return user as User | null;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to find user by email: ${email}`);
+      throw this.prisma.handlePrismaError(error, `Failed to find user by email: ${email}`);
     }
   }
 
@@ -142,7 +108,7 @@ export class UserRepository {
       return user as User;
     } catch (error) {
       // if the user doesn't exist, Prisma throws P2025
-      throw this.handlePrismaError(error, `Failed to update user: ${id}`);
+      throw this.prisma.handlePrismaError(error, `Failed to update user: ${id}`);
     }
   }
 
@@ -162,7 +128,7 @@ export class UserRepository {
       });
       return user as User;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to soft delete user: ${id}`);
+      throw this.prisma.handlePrismaError(error, `Failed to soft delete user: ${id}`);
     }
   }
 
@@ -176,7 +142,7 @@ export class UserRepository {
       const user = await this.prisma.user.delete({ where: { id } });
       return user as User;
     } catch (error) {
-      throw this.handlePrismaError(error, `Failed to hard delete user: ${id}`);
+      throw this.prisma.handlePrismaError(error, `Failed to hard delete user: ${id}`);
     }
   }
 
@@ -197,7 +163,7 @@ export class UserRepository {
       });
       return users as User[];
     } catch (error) {
-      throw this.handlePrismaError(error, 'Failed to list users');
+      throw this.prisma.handlePrismaError(error, 'Failed to list users');
     }
   }
 
@@ -209,21 +175,8 @@ export class UserRepository {
     try {
       return await this.prisma.user.count({ where: { deletedAt: null } });
     } catch (error) {
-      throw this.handlePrismaError(error, 'Failed to find user count');
+      throw this.prisma.handlePrismaError(error, 'Failed to find user count');
     }
-  }
-
-  /**
-   * Execute operations within a transaction
-   * @param fn - Function to execute inside transaction
-   * @returns Result of the function
-   */
-  async transaction<T>(fn: (tx: TransactionClient) => Promise<T>): Promise<T> {
-    // FIX: The type of 'tx' in the callback must match what Prisma provides.
-    return this.prisma.$transaction(async (tx) => {
-      // We pass the correctly-typed transaction client 'tx' to the function.
-      return await fn(tx);
-    });
   }
 }
 
