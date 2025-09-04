@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
-import { TaskRepository } from './task.repository';
 import { 
   MarketingCampaign, 
   CampaignStatus, 
@@ -15,7 +13,6 @@ import {
 } from '../../types/domain.types';
 import { 
   CampaignNotFoundException, 
-  UserNotFoundException, 
   InvalidStatusTransitionException 
 } from '../../common/exceptions';
 
@@ -33,6 +30,12 @@ type CreateCampaignData = {
   }>;
 };
 
+type UpdateCampaignData = {
+  name?: string;
+  description?: string;
+  status?: CampaignStatus;
+};
+
 type AddTaskData = {
   campaignId: string;
   input: LLMInput;
@@ -40,25 +43,10 @@ type AddTaskData = {
   status?: TaskStatus; // default is PENDING
 };
 
+
 @Injectable()
 export class MarketingCampaignRepository {
   constructor(private prisma: PrismaService) {}
-
-  private handlePrismaError(error: unknown, context: string): never {
-    if (error instanceof PrismaClientKnownRequestError) {
-      // This will be thrown by `connect` if the user doesn't exist.
-      if (error.code === 'P2025') {
-        // The error message from Prisma can be cryptic, so we provide a clearer one.
-        throw new UserNotFoundException('unknown (referenced in campaign creation)');
-      }
-    }
-    // Re-throw custom exceptions
-    if (error instanceof UserNotFoundException || error instanceof CampaignNotFoundException) {
-      throw error;
-    }
-    console.error(context, error);
-    throw new Error(`Database operation failed: ${context}`);
-  }
 
   /**
    * Maps a Prisma campaign object to our domain model.
@@ -103,7 +91,6 @@ export class MarketingCampaignRepository {
     try {
       const campaign = await this.prisma.marketingCampaign.create({
         data: {
-          // Use `connect` to link to an existing user. This is transactional.
           user: { connect: { id: data.userId } },
           name: data.name,
           description: data.description ?? '',
@@ -133,7 +120,7 @@ export class MarketingCampaignRepository {
       ) as MarketingCampaign;
     } catch (error) {
       // Delegate error handling to a centralized function for consistency.
-      throw this.handlePrismaError(
+      throw this.prisma.handlePrismaError(
         error,
         `Failed to create campaign for user ${data.userId}`
       );
@@ -142,13 +129,13 @@ export class MarketingCampaignRepository {
 
   /**
    * Retrieves a single campaign's basic information by its ID.
-   * @param id The unique identifier of the marketing campaign.
+   * @param campaignId The unique identifier of the marketing campaign.
    * @returns A Promise that resolves to the MarketingCampaign object.
    */
-  async findCampaignById(id: string): Promise<MarketingCampaign> {
+  async findCampaignById(campaignId: string): Promise<MarketingCampaign> {
     try {
       const campaign = await this.prisma.marketingCampaign.findUnique({
-        where: {id},
+        where: { id: campaignId },
         include: {
           tasks: false, 
           user: false
@@ -156,7 +143,7 @@ export class MarketingCampaignRepository {
       });
 
       if (!campaign) {
-        throw new CampaignNotFoundException(id);
+        throw new CampaignNotFoundException(campaignId);
       }
 
       // call the mapping function directly without any type casting
@@ -167,28 +154,28 @@ export class MarketingCampaignRepository {
       );
 
     } catch(error) {
-      throw this.handlePrismaError(
+      throw this.prisma.handlePrismaError(
         error, 
-        `Failed to get campaign with ID: ${id}`
+        `Failed to get campaign with ID: ${campaignId}`
       );
     }
   }
 
   /**
    * Retrieves a campaign and its associated tasks by ID，with optional pagination for tasks.
-   * @param id The unique identifier of the marketing campaign.
+   * @param campaignId The unique identifier of the marketing campaign.
    * @param taskOptions Options for paginating the tasks list (e.g., { skip: 0, take: 50 }).
    * @returns A Promise that resolves to the MarketingCampaign object, guaranteed to include the `tasks` array.
    */
   async findCampaignWithTasksById(
-    id: string,
+    campaignId: string,
     taskOptions: { skip?: number; take?: number } = {},
   ): Promise<MarketingCampaign & { tasks: Task[] }> {
     try {
       const { skip = 0, take = 100 } = taskOptions; // Set a reasonable default limit
 
       const campaign = await this.prisma.marketingCampaign.findUnique({
-        where: { id },
+        where: { id: campaignId },
         include: {
           // include tasks with sorting and pagination
           tasks: {
@@ -202,7 +189,7 @@ export class MarketingCampaignRepository {
       });
 
       if (!campaign) {
-        throw new CampaignNotFoundException(id);
+        throw new CampaignNotFoundException(campaignId);
       }
 
       // mapping function handles the type conversion internally.
@@ -213,9 +200,9 @@ export class MarketingCampaignRepository {
         false
       ) as MarketingCampaign & { tasks: Task[] };
     } catch (error) {
-      throw this.handlePrismaError(
+      throw this.prisma.handlePrismaError(
         error,
-        `Failed to find campaign with tasks: ${id}`,
+        `Failed to find campaign with tasks: ${campaignId}`,
       );
     }
   }
@@ -240,7 +227,7 @@ export class MarketingCampaignRepository {
       const { skip = 0, take = 20, statusList } = options;
       const campaigns = await this.prisma.marketingCampaign.findMany({
         where: {
-          userId,
+          userId: userId,
           // add the status filte if it's provided and not empty
           ...(statusList && statusList.length > 0
             ? { status: { in: statusList } }
@@ -268,99 +255,96 @@ export class MarketingCampaignRepository {
       );
 
     } catch (error) {
-      throw this.handlePrismaError(
+      throw this.prisma.handlePrismaError(
         error,
         `Failed to find campaigns for user: ${userId}`,
       );
     }
   }
 
-/**
- * Updates the status of a Campaign, enforcing valid state transitions.
- *
- * @param id Campaign ID
- * @param newStatus The target status for the campaign.
- * @param options Options to include related data in the response.
- * @returns A Promise resolving to the updated MarketingCampaign.
- */
-  async updateCampaignStatus(
-    id: string,
-    newStatus: CampaignStatus,
+  /**
+   * Updates a campaign with the provided data.
+   * It can update any field (name, description, status, etc.) and will
+   * enforce status transition rules if the status is being changed.
+   *
+   * @param id The ID of the campaign to update.
+   * @param data An object containing the fields to update.
+   * @param options Options to include related data in the response.
+   * @returns A Promise resolving to the updated MarketingCampaign.
+   */
+  async updateCampaign(
+    campaignId: string,
+    data: UpdateCampaignData,
     options: { includeTasks?: boolean } = {},
   ): Promise<MarketingCampaign> {
     try {
-      // 1: perform a single query to get the current status.
-      const campaign = await this.prisma.marketingCampaign.findUnique({
-        where: { id },
-        select: { status: true }, // Only fetch the status for validation.
-      });
+      // 1: If the status is being updated, validate the transition first.
+      if (data.status !== undefined) {
+        const currentCampaign = await this.prisma.marketingCampaign.findUnique({
+          where: { id: campaignId },
+          select: { status: true },
+        });
 
-      if (!campaign) {
-        throw new CampaignNotFoundException(id);
-      }
-
-      const currentStatus = campaign.status as CampaignStatus;
-
-      // 2: perform all logical validations *before* any further DB operations.
-      if (currentStatus !== newStatus) {
-        // validate the transition only if the status is actually changing.
-        if (!VALID_TRANSITIONS[currentStatus]?.includes(newStatus)) {
-          throw new InvalidStatusTransitionException(
-            currentStatus,
-            newStatus,
-          );
+        if (!currentCampaign) {
+          throw new CampaignNotFoundException(campaignId);
         }
 
-        // if validation passes, perform a single UPDATE operation.
-        // `update` call will return the fully updated object with included tasks.
-        const updatedCampaign = await this.prisma.marketingCampaign.update({
-          where: { id },
-          data: { status: newStatus }, // Prisma automatically handles `updatedAt`
-          include: { tasks: options.includeTasks ?? false },
-        });
-        
-        return this.mapPrismaCampaignToDomain(
-          // updatedCampaign,
-          { ...updatedCampaign!, status: updatedCampaign!.status as CampaignStatus },
-          options.includeTasks ?? false,
-          false,
-        );
+        const currentStatus = currentCampaign.status as CampaignStatus;
+
+        // Only validate if the status is actually different.
+        if (
+          data.status !== currentStatus &&
+          !VALID_TRANSITIONS[currentStatus]?.includes(data.status)
+        ) {
+          throw new InvalidStatusTransitionException(currentStatus, data.status);
+        }
       }
 
-      // 3: handle the "no status change" case efficiently.
-      // if we reach here, it means status is unchanged. We now fetch the full object if needed.
-      const fullCampaign = await this.prisma.marketingCampaign.findUnique({
-        where: { id },
+      // 2: Perform a single update operation with all the provided data.
+      // This is more efficient as it combines validation and update logic.
+      const updatedCampaign = await this.prisma.marketingCampaign.update({
+        where: { id: campaignId },
+        data: {
+          ...data, // Spread all fields from the input data.
+          // Prisma automatically handles the `updatedAt` field if configured with @updatedAt.
+        },
         include: { tasks: options.includeTasks ?? false },
       });
 
-      // campaign is guaranteed to exist from the first check.
+      // 3: Map the Prisma result to our domain model and return.
       return this.mapPrismaCampaignToDomain(
-        { ...fullCampaign!, status: fullCampaign!.status as CampaignStatus },
+        { ...updatedCampaign, status: updatedCampaign.status as CampaignStatus },
         options.includeTasks ?? false,
         false,
       );
     } catch (error) {
-      throw this.handlePrismaError(
-        error,
-        `Failed to update campaign ${id} status to ${newStatus}`,
-      );
+      throw this.prisma.handlePrismaError(error, `Failed to update campaign ${campaignId}`);
     }
   }
-
-  async addTaskToCampaign(id: string, task: AddTaskData): Promise<Task> {
+  
+  /**
+   * addTaskToCampaign   
+   * @param campaignId The ID of the campaign to which the task will be added.
+   * @param task The data for the new task.
+   * @returns The newly created Task object.
+   */
+  async addTaskToCampaign(campaignId: string, task: AddTaskData): Promise<Task> {
     try {
       const campaign = await this.prisma.marketingCampaign.findUnique({
-        where: { id },
-        select: { id: true },
+        where: { id: campaignId },
+        select: { id: true, status: true },
       });
       if (!campaign) {
-        throw new CampaignNotFoundException(id);
+        throw new CampaignNotFoundException(campaignId);
+      }
+
+      if (campaign.status === 'ARCHIVED') {
+        throw new Error(`Cannot add tasks to an archived campaign (ID: ${campaignId})`);
       }
 
       const createdTask = await this.prisma.task.create({
         data: {
-          campaignId: id,
+          campaignId: campaignId,
           input: task.input as unknown as Prisma.JsonObject,
           priority: task.priority ?? 0,
           status: task.status ?? TaskStatus.PENDING,
@@ -374,15 +358,48 @@ export class MarketingCampaignRepository {
       } as Task;
 
     } catch (error) {
-      throw this.handlePrismaError(
+      throw this.prisma.handlePrismaError(
         error,
-        `Failed to add task to campaign ${id}`,
+        `Failed to add task to campaign ${campaignId}`,
       );
     }
-
-
   }
 
+  /**
+   * Deletes a campaign and all its associated tasks.
+   * @param campaignId The ID of the campaign to delete.
+   * @returns A promise that resolves with the ID of the deleted campaign and the count of deleted tasks.
+   * @throws {CampaignNotFoundException} If no campaign with the given ID is found.   
+   */
+  async deleteCampaignAndTasks(campaignId: string): Promise<{
+    deletedCampaignId: string;
+    deletedTasksCount: number;
+  }> {
+    // 1. Check if campaign exists
+    const campaign = await this.prisma.marketingCampaign.findUnique({
+      where: { id: campaignId },
+      select: { id: true }
+    });
+
+    if (!campaign) {
+      throw new CampaignNotFoundException(campaignId);
+    }
+
+    // 2. Delete all associated tasks
+    const { count: deletedTasksCount } = await this.prisma.task.deleteMany({
+      where: { campaignId }
+    });
+
+    // 3. Delete the campaign itself
+    await this.prisma.marketingCampaign.delete({
+      where: { id: campaignId }
+    });
+
+    return {
+      deletedCampaignId: campaignId,
+      deletedTasksCount
+    };
+  }
 
 };
 
