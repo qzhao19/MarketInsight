@@ -349,6 +349,7 @@ export class MarketingCampaignRepository {
           priority: task.priority ?? 0,
           status: task.status ?? TaskStatus.PENDING,
         },
+        include: { campaign: true },
       });
 
       return {
