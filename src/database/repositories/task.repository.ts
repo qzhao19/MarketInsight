@@ -96,9 +96,10 @@ export class TaskRepository {
    * Creates a new task in the database associated with a marketing campaign.
    * 
    * @param task The data required to create the task, including `campaignId` and `input`.
+   * @param includeCampaign - Whether to load the related MarketingCampaign object
    * @returns A `Promise` that resolves to the newly created `Task` object.
    */
-  async createTask(task: CreateTaskData): Promise<Task> {
+  async createTask(task: CreateTaskData, includeCampaign: boolean = false): Promise<Task> {
     try {
       // check if campaign activities exists
       // still keep following code even handlePrismaError can catch such error
@@ -118,16 +119,11 @@ export class TaskRepository {
           priority: task.priority ?? 1,
           status: task.status ?? TaskStatus.PENDING,
         },
+        include: { campaign: includeCampaign }
       });
 
-      // return a created object by db, make sure JSON attibutes is correct
-      return {
-        ...newTask,
-        input: newTask.input as unknown as LLMInput,
-        result: newTask.result as unknown as LLMResult | null,
-        // cast status to TaskStatus type
-        status: newTask.status as TaskStatus, 
-      };
+      // use the centralized mapper, passing the include flag
+      return this.mapPrismaTaskToDomain(newTask, includeCampaign) as Task;
 
     } catch (error) {
       throw this.prisma.handlePrismaError(
