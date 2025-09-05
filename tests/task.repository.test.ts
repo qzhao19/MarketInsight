@@ -93,6 +93,7 @@ describe('TaskRepository', () => {
           priority: 1,
           status: TaskStatus.PENDING,
         },
+        include: { campaign: false }, 
       });
       expect(result.id).toEqual(mockTask.id);
       expect(result.status).toEqual(TaskStatus.PENDING);
