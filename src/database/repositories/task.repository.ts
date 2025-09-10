@@ -99,7 +99,7 @@ export class TaskRepository {
    * @param includeCampaign - Whether to load the related MarketingCampaign object
    * @returns A `Promise` that resolves to the newly created `Task` object.
    */
-  async createTask(task: CreateTaskData, includeCampaign: boolean = false): Promise<Task> {
+  public async createTask(task: CreateTaskData, includeCampaign: boolean = false): Promise<Task> {
     try {
       // check if campaign activities exists
       // still keep following code even handlePrismaError can catch such error
@@ -140,7 +140,7 @@ export class TaskRepository {
    * @param includeCampaign - Whether to load the related MarketingCampaign object
    * @returns A `Promise` that resolves to the deleted `Task` object.
    */
-  async findTaskById(id: string, includeCampaign: boolean = true): Promise<Task> {
+  public async findTaskById(id: string, includeCampaign: boolean = true): Promise<Task> {
     try {
       const task = await this.prisma.task.findUnique({
         where: { id },
@@ -167,7 +167,7 @@ export class TaskRepository {
    * @returns A `Promise` that resolves to the updated `Task` object.
    * @throws TaskNotFoundException If the task with the specified ID does not exist.
    */
-  async updateTask(
+  public async updateTask(
     id: string, 
     data: UpdateTaskData, 
     includeCampaign: boolean = true
@@ -212,7 +212,7 @@ export class TaskRepository {
    * @param includeCampaign - Whether to load the related MarketingCampaign object.
    * @returns A `Promise` that resolves to the deleted `Task` object.
    */
-  async deleteTask(id: string, includeCampaign: boolean): Promise<Task> {
+  public async deleteTask(id: string, includeCampaign: boolean): Promise<Task> {
     try {
       const deletedTask = await this.prisma.task.delete({
         where: { id },
@@ -230,7 +230,7 @@ export class TaskRepository {
    * @param options - The options for filtering, sorting, and pagination.
    * @returns A `Promise` that resolves to an array of `Task` objects.
    */
-  async findManyTasksByOptions(options: ListTasksOptions = {}): Promise<Task[]> {
+  public async findManyTasksByOptions(options: ListTasksOptions = {}): Promise<Task[]> {
     const {
       skip = 0,
       take = 20,

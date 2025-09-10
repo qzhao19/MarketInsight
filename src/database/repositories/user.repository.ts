@@ -38,7 +38,7 @@ export class UserRepository {
    * @returns The created user
    * @throws UserAlreadyExistsException if a user with the email already exists
    */
-  async createUser(data: CreateUserData): Promise<User> {
+  public async createUser(data: CreateUserData): Promise<User> {
       try {
         const exists = await this.prisma.user.findUnique({ 
           where: { email: data.email } 
@@ -63,7 +63,7 @@ export class UserRepository {
    * @returns The found user
    * @throws UserNotFoundException if no user with the ID exists
    */
-  async findUserById(id: string): Promise<User> {
+  public async findUserById(id: string): Promise<User> {
     try {
       const user = await this.prisma.user.findUnique({ 
         where: { id, deletedAt: null } // Only find non-deleted users
@@ -81,7 +81,7 @@ export class UserRepository {
    * @param email - The user's email address
    * @returns The found user or null if not found
    */
-  async findUserByEmail(email: string): Promise<User | null> {
+  public async findUserByEmail(email: string): Promise<User | null> {
     try {
       const user = await this.prisma.user.findUnique({ 
         where: { email, deletedAt: null } // Only find non-deleted users
@@ -99,7 +99,7 @@ export class UserRepository {
    * @returns The updated user
    * @throws UserNotFoundException if no user with the ID exists
    */
-  async updateUser(id: string, data: UpdateUserData): Promise<User> {
+  public async updateUser(id: string, data: UpdateUserData): Promise<User> {
     try {
       const user = await this.prisma.user.update({ 
         where: { id, deletedAt: null }, 
@@ -117,7 +117,7 @@ export class UserRepository {
    * @param id - The user's unique ID
    * @returns The updated user with deletedAt timestamp
    */
-  async softDeleteUser(id: string): Promise<User> {
+  public async softDeleteUser(id: string): Promise<User> {
     try {
       const user = await this.prisma.user.update({
         where: { id },
@@ -137,7 +137,7 @@ export class UserRepository {
    * @param id - The user's unique ID
    * @returns The deleted user
    */
-  async hardDeleteUser(id: string): Promise<User> {
+  public async hardDeleteUser(id: string): Promise<User> {
     try {
       const user = await this.prisma.user.delete({ where: { id } });
       return user as User;
@@ -151,7 +151,7 @@ export class UserRepository {
    * @param options - Pagination and include options
    * @returns Array of users matching criteria
    */
-  async findManyUsersByOptions(options: ListUsersOptions = {}): Promise<User[]> {
+  public async findManyUsersByOptions(options: ListUsersOptions = {}): Promise<User[]> {
     const { skip = 0, take = 20, includeCampaigns = false } = options;
     try {
       const users = await this.prisma.user.findMany({
@@ -171,7 +171,7 @@ export class UserRepository {
    * Gets the total count of non-deleted users
    * @returns The count of users
    */
-  async findUserCount(): Promise<number> {
+  public async findUserCount(): Promise<number> {
     try {
       return await this.prisma.user.count({ where: { deletedAt: null } });
     } catch (error) {

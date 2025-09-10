@@ -87,7 +87,7 @@ export class MarketingCampaignRepository {
    * @param data new campaign, including an optional array of tasks.
    * @returns A Promise that resolves to the newly created MarketingCampaign
    */
-  async createCampaign(data: CreateCampaignData): Promise<MarketingCampaign> {
+  public async createCampaign(data: CreateCampaignData): Promise<MarketingCampaign> {
     try {
       const campaign = await this.prisma.marketingCampaign.create({
         data: {
@@ -132,7 +132,7 @@ export class MarketingCampaignRepository {
    * @param campaignId The unique identifier of the marketing campaign.
    * @returns A Promise that resolves to the MarketingCampaign object.
    */
-  async findCampaignById(campaignId: string): Promise<MarketingCampaign> {
+  public async findCampaignById(campaignId: string): Promise<MarketingCampaign> {
     try {
       const campaign = await this.prisma.marketingCampaign.findUnique({
         where: { id: campaignId },
@@ -167,7 +167,7 @@ export class MarketingCampaignRepository {
    * @param taskOptions Options for paginating the tasks list (e.g., { skip: 0, take: 50 }).
    * @returns A Promise that resolves to the MarketingCampaign object, guaranteed to include the `tasks` array.
    */
-  async findCampaignWithTasksById(
+  public async findCampaignWithTasksById(
     campaignId: string,
     taskOptions: { skip?: number; take?: number } = {},
   ): Promise<MarketingCampaign & { tasks: Task[] }> {
@@ -214,7 +214,7 @@ export class MarketingCampaignRepository {
    * @param options Options for pagination and filtering by campaign status.
    * @returns A Promise that resolves to an array of MarketingCampaign objects, each including its tasks.
    */
-  async findManyCampaigsByUserId(
+  public async findManyCampaigsByUserId(
     userId: string, 
     options: {
       skip?: number; 
@@ -272,7 +272,7 @@ export class MarketingCampaignRepository {
    * @param options Options to include related data in the response.
    * @returns A Promise resolving to the updated MarketingCampaign.
    */
-  async updateCampaign(
+  public async updateCampaign(
     campaignId: string,
     data: UpdateCampaignData,
     options: { includeTasks?: boolean } = {},
@@ -328,7 +328,7 @@ export class MarketingCampaignRepository {
    * @param task The data for the new task.
    * @returns The newly created Task object.
    */
-  async addTaskToCampaign(campaignId: string, task: AddTaskData): Promise<Task> {
+  public async addTaskToCampaign(campaignId: string, task: AddTaskData): Promise<Task> {
     try {
       const campaign = await this.prisma.marketingCampaign.findUnique({
         where: { id: campaignId },
@@ -372,7 +372,7 @@ export class MarketingCampaignRepository {
    * @returns A promise that resolves with the ID of the deleted campaign and the count of deleted tasks.
    * @throws {CampaignNotFoundException} If no campaign with the given ID is found.   
    */
-  async deleteCampaignAndTasks(campaignId: string): Promise<{
+  public async deleteCampaignAndTasks(campaignId: string): Promise<{
     deletedCampaignId: string;
     deletedTasksCount: number;
   }> {
