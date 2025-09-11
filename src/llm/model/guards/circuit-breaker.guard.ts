@@ -7,15 +7,17 @@ type BreakerAction<T extends any[], R> = (...args: T) => Promise<R>;
 export class CircuitBreakerGuard implements OnApplicationShutdown {
   private readonly breakers: Map<string, CircuitBreaker> = new Map();
   private readonly defaultOptions: CircuitBreaker.Options;
+  private readonly logger: Logger;
 
   // Inject Logger and allow for global default options
-  constructor(private readonly logger: Logger = new Logger(CircuitBreakerGuard.name)) {
+  constructor(logger?: Logger) {
     this.defaultOptions = {
       resetTimeout: 30000, // 30 seconds before trying to half-open
       timeout: 100000, // 100 seconds timeout is considered a failure
       errorThresholdPercentage: 50,
       rollingCountTimeout: 60000, // 1-minute statistics window
     };
+    this.logger = logger || new Logger(CircuitBreakerGuard.name);
     this.logger.log('CircuitBreakerGuard initialized.');
   }
 
@@ -31,6 +33,7 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
     name: string,
     func: BreakerAction<T, R>,
     options: CircuitBreaker.Options = {},
+    fallbackFunc?: (...args: any[]) => any,
   ): CircuitBreaker {
     // Check if a breaker with this name already exists
     if (this.breakers.has(name)) {
@@ -40,6 +43,11 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
     // If not, create a new one
     const mergedOptions = { ...this.defaultOptions, ...options, name };
     const breaker = new CircuitBreaker(func, mergedOptions);
+
+    // Set fallback function only one time
+    if (fallbackFunc) {
+      breaker.fallback(fallbackFunc);
+    }
 
     // Add event listeners for logging
     this.setupEventListeners(breaker, name);
