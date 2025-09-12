@@ -2,7 +2,7 @@ import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk } from '@langchain/core/messages';
 import { ChatOpenAICallOptions } from '@langchain/openai';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 
 import { CircuitBreakerGuard } from './guards/circuit-breaker.guard';
 import { RateLimiterGuard } from './guards/rate-limiter.guard';
@@ -43,6 +43,7 @@ export class ModelClient {
   private readonly circuitBreakerConfig: { resetTimeout: number; };
   private readonly rateLimiterConfig: { maxRequestsPerMinute: number; };
   private readonly retryConfig: Required<ModelClientOptions['retryConfig']>;
+  private readonly logger: Logger;
 
   constructor(
     config: DeepPartial<ModelClientOptions>,
@@ -50,10 +51,14 @@ export class ModelClient {
     private readonly rateLimiter: RateLimiterGuard,
     private readonly requestQueue: RequestQueueGuard,
     private readonly retry: RetryGuard,
-    
+    logger?: Logger,
   ) {
+    this.logger = logger || new Logger(ModelClient.name);
+
     if (!config.model) {
-      throw new Error('ModelClient requires a "model" instance in its configuration.');
+      const msg = 'ModelClient requires a "model" instance in its configuration.';
+      this.logger.error(msg);
+      throw new Error(msg);
     }
     this.model = config.model as BaseChatModel;
 
@@ -92,10 +97,9 @@ export class ModelClient {
         resetTimeout: this.circuitBreakerConfig.resetTimeout,
       },
       () => {
-        throw new HttpException(
-          `${(this.model as any)?.model} service is temporarily unavailable`,
-          HttpStatus.SERVICE_UNAVAILABLE
-        );
+        const msg = `${(this.model as any)?.model} service is temporarily unavailable`;
+        this.logger.error(msg);
+        throw new HttpException(msg, HttpStatus.SERVICE_UNAVAILABLE);
       },
     );
 
@@ -113,14 +117,14 @@ export class ModelClient {
 };
 
 export class ModelClientService {
-    constructor(
+  constructor(
     private circuitBreaker: CircuitBreakerGuard,
     private rateLimiter: RateLimiterGuard,
     private requestQueue: RequestQueueGuard,
     private retry: RetryGuard,
   ) {};
 
-  createClient(config: DeepPartial<ModelClientOptions>) {
+  public createClient(config: DeepPartial<ModelClientOptions>) {
     return new ModelClient(
       config,
       this.circuitBreaker,
