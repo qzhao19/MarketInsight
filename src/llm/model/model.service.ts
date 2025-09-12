@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ChatDeepSeek } from '@langchain/deepseek';
 import { ChatOpenAIFields } from '@langchain/openai';
@@ -25,8 +25,8 @@ function mergeModelConfig<T extends { configuration?: any }>(config: T): Omit<T,
 }
 
 @Injectable()
-export class ModelService {
-  private readonly logger = new Logger(ModelService.name);
+export class ModelService implements OnModuleInit {
+  private readonly logger: Logger;
   private models: Map<string, ModelClient> = new Map();
   private rawModels: Map<string, ChatDeepSeek> = new Map();
 
@@ -59,16 +59,22 @@ export class ModelService {
 
   constructor(
     private readonly modelClientService: ModelClientService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    logger?: Logger
   ) {
+    this.logger = logger || new Logger(ModelService.name);
     // initialize default models
+    // this.initializeDefaultModels();
+  }
+
+  onModuleInit() {
     this.initializeDefaultModels();
   }
 
   get deepseekConfig(): ChatOpenAIFields {
     if (!this._deepseekConfig) {
-      const apiKey = this.configService.get<string>('API_KEY_DEEPSEEK');
-      const baseURL = this.configService.get<string>('BASE_URL_DEEPSEEK');
+      const apiKey = this.configService.get<string>('DEEPSEEK_API_KEY');
+      const baseURL = this.configService.get<string>('DEEPSEEK_BASE_URL');
       
       if (!apiKey) {
         this.logger.warn('DEEPSEEK API key not found in environment variables!');
@@ -77,7 +83,7 @@ export class ModelService {
       this._deepseekConfig = {
         model: 'deepseek-reasoner',
         configuration: {
-          apiKey,
+          apiKey: apiKey,
           timeout: 600000,
           baseURL,
           maxRetries: 3
@@ -123,7 +129,7 @@ export class ModelService {
    * @param clientOptions Client option overrides
    * @returns Guarded model client
    */
-  async getDeepSeekGuardModel(
+  public async getDeepSeekGuardModel(
     baseConfig: ChatOpenAIFields = this.deepseekConfig,
     clientOptions: Record<string, any> = {}
   ): Promise<ModelClient | undefined> {
@@ -164,7 +170,7 @@ export class ModelService {
    * @param modelNameOrConfig Model name or full configuration
    * @returns ChatDeepSeek instance
    */
-  getDeepSeekRawModel(modelNameOrConfig?: string | ChatOpenAIFields): ChatDeepSeek | undefined {
+  public getDeepSeekRawModel(modelNameOrConfig?: string | ChatOpenAIFields): ChatDeepSeek | undefined {
     try {
       let config: ChatOpenAIFields;
       
