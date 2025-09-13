@@ -2,7 +2,7 @@ import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk } from '@langchain/core/messages';
 import { ChatOpenAICallOptions } from '@langchain/openai';
-import { HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger, Injectable } from '@nestjs/common';
 
 import { CircuitBreakerGuard } from './guards/circuit-breaker.guard';
 import { RateLimiterGuard } from './guards/rate-limiter.guard';
@@ -116,6 +116,7 @@ export class ModelClient {
   }
 };
 
+@Injectable()
 export class ModelClientService {
   constructor(
     private circuitBreaker: CircuitBreakerGuard,
