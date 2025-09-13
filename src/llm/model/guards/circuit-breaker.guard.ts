@@ -1,9 +1,10 @@
-import { Logger, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import CircuitBreaker from 'opossum';
 
 // Define a more specific type for the function passed to the breaker
 type BreakerAction<T extends any[], R> = (...args: T) => Promise<R>;
 
+@Injectable()
 export class CircuitBreakerGuard implements OnApplicationShutdown {
   private readonly breakers: Map<string, CircuitBreaker> = new Map();
   private readonly defaultOptions: CircuitBreaker.Options;
