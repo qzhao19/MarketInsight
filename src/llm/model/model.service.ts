@@ -68,6 +68,20 @@ export class ModelService implements OnModuleInit {
   }
 
   onModuleInit() {
+    this.logger.log('ModelService initializing...');
+    this.logger.log(`ConfigService available: ${!!this.configService}`);
+    this.logger.log(`ModelClientService available: ${!!this.modelClientService}`);
+    
+    if (!this.configService) {
+      this.logger.error('ConfigService not injected properly!');
+      throw new Error('ConfigService not injected');
+    }
+    
+    if (!this.modelClientService) {
+      this.logger.error('ModelClientService not injected properly!');
+      throw new Error('ModelClientService not injected');
+    }
+
     this.initializeDefaultModels();
   }
 
@@ -75,15 +89,17 @@ export class ModelService implements OnModuleInit {
     if (!this._deepseekConfig) {
       const apiKey = this.configService.get<string>('DEEPSEEK_API_KEY');
       const baseURL = this.configService.get<string>('DEEPSEEK_BASE_URL');
-      
+
       if (!apiKey) {
         this.logger.warn('DEEPSEEK API key not found in environment variables!');
+      } else {
+        process.env.DEEPSEEK_API_KEY = apiKey;
       }
       
       this._deepseekConfig = {
         model: 'deepseek-reasoner',
         configuration: {
-          apiKey: apiKey,
+          apiKey,
           timeout: 600000,
           baseURL,
           maxRetries: 3
