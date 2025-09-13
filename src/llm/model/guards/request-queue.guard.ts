@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 interface QueueItem<T> {
   func: () => Promise<T>;
@@ -6,6 +6,7 @@ interface QueueItem<T> {
   reject: (reason: any) => void;
 }
 
+@Injectable()
 export class RequestQueueGuard {
   private readonly logger: Logger;
   private queue: QueueItem<any>[] = [];
