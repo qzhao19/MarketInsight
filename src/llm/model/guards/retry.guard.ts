@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 // Define default options in a constant for clarity
 const DEFAULT_RETRY_OPTIONS = {
@@ -15,6 +15,7 @@ export type RetryOptions = Partial<Omit<typeof DEFAULT_RETRY_OPTIONS, 'retryable
 // Helper function for sleeping
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+@Injectable()
 export class RetryGuard {
   private readonly logger: Logger;
 
