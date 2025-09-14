@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ChatDeepSeek } from '@langchain/deepseek';
 import { ChatOpenAIFields } from '@langchain/openai';
-import { ModelClient, ModelClientService } from './model.client';
+import { ModelClient, ModelClientService } from './client/client.service';
 
 /**
  * Generate a unique key for caching model configurations
@@ -68,18 +68,18 @@ export class ModelService implements OnModuleInit {
   }
 
   onModuleInit() {
-    this.logger.log('ModelService initializing...');
-    this.logger.log(`ConfigService available: ${!!this.configService}`);
-    this.logger.log(`ModelClientService available: ${!!this.modelClientService}`);
-    
-    if (!this.configService) {
-      this.logger.error('ConfigService not injected properly!');
-      throw new Error('ConfigService not injected');
-    }
+    this.logger.debug('ModelService constructor called');
+    this.logger.debug(`ConfigService injected: ${!!this.configService}`);
+    this.logger.debug(`ModelClientService injected: ${!!this.modelClientService}`);
     
     if (!this.modelClientService) {
       this.logger.error('ModelClientService not injected properly!');
       throw new Error('ModelClientService not injected');
+    }
+
+    if (!this.configService) {
+      this.logger.error('ConfigService not injected properly!');
+      throw new Error('ConfigService not injected');
     }
 
     this.initializeDefaultModels();
