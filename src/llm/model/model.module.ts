@@ -1,24 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ModelService } from './model.service';
-import { ModelClientService } from './model.client';
-import { CircuitBreakerGuard } from './guards/circuit-breaker.guard';
-import { RateLimiterGuard } from './guards/rate-limiter.guard';
-import { RequestQueueGuard } from './guards/request-queue.guard';
-import { RetryGuard } from './guards/retry.guard';
+import { ModelClientModule } from './client/client.module'
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, ModelClientModule],
   providers: [
-    ModelService,
-    ModelClientService,
-    CircuitBreakerGuard,
-    RateLimiterGuard,
-    RequestQueueGuard,
-    RetryGuard,
+    ModelService,    
   ],
-  exports: [
-    ModelService
-  ],
+  exports: [ModelService],
 })
 export class ModelModule {}
