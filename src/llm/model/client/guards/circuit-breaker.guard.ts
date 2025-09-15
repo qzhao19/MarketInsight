@@ -11,20 +11,21 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
   private readonly logger: Logger;
 
   // Inject Logger and allow for global default options
-  constructor(logger?: Logger) {
+  constructor() {
     this.defaultOptions = {
       resetTimeout: 30000, // 30 seconds before trying to half-open
       timeout: 100000, // 100 seconds timeout is considered a failure
       errorThresholdPercentage: 50,
       rollingCountTimeout: 60000, // 1-minute statistics window
     };
-    this.logger = logger || new Logger(CircuitBreakerGuard.name);
+    this.logger = new Logger(CircuitBreakerGuard.name);
     this.logger.log('CircuitBreakerGuard initialized.');
   }
 
   /**
    * Atomically gets an existing breaker or creates a new one.
-   * This prevents race conditions where multiple breakers for the same name could be created.
+   * This prevents race conditions where multiple breakers for 
+   * the same name could be created.
    * @param name - The unique name for the circuit breaker.
    * @param func - The function to wrap in the circuit breaker.
    * @param options - Opossum options to override the defaults.
