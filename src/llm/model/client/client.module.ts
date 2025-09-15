@@ -13,20 +13,16 @@ import { ModelClientService } from './client.service';
     CircuitBreakerGuard,
     RetryGuard,
     {
-        provide: RequestQueueGuard,
-        useFactory: () => new RequestQueueGuard(5)
+      provide: RequestQueueGuard,
+      useFactory: () => new RequestQueueGuard(5)
     },
     {
-        provide: RateLimiterGuard,
-        useFactory: () => new RateLimiterGuard(60)
+      provide: RateLimiterGuard,
+      useFactory: () => new RateLimiterGuard(60)
     }
   ],
   exports: [
-    ModelClientService,
-    CircuitBreakerGuard,
-    RateLimiterGuard,
-    RequestQueueGuard,
-    RetryGuard
+    ModelClientService
   ],
 })
 export class ModelClientModule {}
