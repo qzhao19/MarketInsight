@@ -51,9 +51,8 @@ export class ModelClient {
     private readonly rateLimiter: RateLimiterGuard,
     private readonly requestQueue: RequestQueueGuard,
     private readonly retry: RetryGuard,
-    logger?: Logger,
   ) {
-    this.logger = logger || new Logger(ModelClient.name);
+    this.logger = new Logger(ModelClient.name);
 
     if (!config.model) {
       const msg = 'ModelClient requires a "model" instance in its configuration.';
@@ -80,7 +79,9 @@ export class ModelClient {
       factor: 2,
       jitter: true,
       ...config.retryConfig,
-      retryableErrors: (config.retryConfig?.retryableErrors ?? []).filter((x): x is RegExp => x instanceof RegExp),
+      retryableErrors: (
+        config.retryConfig?.retryableErrors ?? []
+      ).filter((x): x is RegExp => x instanceof RegExp),
     };
   }
 
