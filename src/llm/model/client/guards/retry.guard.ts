@@ -19,8 +19,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export class RetryGuard {
   private readonly logger: Logger;
 
-  constructor(logger?: Logger) {
-    this.logger = logger || new Logger(RetryGuard.name);
+  constructor() {
+    this.logger = new Logger(RetryGuard.name);
   }
 
   public async exponentialBackoff<T>(
