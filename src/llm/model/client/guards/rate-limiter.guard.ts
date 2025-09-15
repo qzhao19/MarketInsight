@@ -13,12 +13,12 @@ export class RateLimiterGuard {
   private waitingQueue: WaitingResolver[] = [];
   private isProcessing = false;
 
-  constructor(maxRequestsPerMinute: number = 60, logger?: Logger) {
+  constructor(maxRequestsPerMinute: number = 60) {
     this.maxTokens = maxRequestsPerMinute;
     this.refillRatePerSecond = maxRequestsPerMinute / 60;
     this.tokenBucket = this.maxTokens;
     this.lastRefillTimestamp = Date.now();
-    this.logger = logger || new Logger(RateLimiterGuard.name);
+    this.logger = new Logger(RateLimiterGuard.name);
     this.logger.log(
       `Rate limiter initialized: ${maxRequestsPerMinute} requests/minute.`,
     );
