@@ -13,9 +13,9 @@ export class RequestQueueGuard {
   private activeCount = 0;
   private readonly maxConcurrent: number;
 
-  constructor(maxConcurrent: number = 5, logger?: Logger) {
+  constructor(maxConcurrent: number = 5) {
     this.maxConcurrent = maxConcurrent;
-    this.logger = logger || new Logger(RequestQueueGuard.name);
+    this.logger = new Logger(RequestQueueGuard.name);
     this.logger.log(`Queue initialized with max concurrency: ${this.maxConcurrent}`);
   }
 
@@ -38,7 +38,8 @@ export class RequestQueueGuard {
           this.logger.debug(`Task finished. Active: ${this.activeCount}, Queue: ${this.queue.length}`);
           // A slot has been freed, so try to process the next item in the queue.
           this.processQueue();
-        });
+        }
+      );
     }
   }
 
