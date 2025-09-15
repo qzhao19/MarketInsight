@@ -7,22 +7,26 @@ import { RetryGuard } from './guards/retry.guard';
 import { ModelClientService } from './client.service';
 
 @Module({
-    controllers: [],
-    providers: [
-        ModelClientService,
-        CircuitBreakerGuard,
-        RetryGuard,
-        {
-            provide: RequestQueueGuard,
-            useFactory: () => new RequestQueueGuard(5)
-        },
-        {
-            provide: RateLimiterGuard,
-            useFactory: () => new RateLimiterGuard(60)
-        }
-
-    ],
-    exports: [ModelClientService],
-	imports: [ConfigModule]
+  imports: [ConfigModule],
+  providers: [
+    ModelClientService,
+    CircuitBreakerGuard,
+    RetryGuard,
+    {
+        provide: RequestQueueGuard,
+        useFactory: () => new RequestQueueGuard(5)
+    },
+    {
+        provide: RateLimiterGuard,
+        useFactory: () => new RateLimiterGuard(60)
+    }
+  ],
+  exports: [
+    ModelClientService,
+    CircuitBreakerGuard,
+    RateLimiterGuard,
+    RequestQueueGuard,
+    RetryGuard
+  ],
 })
 export class ModelClientModule {}
