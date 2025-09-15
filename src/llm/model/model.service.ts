@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ChatDeepSeek } from '@langchain/deepseek';
 import { ChatOpenAIFields } from '@langchain/openai';
@@ -16,7 +16,9 @@ function generateModelKey(config: ChatOpenAIFields): string {
 /**
  * Merge model configs
  */
-function mergeModelConfig<T extends { configuration?: any }>(config: T): Omit<T, 'configuration'> & Record<string, any> {
+function mergeModelConfig<T extends { configuration?: any }>(
+  config: T
+): Omit<T, 'configuration'> & Record<string, any> {
   const { configuration, ...baseConfig } = config;
   return {
     ...baseConfig,
@@ -58,13 +60,11 @@ export class ModelService implements OnModuleInit {
   };
 
   constructor(
+    @Inject(forwardRef(() => ModelClientService))
     private readonly modelClientService: ModelClientService,
     private readonly configService: ConfigService,
-    logger?: Logger
   ) {
-    this.logger = logger || new Logger(ModelService.name);
-    // initialize default models
-    // this.initializeDefaultModels();
+    this.logger = new Logger(ModelService.name);
   }
 
   onModuleInit() {
@@ -92,9 +92,7 @@ export class ModelService implements OnModuleInit {
 
       if (!apiKey) {
         this.logger.warn('DEEPSEEK API key not found in environment variables!');
-      } else {
-        process.env.DEEPSEEK_API_KEY = apiKey;
-      }
+      } 
       
       this._deepseekConfig = {
         model: 'deepseek-reasoner',
@@ -129,12 +127,18 @@ export class ModelService implements OnModuleInit {
       });
       this.models.set(configKey, guardedModel);
       
-      this.logger.log(`Default DeepSeek model initialized: ${this.deepseekConfig.model}`);
+      this.logger.log(
+        `Default DeepSeek model initialized: ${this.deepseekConfig.model}`
+      );
     } catch (error) {
       if (error instanceof Error) {
-        this.logger.error(`Failed to initialize default models: ${error.message}`, error.stack);
+        this.logger.error(
+          `Failed to initialize default models: ${error.message}`, error.stack
+        );
       } else {
-        this.logger.error(`Failed to initialize default models: ${JSON.stringify(error)}`);
+        this.logger.error(
+          `Failed to initialize default models: ${JSON.stringify(error)}`
+        );
       }
     }
   }
