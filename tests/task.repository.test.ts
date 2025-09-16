@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import {TaskRepository } from '../src/database/repositories/task.repository';
 import {
@@ -6,7 +5,7 @@ import {
   CampaignNotFoundException,
 } from '../src/common/exceptions';
 import { PrismaService } from '../src/database/prisma/prisma.service';
-import { Task, TaskStatus, LLMInput, MarketingCampaign, CampaignStatus, User } from '../src/types/domain.types';
+import { Task, TaskStatus, MarketingCampaign, CampaignStatus } from '../src/types/domain.types';
 
 describe('TaskRepository', () => {
   let taskRepository: TaskRepository;
@@ -62,6 +61,12 @@ describe('TaskRepository', () => {
       },
       marketingCampaign: {
         findUnique: jest.fn(),
+      },
+      logger: {
+        error: jest.fn(),
+        warn: jest.fn(),
+        log: jest.fn(),
+        debug: jest.fn(),
       },
       // handlePrismaError: jest.fn((error) => { throw error; }),
       handlePrismaError: (error: unknown, context: string) =>
@@ -211,6 +216,7 @@ describe('TaskRepository', () => {
         where: { status: TaskStatus.COMPLETED },
         skip: 5,
         take: 10,
+        // eslint-disable-next-line @typescript-eslint/prefer-as-const
         orderBy: [{ field: 'priority' as 'priority', direction: 'asc' as 'asc' }],
         includeCampaign: false,
       };
