@@ -9,7 +9,6 @@ import {
 import {
   CampaignStatus,
   MarketingCampaign,
-  Task,
   TaskStatus,
   User,
 } from '../src/types/domain.types';
@@ -65,6 +64,12 @@ describe('MarketingCampaignRepository', () => {
       },
       user: {
         findUnique: jest.fn(),
+      },
+      logger: {
+        error: jest.fn(),
+        warn: jest.fn(),
+        log: jest.fn(),
+        debug: jest.fn(),
       },
       // handlePrismaError: jest.fn((error) => { throw error; }),
       handlePrismaError: (error: unknown, context: string) =>
