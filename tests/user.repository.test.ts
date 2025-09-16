@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import { UserRepository } from '../src/database/repositories/user.repository';
 import {
   UserNotFoundException,
