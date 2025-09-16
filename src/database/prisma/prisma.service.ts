@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { 
@@ -11,14 +11,27 @@ import {
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger: Logger = new Logger(PrismaService.name);
+  
   async onModuleInit() {
     // connect to the database during module initialization
-    await this.$connect();
+    try {
+      await this.$connect();
+      this.logger.log('Successfully connected to database');
+    } catch (error) {
+      this.logger.error('Failed to connect to database', error);
+      throw error;
+    }
   }
 
   async onModuleDestroy() {
     // disconnect from the database when the application shuts down
-    await this.$disconnect();
+    try {
+      await this.$disconnect();
+      this.logger.log('Successfully disconnected from database');
+    } catch (error) {
+      this.logger.error('Failed to disconnect from database', error);
+    }
   }
 
   /**
@@ -27,7 +40,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    * @param context - Description of the operation that failed
    */
   handlePrismaError(error: unknown, context: string): never {
-    console.error(`${context}:`, error);
+    this.logger.error(`${context}:`, error);
 
     // Custom exceptions
     if (
@@ -37,11 +50,17 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       error instanceof TaskNotFoundException ||
       error instanceof InvalidStatusTransitionException
     ) {
+      this.logger.debug(`Business logic error in ${context}: ${error.message}`);
       throw error;
-    }
+    } 
 
     // Prisma errors
     if (error instanceof PrismaClientKnownRequestError) {
+      this.logger.warn(`Database constraint error in ${context}`, {
+        code: error.code,
+        meta: error.meta
+      });
+
       switch (error.code) {
         case 'P2002': // unique constraint conflict
           throw new UserAlreadyExistsException(
@@ -80,6 +99,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     }
 
     // 3. other error—append context information
+    this.logger.error(`Unexpected error in ${context}:`, error);
     throw error instanceof Error ? new Error(`${context}: ${error.message}`) : new Error(`${context}: ${String(error)}`);
   }
 
