@@ -16,9 +16,9 @@ function generateModelKey(config: ChatOpenAIFields): string {
 /**
  * Merge model configs
  */
-function mergeModelConfig<T extends { configuration?: any }>(
+function mergeModelConfig<T extends { configuration?: unknown }>(
   config: T
-): Omit<T, 'configuration'> & Record<string, any> {
+): Omit<T, 'configuration'> & Record<string, unknown> {
   const { configuration, ...baseConfig } = config;
   return {
     ...baseConfig,
@@ -151,7 +151,7 @@ export class ModelService implements OnModuleInit {
    */
   public async getDeepSeekGuardModel(
     baseConfig: ChatOpenAIFields = this.deepseekConfig,
-    clientOptions: Record<string, any> = {}
+    clientOptions: Record<string, unknown> = {}
   ): Promise<ModelClient | undefined> {
     try {
       // create a copy of the config
