@@ -2,10 +2,10 @@
  * defines the possible statuses of a task.
  */
 export enum TaskStatus {
-  PENDING = 'PENDING',
-  PROCESSING = 'PROCESSING',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
 };
 
 /**
@@ -70,9 +70,9 @@ export type TaskResponse = {
  * defines the possible statuses of a marketing campaign.
  */
 export enum CampaignStatus {
-  DRAFT = 'DRAFT',
-  ACTIVE = 'ACTIVE',
-  ARCHIVED = 'ARCHIVED',
+  DRAFT = "DRAFT",
+  ACTIVE = "ACTIVE",
+  ARCHIVED = "ARCHIVED",
 }
 
 export const VALID_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
@@ -113,6 +113,6 @@ export interface User {
 /**
  * NEW: API - response body for user data returned to the client.
  */
-export type UserResponse = Omit<User, 'password'>;
+export type UserResponse = Omit<User, "password">;
 
 
