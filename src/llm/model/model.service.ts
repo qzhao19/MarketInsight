@@ -1,8 +1,8 @@
-import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ChatDeepSeek } from '@langchain/deepseek';
-import { ChatOpenAIFields } from '@langchain/openai';
-import { ModelClient, ModelClientService } from './client/client.service';
+import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { ChatDeepSeek } from "@langchain/deepseek";
+import { ChatOpenAIFields } from "@langchain/openai";
+import { ModelClient, ModelClientService } from "./client/client.service";
 
 /**
  * Generate a unique key for caching model configurations
@@ -10,7 +10,7 @@ import { ModelClient, ModelClientService } from './client/client.service';
 function generateModelKey(config: ChatOpenAIFields): string {
   // extract keys instead of entire object
   const { model, temperature, topP } = config;
-  return `${model || 'default'}-${temperature || 0}-${topP || 1}`;
+  return `${model || "default"}-${temperature || 0}-${topP || 1}`;
 }
 
 /**
@@ -18,7 +18,7 @@ function generateModelKey(config: ChatOpenAIFields): string {
  */
 function mergeModelConfig<T extends { configuration?: unknown }>(
   config: T
-): Omit<T, 'configuration'> & Record<string, unknown> {
+): Omit<T, "configuration"> & Record<string, unknown> {
   const { configuration, ...baseConfig } = config;
   return {
     ...baseConfig,
@@ -68,18 +68,18 @@ export class ModelService implements OnModuleInit {
   }
 
   onModuleInit() {
-    this.logger.debug('ModelService constructor called');
+    this.logger.debug("ModelService constructor called");
     this.logger.debug(`ConfigService injected: ${!!this.configService}`);
     this.logger.debug(`ModelClientService injected: ${!!this.modelClientService}`);
     
     if (!this.modelClientService) {
-      this.logger.error('ModelClientService not injected properly!');
-      throw new Error('ModelClientService not injected');
+      this.logger.error("ModelClientService not injected properly!");
+      throw new Error("ModelClientService not injected");
     }
 
     if (!this.configService) {
-      this.logger.error('ConfigService not injected properly!');
-      throw new Error('ConfigService not injected');
+      this.logger.error("ConfigService not injected properly!");
+      throw new Error("ConfigService not injected");
     }
 
     this.initializeDefaultModels();
@@ -87,15 +87,15 @@ export class ModelService implements OnModuleInit {
 
   get deepseekConfig(): ChatOpenAIFields {
     if (!this._deepseekConfig) {
-      const apiKey = this.configService.get<string>('DEEPSEEK_API_KEY');
-      const baseURL = this.configService.get<string>('DEEPSEEK_BASE_URL');
+      const apiKey = this.configService.get<string>("DEEPSEEK_API_KEY");
+      const baseURL = this.configService.get<string>("DEEPSEEK_BASE_URL");
 
       if (!apiKey) {
-        this.logger.warn('DEEPSEEK API key not found in environment variables!');
+        this.logger.warn("DEEPSEEK API key not found in environment variables!");
       } 
       
       this._deepseekConfig = {
-        model: 'deepseek-reasoner',
+        model: "deepseek-reasoner",
         configuration: {
           apiKey,
           timeout: 600000,
@@ -195,8 +195,8 @@ export class ModelService implements OnModuleInit {
       let config: ChatOpenAIFields;
       
       // handle different types of input parameters
-      if (typeof modelNameOrConfig === 'string' && 
-          (modelNameOrConfig === 'deepseek-reasoner' || modelNameOrConfig === 'deepseek-chat')) {
+      if (typeof modelNameOrConfig === "string" && 
+          (modelNameOrConfig === "deepseek-reasoner" || modelNameOrConfig === "deepseek-chat")) {
         // if it's a model name，create a new config object based on the default configs
         config = { 
           ...this.deepseekConfig, 
@@ -205,7 +205,7 @@ export class ModelService implements OnModuleInit {
       } else if (modelNameOrConfig === undefined) {
         // use default configs
         config = { ...this.deepseekConfig };
-      } else if (typeof modelNameOrConfig === 'object') {
+      } else if (typeof modelNameOrConfig === "object") {
         // use given configs
         config = { ...modelNameOrConfig };
       } else {
