@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { User } from '../../types/domain.types';
-import { PrismaService } from '../prisma/prisma.service';
-import { UserAlreadyExistsException, UserNotFoundException } from '../../common/exceptions';
+import { Injectable } from "@nestjs/common";
+import { User } from "../../types/domain.types";
+import { PrismaService } from "../prisma/prisma.service";
+import { UserAlreadyExistsException, UserNotFoundException } from "../../common/exceptions";
 
 // Define more specific types for method inputs to improve clarity and type safety.
 type CreateUserData = {
@@ -9,7 +9,7 @@ type CreateUserData = {
     name?: string;
     password: string;
 };
-type UpdateUserData = Partial<Omit<CreateUserData, 'email'>> & { email?: string };
+type UpdateUserData = Partial<Omit<CreateUserData, "email">> & { email?: string };
 type ListUsersOptions = { skip?: number; take?: number; includeCampaigns?: boolean };
 
 /**
@@ -159,11 +159,11 @@ export class UserRepository {
         take,
         where: { deletedAt: null },
         include: { campaigns: includeCampaigns },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
       return users as User[];
     } catch (error) {
-      throw this.prisma.handlePrismaError(error, 'Failed to list users');
+      throw this.prisma.handlePrismaError(error, "Failed to list users");
     }
   }
 
@@ -175,7 +175,7 @@ export class UserRepository {
     try {
       return await this.prisma.user.count({ where: { deletedAt: null } });
     } catch (error) {
-      throw this.prisma.handlePrismaError(error, 'Failed to find user count');
+      throw this.prisma.handlePrismaError(error, "Failed to find user count");
     }
   }
 }

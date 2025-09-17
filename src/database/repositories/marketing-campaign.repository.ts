@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 import { 
   MarketingCampaign, 
   CampaignStatus, 
@@ -10,11 +10,11 @@ import {
   TaskStatus,
   User,
   VALID_TRANSITIONS
-} from '../../types/domain.types';
+} from "../../types/domain.types";
 import { 
   CampaignNotFoundException, 
   InvalidStatusTransitionException 
-} from '../../common/exceptions';
+} from "../../common/exceptions";
 
 // define input type 
 type CreateCampaignData = {
@@ -53,12 +53,12 @@ export class MarketingCampaignRepository {
    */
   private mapPrismaCampaignToDomain(
     campaign: Partial<Prisma.MarketingCampaignGetPayload<{ include: { tasks?: boolean; user?: boolean } }>> &
-      Omit<MarketingCampaign, 'tasks' | 'user'>,
+      Omit<MarketingCampaign, "tasks" | "user">,
     includeTasks: boolean,
     includeUser: boolean
   ): MarketingCampaign {
     // basic attributes mapping
-    const baseCampaign: Omit<MarketingCampaign, 'tasks' | 'user'> = {
+    const baseCampaign: Omit<MarketingCampaign, "tasks" | "user"> = {
       id: campaign.id,
       name: campaign.name,
       description: campaign.description,
@@ -93,7 +93,7 @@ export class MarketingCampaignRepository {
         data: {
           user: { connect: { id: data.userId } },
           name: data.name,
-          description: data.description ?? '',
+          description: data.description ?? "",
           status: data.status ?? CampaignStatus.DRAFT,
           // The nested `create` for tasks is also part of the same transaction.
           tasks:
@@ -179,7 +179,7 @@ export class MarketingCampaignRepository {
         include: {
           // include tasks with sorting and pagination
           tasks: {
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: "asc" },
             skip,
             take,
           },
@@ -193,7 +193,7 @@ export class MarketingCampaignRepository {
       }
 
       // mapping function handles the type conversion internally.
-      // 'as' cast here is safe because we know 'tasks' is included.
+      // "as" cast here is safe because we know "tasks" is included.
       return this.mapPrismaCampaignToDomain(
         { ...campaign, status: campaign.status as CampaignStatus },
         true,
@@ -236,7 +236,7 @@ export class MarketingCampaignRepository {
         skip,
         take,
         orderBy: {
-          createdAt: 'asc' 
+          createdAt: "asc" 
         },
         include: {
           // include all tasks for each campaign.
@@ -338,7 +338,7 @@ export class MarketingCampaignRepository {
         throw new CampaignNotFoundException(campaignId);
       }
 
-      if (campaign.status === 'ARCHIVED') {
+      if (campaign.status === "ARCHIVED") {
         throw new Error(`Cannot add tasks to an archived campaign (ID: ${campaignId})`);
       }
 

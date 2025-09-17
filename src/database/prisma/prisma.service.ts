@@ -1,13 +1,13 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import { PrismaClient, Prisma } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from "@nestjs/common";
+import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { 
   UserNotFoundException, 
   UserAlreadyExistsException, 
   CampaignNotFoundException, 
   TaskNotFoundException, 
   InvalidStatusTransitionException 
-} from '../../common/exceptions';
+} from "../../common/exceptions";
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -17,9 +17,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // connect to the database during module initialization
     try {
       await this.$connect();
-      this.logger.log('Successfully connected to database');
+      this.logger.log("Successfully connected to database");
     } catch (error) {
-      this.logger.error('Failed to connect to database', error);
+      this.logger.error("Failed to connect to database", error);
       throw error;
     }
   }
@@ -28,9 +28,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // disconnect from the database when the application shuts down
     try {
       await this.$disconnect();
-      this.logger.log('Successfully disconnected from database');
+      this.logger.log("Successfully disconnected from database");
     } catch (error) {
-      this.logger.error('Failed to disconnect from database', error);
+      this.logger.error("Failed to disconnect from database", error);
     }
   }
 
@@ -62,35 +62,35 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       });
 
       switch (error.code) {
-        case 'P2002': // unique constraint conflict
+        case "P2002": // unique constraint conflict
           throw new UserAlreadyExistsException(
-            error.meta?.target ? String(error.meta.target) : 'unknown'
+            error.meta?.target ? String(error.meta.target) : "unknown"
           );
-        case 'P2025': // record not found: delete/update/find
-          if (error.meta?.modelName === 'Task') {
-            throw new TaskNotFoundException('unknown');
+        case "P2025": // record not found: delete/update/find
+          if (error.meta?.modelName === "Task") {
+            throw new TaskNotFoundException("unknown");
           }
-          if (error.meta?.modelName === 'MarketingCampaign') {
+          if (error.meta?.modelName === "MarketingCampaign") {
             if (
-              typeof context === 'string' &&
-              context.includes('create campaign') &&
-              context.includes('user')
+              typeof context === "string" &&
+              context.includes("create campaign") &&
+              context.includes("user")
             ) {
-              throw new UserNotFoundException('unknown');
+              throw new UserNotFoundException("unknown");
             }
-            throw new CampaignNotFoundException('unknown');
+            throw new CampaignNotFoundException("unknown");
           }
-          if (error.meta?.modelName === 'User') {
-            throw new UserNotFoundException('unknown');
+          if (error.meta?.modelName === "User") {
+            throw new UserNotFoundException("unknown");
           }
           // default UserNotFoundException
-          throw new UserNotFoundException('unknown');
-        case 'P2003': // foreign key constraint failure
-          if (typeof error.meta?.field_name === 'string' && error.meta.field_name.includes('campaignId')) {
-            throw new CampaignNotFoundException('unknown (referenced in task)');
+          throw new UserNotFoundException("unknown");
+        case "P2003": // foreign key constraint failure
+          if (typeof error.meta?.field_name === "string" && error.meta.field_name.includes("campaignId")) {
+            throw new CampaignNotFoundException("unknown (referenced in task)");
           }
-          if (typeof error.meta?.field_name === 'string' && error.meta.field_name.includes('userId')) {
-            throw new UserNotFoundException('unknown (referenced in campaign)');
+          if (typeof error.meta?.field_name === "string" && error.meta.field_name.includes("userId")) {
+            throw new UserNotFoundException("unknown (referenced in campaign)");
           }
           throw new Error(`Foreign key constraint failed: ${error.message}`);
         default:

@@ -1,14 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 import { 
   Task, 
   TaskStatus, 
   LLMInput, 
   LLMResult, 
   CampaignStatus
-} from '../../types/domain.types';
-import { TaskNotFoundException, CampaignNotFoundException } from '../../common/exceptions';
+} from "../../types/domain.types";
+import { TaskNotFoundException, CampaignNotFoundException } from "../../common/exceptions";
 
 // Define more specific types for method inputs
 type CreateTaskData = {
@@ -40,8 +40,8 @@ type ListTasksOptions = {
     };
   };
   orderBy?: Array<{
-    field: 'createdAt' | 'priority' | 'updatedAt';
-    direction: 'asc' | 'desc';
+    field: "createdAt" | "priority" | "updatedAt";
+    direction: "asc" | "desc";
   }>;
 
   includeCampaign?: boolean;
@@ -235,7 +235,7 @@ export class TaskRepository {
       skip = 0,
       take = 20,
       where = {},
-      orderBy = [{ field: 'createdAt', direction: 'desc' }],
+      orderBy = [{ field: "createdAt", direction: "desc" }],
       includeCampaign = true, // default not load campaign
     } = options;
 
@@ -258,7 +258,7 @@ export class TaskRepository {
         .filter(Boolean) as Task[];
 
     } catch (error) {
-      throw this.prisma.handlePrismaError(error, 'Failed to list tasks');
+      throw this.prisma.handlePrismaError(error, "Failed to list tasks");
     }
   }
 }
