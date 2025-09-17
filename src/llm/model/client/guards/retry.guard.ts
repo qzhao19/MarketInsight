@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 // Define default options in a constant for clarity
 const DEFAULT_RETRY_OPTIONS = {
@@ -10,7 +10,7 @@ const DEFAULT_RETRY_OPTIONS = {
   jitter: true,
 };
 
-export type RetryOptions = Partial<Omit<typeof DEFAULT_RETRY_OPTIONS, 'retryableErrors'> & { retryableErrors: RegExp[] }>;
+export type RetryOptions = Partial<Omit<typeof DEFAULT_RETRY_OPTIONS, "retryableErrors"> & { retryableErrors: RegExp[] }>;
 
 // Helper function for sleeping
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -81,6 +81,6 @@ export class RetryGuard {
         await sleep(delayMs);
       }
     }
-    throw new Error('Retry loop exited unexpectedly.');
+    throw new Error("Retry loop exited unexpectedly.");
   }
 }

@@ -1,13 +1,13 @@
-import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
-import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { AIMessageChunk } from '@langchain/core/messages';
-import { ChatOpenAICallOptions } from '@langchain/openai';
-import { HttpException, HttpStatus, Logger, Injectable } from '@nestjs/common';
+import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { AIMessageChunk } from "@langchain/core/messages";
+import { ChatOpenAICallOptions } from "@langchain/openai";
+import { HttpException, HttpStatus, Logger, Injectable } from "@nestjs/common";
 
-import { CircuitBreakerGuard } from './guards/circuit-breaker.guard';
-import { RateLimiterGuard } from './guards/rate-limiter.guard';
-import { RequestQueueGuard } from './guards/request-queue.guard';
-import { RetryGuard } from './guards/retry.guard';
+import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
+import { RateLimiterGuard } from "./guards/rate-limiter.guard";
+import { RequestQueueGuard } from "./guards/request-queue.guard";
+import { RetryGuard } from "./guards/retry.guard";
 
 interface ModelClientOptions {
   // model instance
@@ -42,7 +42,7 @@ export class ModelClient {
   private readonly model: BaseChatModel;
   private readonly circuitBreakerConfig: { resetTimeout: number; };
   private readonly rateLimiterConfig: { maxRequestsPerMinute: number; };
-  private readonly retryConfig: Required<ModelClientOptions['retryConfig']>;
+  private readonly retryConfig: Required<ModelClientOptions["retryConfig"]>;
   private readonly logger: Logger;
 
   constructor(
@@ -55,7 +55,7 @@ export class ModelClient {
     this.logger = new Logger(ModelClient.name);
 
     if (!config.model) {
-      const msg = 'ModelClient requires a "model" instance in its configuration.';
+      const msg = "ModelClient requires a 'model' instance in its configuration.";
       this.logger.error(msg);
       throw new Error(msg);
     }
@@ -92,7 +92,7 @@ export class ModelClient {
 
     // setup circuit breaker protection, pass fallback function during creation
     const breaker = this.circuitBreaker.getOrCreateBreaker(
-      `${(this.model as any)?.model ?? 'Unknown-model-name'}`,
+      `${(this.model as any)?.model ?? "Unknown-model-name"}`,
       async (currentInput: BaseLanguageModelInput) => this.model.invoke(currentInput, options),
       {
         resetTimeout: this.circuitBreakerConfig.resetTimeout,

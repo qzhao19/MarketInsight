@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { CircuitBreakerGuard } from './guards/circuit-breaker.guard';
-import { RateLimiterGuard } from './guards/rate-limiter.guard';
-import { RequestQueueGuard } from './guards/request-queue.guard';
-import { RetryGuard } from './guards/retry.guard';
-import { ModelClientService } from './client.service';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
+import { RateLimiterGuard } from "./guards/rate-limiter.guard";
+import { RequestQueueGuard } from "./guards/request-queue.guard";
+import { RetryGuard } from "./guards/retry.guard";
+import { ModelClientService } from "./client.service";
 
 @Module({
   imports: [ConfigModule],

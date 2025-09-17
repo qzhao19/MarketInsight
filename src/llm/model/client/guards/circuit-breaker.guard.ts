@@ -1,5 +1,5 @@
-import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
-import CircuitBreaker from 'opossum';
+import { Injectable, Logger, OnApplicationShutdown } from "@nestjs/common";
+import CircuitBreaker from "opossum";
 
 // Define a more specific type for the function passed to the breaker onApplicationShutdown
 type BreakerAction<T extends any[], R> = (...args: T) => Promise<R>;
@@ -19,7 +19,7 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
       rollingCountTimeout: 60000, // 1-minute statistics window
     };
     this.logger = new Logger(CircuitBreakerGuard.name);
-    this.logger.log('CircuitBreakerGuard initialized.');
+    this.logger.log("CircuitBreakerGuard initialized.");
   }
 
   /**
@@ -64,22 +64,22 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
    * Centralized event listener setup.
    */
   private setupEventListeners(breaker: CircuitBreaker, name: string): void {
-    breaker.on('open', () => this.logger.warn(`Circuit Breaker '${name}' has opened.`));
-    breaker.on('halfOpen', () => this.logger.log(`Circuit Breaker '${name}' is half-open.`));
-    breaker.on('close', () => this.logger.log(`Circuit Breaker '${name}' has closed.`));
-    breaker.on('fallback', (data) => this.logger.warn(`Circuit Breaker '${name}' fallback executed.`, data));
-    breaker.on('failure', (error) => this.logger.error(`Circuit Breaker '${name}' recorded a failure.`, error.stack));
+    breaker.on("open", () => this.logger.warn(`Circuit Breaker "${name}" has opened.`));
+    breaker.on("halfOpen", () => this.logger.log(`Circuit Breaker "${name}" is half-open.`));
+    breaker.on("close", () => this.logger.log(`Circuit Breaker "${name}" has closed.`));
+    breaker.on("fallback", (data) => this.logger.warn(`Circuit Breaker "${name}" fallback executed.`, data));
+    breaker.on("failure", (error) => this.logger.error(`Circuit Breaker "${name}" recorded a failure.`, error.stack));
   }
 
   /**
    * Gracefully shuts down all breakers on application shutdown.
    */
   onApplicationShutdown(signal?: string): void {
-    this.logger.log(`Shutting down all circuit breakers due to ${signal || 'application shutdown'}...`);
+    this.logger.log(`Shutting down all circuit breakers due to ${signal || "application shutdown"}...`);
     this.breakers.forEach((breaker, name) => {
       if (!breaker.isShutdown) {
         breaker.shutdown();
-        this.logger.log(`Circuit breaker '${name}' has been shut down.`);
+        this.logger.log(`Circuit breaker "${name}" has been shut down.`);
       }
     });
   }
