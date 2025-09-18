@@ -3,6 +3,8 @@ import { PrismaService } from "./prisma/prisma.service";
 import { MarketingCampaignRepository } from "./repositories/marketing-campaign.repository";
 import { UserRepository } from "./repositories/user.repository";
 import { TaskRepository } from "./repositories/task.repository";
+import { DatabaseService } from "./database.service";
+
 
 @Module({
   providers: [
@@ -10,11 +12,10 @@ import { TaskRepository } from "./repositories/task.repository";
     MarketingCampaignRepository,
     UserRepository,
     TaskRepository,
+    DatabaseService
   ],
   exports: [
-    MarketingCampaignRepository,
-    UserRepository,
-    TaskRepository,
+    DatabaseService
   ],
 })
 export class DatabaseModule {}
