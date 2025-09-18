@@ -1,8 +1,11 @@
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { StructuredOutputMethodOptions } from "@langchain/core/language_models/base";
+
 import { AIMessageChunk } from "@langchain/core/messages";
 import { ChatOpenAICallOptions } from "@langchain/openai";
 import { HttpException, HttpStatus, Logger, Injectable } from "@nestjs/common";
+import { z } from "zod";
 
 import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
 import { RateLimiterGuard } from "./guards/rate-limiter.guard";
@@ -44,7 +47,8 @@ export class ModelClient {
   private readonly rateLimiterConfig: { maxRequestsPerMinute: number; };
   private readonly retryConfig: Required<ModelClientOptions["retryConfig"]>;
   private readonly logger: Logger;
-
+  private readonly originalConfig: DeepPartial<ModelClientOptions>;
+  
   constructor(
     config: DeepPartial<ModelClientOptions>,
     private readonly circuitBreaker: CircuitBreakerGuard,
@@ -53,6 +57,7 @@ export class ModelClient {
     private readonly retry: RetryGuard,
   ) {
     this.logger = new Logger(ModelClient.name);
+    this.originalConfig = config;
 
     if (!config.model) {
       const msg = "ModelClient requires a 'model' instance in its configuration.";
@@ -83,6 +88,28 @@ export class ModelClient {
         config.retryConfig?.retryableErrors ?? []
       ).filter((x): x is RegExp => x instanceof RegExp),
     };
+  }
+
+  public withStructuredOutput<T extends z.ZodObject<any>>(
+    schema: T,
+    options?: StructuredOutputMethodOptions
+  ): ModelClient {
+
+    // Create the new structured model from the current model
+    const structuredModel = this.model.withStructuredOutput(schema, options);
+
+    const newConfig: DeepPartial<ModelClientOptions> = {
+      ...this.originalConfig,
+      model: structuredModel,
+    };
+
+    return new ModelClient(
+      newConfig,
+      this.circuitBreaker,
+      this.rateLimiter,
+      this.requestQueue,
+      this.retry
+    );
   }
 
   public async invoke(
