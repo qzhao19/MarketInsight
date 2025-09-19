@@ -24,7 +24,7 @@ export interface ResearchPlan {
 }
 
 
-export const ResearchState = Annotation.Root({
+export const MarketResearchState = Annotation.Root({
     
   /**
    * The original user input from user
@@ -43,14 +43,6 @@ export const ResearchState = Annotation.Root({
   researchPlan: Annotation<ResearchPlan | null>({
     reducer: (x, y) => y ?? x,
     default: () => null
-  }),
-
-  /**
-   * The list of tasks assigned to different analysts or roles in the workflow.
-   */
-  assignedTasks: Annotation<string[]>({
-    reducer: (x, y) => [...(x || []), ...(y || [])],
-    default: () => []
   }),
 
   /**
