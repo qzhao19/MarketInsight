@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { ModelService } from "../../model/model.service";
-import { MarketTrendsGraph } from "./graph"
-import { AnyRecord } from "./state"
+import { MarketTrendsGraph } from "./graph/graph"
+import { AnyRecord } from "./graph/state"
 
 @Injectable()
 export class MarketResearchService {
