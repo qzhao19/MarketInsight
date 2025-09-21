@@ -1,5 +1,5 @@
 import { END, START, StateGraph } from "@langchain/langgraph";
-import { planResearchTasks } from "./nodes/planning"
+import { planResearchTasks } from "./nodes"
 import { MarketResearchState } from "./state"
 
 // Build graph
