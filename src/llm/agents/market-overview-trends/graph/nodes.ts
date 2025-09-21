@@ -3,15 +3,15 @@ import {
 } from "@langchain/core/messages";
 // import { SerpAPI } from "@langchain/community/tools/serpapi";
 
-import { ResearchPlan, MarketResearchState } from "../state"
-import { createContextExtractionPrompt, createResearchPlanPrompt } from "../config/prompts";
-import { ResearchContextSchema, ResearchPlanSchema } from "../config/schemas"
+import { ResearchPlan, MarketResearchState } from "./state"
+import { createContextExtractionPrompt, createResearchPlanPrompt } from "./config/prompts";
+import { ResearchContextSchema, ResearchPlanSchema } from "./config/schemas"
 import { 
   alignStructureMessage,
   createDefaultResearchContext, 
   createDefaultResearchPlan, 
   validateAndEnrichContext 
-} from "../utils/index"
+} from "./utils/index"
 
 
 /**
@@ -76,7 +76,6 @@ export async function planResearchTasks(
       userContext: {
         ...state.userContext,
         ...researchContext,
-        planningTimestamp: new Date().toISOString()
       },
       nextStep: "execute_parallel_research",
     };
