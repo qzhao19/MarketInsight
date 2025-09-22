@@ -10,6 +10,7 @@ import {
   alignStructureMessage,
   createDefaultResearchContext, 
   createDefaultResearchPlan, 
+  createMacroAnalysisPrompt,
   validateAndEnrichContext 
 } from "./utils/index"
 
@@ -82,3 +83,47 @@ export async function planResearchTasks(
 };
 
 
+export async function macroAnalysisTask(
+  state: typeof MarketResearchState.State,
+  config: any
+): Promise<Partial<typeof MarketResearchState.State>> {
+  const model = config.configurable.model;
+  const { researchPlan } = state;
+
+  if (!researchPlan || !researchPlan.macroAnalysisParams) {
+    const errorMsg = "Macro analysis cannot proceed: researchPlan or macroAnalysisParams are missing from the state.";
+    console.error(errorMsg);
+    return {
+      macroAnalysisResult: {
+        error: errorMsg,
+        content: "Analysis failed due to missing input.",
+      }
+    };
+  }
+
+  try {
+    const analysisPrompt = createMacroAnalysisPrompt(researchPlan);
+    const response = await model.invoke(new HumanMessage(analysisPrompt));
+    const reportContent = typeof response.content === 'string' 
+      ? response.content 
+      : JSON.stringify(response.content);
+    
+    return {
+      macroAnalysisResult: {
+        content: reportContent,
+      }
+    };
+
+  } catch (error) {
+    const errorMsg = `Error during Macroeconomic Analysis: ${error instanceof Error ? error.message : String(error)}`;
+    console.error(errorMsg);
+    // Return an error state to be merged
+    return {
+      macroAnalysisResult: {
+        error: errorMsg,
+        content: "An error occurred while generating the analysis report.",
+      }
+    };
+  }
+
+}
