@@ -1,3 +1,5 @@
+import { ResearchPlan } from "../state";
+
 export function createDefaultResearchContext(userInput: string) {
 return {
   industry: userInput,
@@ -84,4 +86,25 @@ return {
 };
 };
 
+export function createMacroAnalysisPrompt(researchPlan: ResearchPlan): string {
+  const { industry, geographicScope, timeFrame, macroAnalysisParams } = researchPlan;
 
+  return `
+You are a senior market analyst. Your task is to conduct a macroeconomic analysis based on the provided research plan.
+
+**Research Context:**
+- **Industry/Product:** ${industry}
+- **Geographic Scope:** ${geographicScope}
+- **Time Frame:** Analyze from ${timeFrame.historical} to ${timeFrame.forecast}, with a focus on the current year (${timeFrame.current}).
+
+**Macroeconomic Research Parameters:**
+- **Key Questions to Address:**
+  - ${macroAnalysisParams.keyQuestions.join('\n  - ')}
+- **Suggested Search Angles (for your internal reference):**
+  - ${macroAnalysisParams.searchQueries.join('\n  - ')}
+- **Priority:** ${macroAnalysisParams.priority}
+
+**Your Task:**
+Generate a concise but comprehensive macroeconomic analysis report in Markdown format. The report should directly address the key questions listed above. Structure your report with clear headings and provide data-driven insights where possible.
+`;
+}
