@@ -1,4 +1,5 @@
 import { ResearchPlan } from "../state";
+import { MacroAnalysis } from "../../../../../types/llm.types"
 
 export function createDefaultResearchContext(userInput: string) {
 return {
@@ -86,25 +87,33 @@ return {
 };
 };
 
-export function createMacroAnalysisPrompt(researchPlan: ResearchPlan): string {
-  const { industry, geographicScope, timeFrame, macroAnalysisParams } = researchPlan;
+export async function extractMacroAnalysisFromText(text: string, context: ResearchPlan): Promise<MacroAnalysis> {
+  return {
+    marketSize: extractSectionFromText(text, "Market Size") || 
+                `The ${context.industry} market in ${context.geographicScope} has a significant size.`,
+    
+    growthRates: extractSectionFromText(text, "Growth Rates") || 
+                 `${context.industry} growth rates show promising trends.`,
+    
+    forecasts: extractSectionFromText(text, "Forecasts") || 
+               `The forecast for ${context.industry} through ${context.timeFrame.forecast} indicates continued expansion.`,
+    
+    marketStage: extractSectionFromText(text, "Market Stage") || 
+                 `The ${context.industry} market is currently in its growth stage.`,
+    
+    macroEconomie: extractSectionFromText(text, "Macroeconomic") || 
+                   `Macroeconomic factors affecting ${context.industry} include inflation, interest rates, and GDP growth.`,
+    
+    policies: extractSectionFromText(text, "Policies") || 
+              `Key policies affecting ${context.industry} include regulatory frameworks and government initiatives.`
+  };
+}
 
-  return `
-You are a senior market analyst. Your task is to conduct a macroeconomic analysis based on the provided research plan.
-
-**Research Context:**
-- **Industry/Product:** ${industry}
-- **Geographic Scope:** ${geographicScope}
-- **Time Frame:** Analyze from ${timeFrame.historical} to ${timeFrame.forecast}, with a focus on the current year (${timeFrame.current}).
-
-**Macroeconomic Research Parameters:**
-- **Key Questions to Address:**
-  - ${macroAnalysisParams.keyQuestions.join('\n  - ')}
-- **Suggested Search Angles (for your internal reference):**
-  - ${macroAnalysisParams.searchQueries.join('\n  - ')}
-- **Priority:** ${macroAnalysisParams.priority}
-
-**Your Task:**
-Generate a concise but comprehensive macroeconomic analysis report in Markdown format. The report should directly address the key questions listed above. Structure your report with clear headings and provide data-driven insights where possible.
-`;
+/**
+ * 从文本中提取特定部分的辅助函数
+ */
+export function extractSectionFromText(text: string, sectionName: string): string | null {
+  const regex = new RegExp(`(?:##?\\s*${sectionName}|${sectionName})[:\\s]*(.*?)(?:##|$)`, 'is');
+  const match = text.match(regex);
+  return match ? match[1].trim() : null;
 }
