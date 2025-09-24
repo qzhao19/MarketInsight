@@ -1,16 +1,19 @@
 import {
   HumanMessage,
 } from "@langchain/core/messages";
-// import { SerpAPI } from "@langchain/community/tools/serpapi";
+import { SerpAPI } from "@langchain/community/tools/serpapi";
 
 import { ResearchPlan, MarketResearchState } from "./state"
-import { createContextExtractionPrompt, createResearchPlanPrompt } from "./config/prompts";
+import { 
+  createContextExtractionPrompt, 
+  createResearchPlanPrompt,
+  createMacroAnalysisPrompt, 
+  createSynthesisPrompt } from "./config/prompts";
 import { ResearchContextSchema, ResearchPlanSchema } from "./config/schemas"
 import { 
   alignStructureMessage,
   createDefaultResearchContext, 
   createDefaultResearchPlan, 
-  createMacroAnalysisPrompt,
   validateAndEnrichContext 
 } from "./utils/index"
 
@@ -91,39 +94,60 @@ export async function macroAnalysisTask(
   const { researchPlan } = state;
 
   if (!researchPlan || !researchPlan.macroAnalysisParams) {
-    const errorMsg = "Macro analysis cannot proceed: researchPlan or macroAnalysisParams are missing from the state.";
-    console.error(errorMsg);
+    console.error("Macro analysis cannot proceed: researchPlan or macroAnalysisParams are missing from the state.");
     return {
-      macroAnalysisResult: {
-        error: errorMsg,
-        content: "Analysis failed due to missing input.",
-      }
+      macroAnalysisResult: "Error: Missing research plan or macro analysis parameters",
+      nextStep: "handle_error",
     };
   }
 
   try {
-    const analysisPrompt = createMacroAnalysisPrompt(researchPlan);
-    const response = await model.invoke(new HumanMessage(analysisPrompt));
-    const reportContent = typeof response.content === 'string' 
-      ? response.content 
-      : JSON.stringify(response.content);
+    // Optimizing search queries
+    const queryOptimizationPrompt = createMacroAnalysisPrompt(researchPlan);
+    const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
+    const optimizedQueries = optimizationResult.content.toString()
+      .split('\n')
+      .filter((query: string) => query.trim().length > 0)
+      .slice(0, 3); // Ensure we only get max 3 queries
+
+    // Execute SerpAPI search
+    console.log("Step 2: Executing searches...");
+    const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
+    const searchResults = [];
     
-    return {
-      macroAnalysisResult: {
-        content: reportContent,
+    for (const query of optimizedQueries) {
+      console.log(`Searching for: ${query}`);
+      try {
+        const result = await searchTool.invoke(query);
+        searchResults.push({
+          query,
+          result
+        });
+      } catch (error) {
+        console.warn(`Search failed for query "${query}": ${error}`);
       }
+    }
+    
+    if (searchResults.length === 0) {
+      throw new Error("All searches failed. Cannot proceed with analysis.");
+    }
+
+    // Synthesizing information
+    const synthesisPrompt = createSynthesisPrompt(researchPlan, searchResults);
+    const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
+    const researchBriefing = synthesisResult.content.toString();
+
+    return {
+      macroAnalysisResult: researchBriefing,
     };
 
   } catch (error) {
-    const errorMsg = `Error during Macroeconomic Analysis: ${error instanceof Error ? error.message : String(error)}`;
-    console.error(errorMsg);
-    // Return an error state to be merged
+    console.error(`Error during macroeconomic analysis: ${error instanceof Error ? error.message : String(error)}`);
     return {
-      macroAnalysisResult: {
-        error: errorMsg,
-        content: "An error occurred while generating the analysis report.",
-      }
+      macroAnalysisResult: `Error during analysis: ${error}`,
+      nextStep: "handle_error",
     };
   }
+  
 
 }
