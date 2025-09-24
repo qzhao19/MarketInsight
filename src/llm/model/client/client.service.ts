@@ -7,6 +7,7 @@ import { ChatOpenAICallOptions } from "@langchain/openai";
 import { HttpException, HttpStatus, Logger, Injectable } from "@nestjs/common";
 import { z } from "zod";
 
+import { ChatOpenAIToolType } from "../../../types/llm.types"
 import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
 import { RateLimiterGuard } from "./guards/rate-limiter.guard";
 import { RequestQueueGuard } from "./guards/request-queue.guard";
@@ -90,26 +91,68 @@ export class ModelClient {
     };
   }
 
+  public bindTools(
+    tools: ChatOpenAIToolType[], 
+    options?: ChatOpenAICallOptions
+  ): ModelClient {
+
+    try {
+      if (!this.model || typeof (this.model as any).bindTools !== 'function') {
+        const errorMsg = `Model does not support bindTools method: ${(this.model as any)?.model || 'unknown'}`;
+        this.logger.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      // Use type assertion to safely call bindTools
+      const modelWithTools = (this.model as any).bindTools(tools, options);
+
+      // Create a new config with the tools-enabled model
+      const newConfig: DeepPartial<ModelClientOptions> = {
+        ...this.originalConfig,
+        model: modelWithTools,
+      };
+
+      return new ModelClient(
+        newConfig,
+        this.circuitBreaker,
+        this.rateLimiter,
+        this.requestQueue,
+        this.retry
+      );
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to bind tools to model: ${errorMsg}`);
+      throw new Error(`Failed to bind tools to model: ${errorMsg}`);
+    }
+  }
+
   public withStructuredOutput<T extends z.ZodObject<any>>(
     schema: T,
     options?: StructuredOutputMethodOptions
   ): ModelClient {
 
-    // Create the new structured model from the current model
-    const structuredModel = this.model.withStructuredOutput(schema, options);
+    try {
+      // Create the new structured model from the current model
+      const structuredModel = this.model.withStructuredOutput(schema, options);
 
-    const newConfig: DeepPartial<ModelClientOptions> = {
-      ...this.originalConfig,
-      model: structuredModel,
-    };
+      const newConfig: DeepPartial<ModelClientOptions> = {
+        ...this.originalConfig,
+        model: structuredModel,
+      };
 
-    return new ModelClient(
-      newConfig,
-      this.circuitBreaker,
-      this.rateLimiter,
-      this.requestQueue,
-      this.retry
-    );
+      return new ModelClient(
+        newConfig,
+        this.circuitBreaker,
+        this.rateLimiter,
+        this.requestQueue,
+        this.retry
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to use withStructuredOutput to model: ${errorMsg}`);
+      throw new Error(`Failed to use withStructuredOutput to model: ${errorMsg}`);
+    }
   }
 
   public async invoke(
