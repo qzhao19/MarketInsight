@@ -62,23 +62,54 @@ export function createMacroAnalysisPrompt(researchPlan: ResearchPlan): string {
   const { industry, geographicScope, timeFrame, macroAnalysisParams } = researchPlan;
 
   return `
-    You are a senior market analyst. Your task is to conduct a macroeconomic analysis based on the provided research plan.
-
+    You are a search optimization expert specializing in market research.
+    
     **Research Context:**
     - **Industry/Product:** ${industry}
     - **Geographic Scope:** ${geographicScope}
-    - **Time Frame:** Analyze from ${timeFrame.historical} to ${timeFrame.forecast}, with a focus on the current year (${timeFrame.current}).
-
-    **Macroeconomic Research Parameters:**
-    - **Key Questions to Address:**
-      - ${macroAnalysisParams.keyQuestions.join('\n  - ')}
-    - **Suggested Search Angles (for your internal reference):**
-      - ${macroAnalysisParams.searchQueries.join('\n  - ')}
-    - **Priority:** ${macroAnalysisParams.priority}
-
-    **Your Task:**
-    Generate a concise but comprehensive macroeconomic analysis report. 
-    The report should directly address the key questions listed above. 
-    Structure your report with clear headings and provide data-driven insights where possible.
+    - **Time Frame:** ${timeFrame.historical} to ${timeFrame.forecast}, current year ${timeFrame.current}
+    
+    **Key Research Questions:**
+    ${macroAnalysisParams.keyQuestions.map(q => `- ${q}`).join('\n')}
+    
+    **Initial Search Queries:**
+    ${macroAnalysisParams.searchQueries.map(q => `- ${q}`).join('\n')}
+    
+    **Task:**
+    Consolidate and optimize these initial queries into 2-3 highly effective search queries that will:
+    1. Cover all key research questions
+    2. Minimize redundancy across searches
+    3. Use specific industry terminology for better results
+    4. Include geographic scope and relevant timeframes where appropriate
+    
+    **Output Format:**
+    Return ONLY the optimized search queries, exactly one per line, with no explanations, labels, or additional text.
   `;
 }
+
+type SearchResultItem = {
+  query: string;
+  result: string;
+};
+
+export function createSynthesisPrompt(
+  researchPlan: ResearchPlan,
+  searchResults: SearchResultItem[]
+): string {
+  const { industry, macroAnalysisParams } = researchPlan;
+
+  return `
+    You are a market research analyst specializing in ${industry}.
+    Based on the following search results, create a comprehensive research briefing that addresses these key questions:
+    ${macroAnalysisParams.keyQuestions.join("\n- ")}
+    
+    Search Results:
+    ${searchResults.map(item => 
+      `--- Query: ${item.query} ---\n${item.result}\n`
+    ).join("\n\n")}
+    
+    Create a well-structured, fact-based research briefing with relevant data, trends, and insights.
+  `;
+}
+
+
