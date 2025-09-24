@@ -1,5 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
-import { MacroAnalysis, SegmentationAnalysis, TrendAnalysis } from "../../../../types/llm.types"
+import { SegmentationAnalysis, TrendAnalysis } from "../../../../types/llm.types"
 
 export type AnyRecord = Record<string, any>;
 
@@ -47,12 +47,12 @@ export const MarketResearchState = Annotation.Root({
 
   /**
    * The result of the macro-level market analysis, such as market size, growth rate, forecasts, and stage.
+   * This is now a string containing the synthesized research briefing.
    */
-  macroAnalysisResult: Annotation<MacroAnalysis | null>({
-    reducer: (x, y) => y ?? null,
-    default: () => null
+  macroAnalysisResult: Annotation<string>({
+    reducer: (x, y) => y ?? x,
+    default: () => ""
   }),
-
 
   /**
    * The result of the market segmentation analysis, including breakdowns by product type, user group, or region.
