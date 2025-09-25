@@ -8,19 +8,22 @@ import {
   createContextExtractionPrompt, 
   createResearchPlanPrompt,
   createMacroAnalysisPrompt, 
-  createSynthesisPrompt } from "./config/prompts";
-import { ResearchContextSchema, ResearchPlanSchema } from "./config/schemas"
+  createMacroSynthesisPrompt,
+  createSegmentationSynthesisPrompt,
+  createTrendAnalysisPrompt,
+  createTrendSynthesisPrompt,
+  createSegmentationAnalysisPrompt,
+  createSynthesisAnalystPrompt 
+} from "./prompts";
+import { ResearchContextSchema, ResearchPlanSchema } from "./schemas"
 import { 
   alignStructureMessage,
   createDefaultResearchContext, 
   createDefaultResearchPlan, 
   validateAndEnrichContext 
-} from "./utils/index"
+} from "./utils"
 
 
-/**
- * 
- */
 export async function planResearchTasks(
   state: typeof MarketResearchState.State,
   config: any
@@ -97,7 +100,6 @@ export async function macroAnalysisTask(
     console.error("Macro analysis cannot proceed: researchPlan or macroAnalysisParams are missing from the state.");
     return {
       macroAnalysisResult: "Error: Missing research plan or macro analysis parameters",
-      nextStep: "handle_error",
     };
   }
 
@@ -111,29 +113,37 @@ export async function macroAnalysisTask(
       .slice(0, 3); // Ensure we only get max 3 queries
 
     // Execute SerpAPI search
-    console.log("Step 2: Executing searches...");
     const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
-    const searchResults = [];
-    
-    for (const query of optimizedQueries) {
-      console.log(`Searching for: ${query}`);
+    const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
         const result = await searchTool.invoke(query);
-        searchResults.push({
-          query,
-          result
-        });
+        return { query, result, success: true as const };
       } catch (error) {
-        console.warn(`Search failed for query "${query}": ${error}`);
+        return { query, error, success: false as const};
       }
-    }
-    
+    });
+
+    // Wait for all searches to complete
+    const results = await Promise.allSettled(searchPromises);
+
+    // Filter successed results
+    const successfulSearches = results
+      .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+      .map(result => result.value)
+      .filter(item => item.success);
+      
+    const searchResults = successfulSearches.map(item => ({
+      query: item.query,
+      result: item.result
+    }));
+
+
     if (searchResults.length === 0) {
       throw new Error("All searches failed. Cannot proceed with analysis.");
     }
 
     // Synthesizing information
-    const synthesisPrompt = createSynthesisPrompt(researchPlan, searchResults);
+    const synthesisPrompt = createMacroSynthesisPrompt(researchPlan, searchResults);
     const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
     const researchBriefing = synthesisResult.content.toString();
 
@@ -145,9 +155,185 @@ export async function macroAnalysisTask(
     console.error(`Error during macroeconomic analysis: ${error instanceof Error ? error.message : String(error)}`);
     return {
       macroAnalysisResult: `Error during analysis: ${error}`,
-      nextStep: "handle_error",
     };
   }
-  
+}
+
+
+export async function segmentationAnalysisTask(
+  state: typeof MarketResearchState.State,
+  config: any
+): Promise<Partial<typeof MarketResearchState.State>> {
+
+  // Get LLM model
+  const model = config.configurable.model;
+  const { researchPlan } = state;
+
+  if (!researchPlan || !researchPlan.segmentationAnalysisParams) {
+    console.error("Segmentation analysis cannot proceed: researchPlan or segmentationAnalysisParams are missing from the state.");
+    return {
+      segmentationAnalysisResult: "Error: Missing research plan or macro analysis parameters",
+    };
+  }
+
+  try {
+    const queryOptimizationPrompt = createSegmentationAnalysisPrompt(researchPlan);
+    const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
+    const optimizedQueries = optimizationResult.content.toString()
+      .split('\n')
+      .filter((query: string) => query.trim().length > 0)
+      .slice(0, 3);
+    
+    // Executing parallel searches
+    const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
+    const searchPromises = optimizedQueries.map(async (query: string) => {
+      try {
+        const result = await searchTool.invoke(query);
+        return { query, result, success: true as const };
+      } catch (error) {
+        return { query, error, success: false as const};
+      }
+    });
+
+    const results = await Promise.allSettled(searchPromises);
+
+    const successfulSearches = results
+      .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+      .map(result => result.value)
+      .filter(item => item.success);
+      
+    const searchResults = successfulSearches.map(item => ({
+      query: item.query,
+      result: item.result
+    }));
+
+    if (searchResults.length === 0) {
+      throw new Error("All segmentation searches failed. Cannot proceed with analysis.");
+    }
+
+    const synthesisPrompt = createSegmentationSynthesisPrompt(researchPlan, searchResults);
+    const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
+    const segmentationBriefing = synthesisResult.content.toString();
+
+    return {
+      segmentationAnalysisResult: segmentationBriefing,
+    };
+
+  } catch (error) {
+    console.error(`Error during segmentation analysis: ${error instanceof Error ? error.message : String(error)}`);
+    return {
+      segmentationAnalysisResult: `Error during segmentation analysis: ${error}`,
+    };
+  }
+}
+
+export async function trendAnalysisTask(
+  state: typeof MarketResearchState.State,
+  config: any
+): Promise<Partial<typeof MarketResearchState.State>> {
+  // Get LLM model
+  const model = config.configurable.model;
+  const { researchPlan } = state;
+
+  if (!researchPlan || !researchPlan.trendAnalysisParams) {
+    console.error("Market trend analysis cannot proceed: researchPlan or trendAnalysisParams are missing from the state.");
+    return {
+      trendAnalysisResult: "Error: Missing research plan or market trend analysis parameters",
+    };
+  }
+
+  try {
+    const queryOptimizationPrompt = createTrendAnalysisPrompt(researchPlan);
+    const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
+    const optimizedQueries = optimizationResult.content.toString()
+      .split('\n')
+      .filter((query: string) => query.trim().length > 0)
+      .slice(0, 3);
+    
+    const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
+    const searchPromises = optimizedQueries.map(async (query: string) => {
+      try {
+        const result = await searchTool.invoke(query);
+        return { query, result, success: true as const };
+      } catch (error) {
+        return { query, error, success: false as const};
+      }
+    });
+
+    const results = await Promise.allSettled(searchPromises);
+
+    const successfulSearches = results
+      .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+      .map(result => result.value)
+      .filter(item => item.success);
+      
+    const searchResults = successfulSearches.map(item => ({
+      query: item.query,
+      result: item.result
+    }));
+
+    if (searchResults.length === 0) {
+      throw new Error("All trend searches failed. Cannot proceed with analysis.");
+    }
+
+    const synthesisPrompt = createTrendSynthesisPrompt(researchPlan, searchResults);
+    const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
+    const trendBriefing = synthesisResult.content.toString();
+
+    return {
+      trendAnalysisResult: trendBriefing,
+    };
+
+  } catch (error) {
+    console.error(`Error during trend analysis: ${error instanceof Error ? error.message : String(error)}`);
+    return {
+      trendAnalysisResult: `Error during trend analysis: ${error}`,
+    };
+  }
+}
+
+export async function synthesisAnalystTask(
+  state: typeof MarketResearchState.State,
+  config: any
+): Promise<Partial<typeof MarketResearchState.State>> {
+
+  const model = config.configurable.model;
+  const { researchPlan, macroAnalysisResult, segmentationAnalysisResult, trendAnalysisResult } = state;
+
+  // Check necessary inputs 
+  if (!researchPlan) {
+    console.error("Report synthesis cannot proceed: Research plan is missing");
+    return {
+      draftReport: "Error: Missing research plan",
+    };
+  }
+
+  // Make sure that at least one result is available.
+  if (!macroAnalysisResult && !segmentationAnalysisResult && !trendAnalysisResult) {
+    console.error("Report synthesis cannot proceed: No analysis results available");
+    return {
+      draftReport: "Error: No analysis results available for synthesis",
+    };
+  }
+
+  try {
+    const synthesisPrompt = createSynthesisAnalystPrompt(state, researchPlan);
+
+    const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
+    const reportDraft = synthesisResult.content.toString();
+
+    return {
+      draftReport: reportDraft,
+    };
+
+  } catch (error) {
+    console.error(`Error during report synthesis: ${error instanceof Error ? error.message : String(error)}`);
+    return {
+      draftReport: `Error occurred during report synthesis: ${error}`,
+    };
+  }
+
 
 }
+
+
