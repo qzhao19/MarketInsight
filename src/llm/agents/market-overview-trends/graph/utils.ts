@@ -1,5 +1,21 @@
-import { ResearchPlan } from "../state";
-import { MacroAnalysis } from "../../../../../types/llm.types"
+export function alignStructureMessage<T>(
+  result: any, logPrefix: string = "data"
+): T {
+
+  if (typeof result === "object" && "content" in result) {
+    try {
+      const parsed = JSON.parse(result.content as string);
+      console.log(`Successfully parsed ${logPrefix} AIMessage content as JSON`);
+      return parsed as T;
+    } catch (error) {
+      console.warn(`Failed to parse ${logPrefix} AIMessage content as JSON:`, error);
+      throw new Error(`Failed to parse structured ${logPrefix}: ${result.content}`);
+    } 
+  } else {
+    console.log(`Successfully received structured ${logPrefix}`);
+    return result as T;
+  }
+}
 
 export function createDefaultResearchContext(userInput: string) {
 return {
@@ -86,34 +102,3 @@ return {
   complexity: parsedContext.complexity || "medium"
 };
 };
-
-export async function extractMacroAnalysisFromText(text: string, context: ResearchPlan): Promise<MacroAnalysis> {
-  return {
-    marketSize: extractSectionFromText(text, "Market Size") || 
-                `The ${context.industry} market in ${context.geographicScope} has a significant size.`,
-    
-    growthRates: extractSectionFromText(text, "Growth Rates") || 
-                 `${context.industry} growth rates show promising trends.`,
-    
-    forecasts: extractSectionFromText(text, "Forecasts") || 
-               `The forecast for ${context.industry} through ${context.timeFrame.forecast} indicates continued expansion.`,
-    
-    marketStage: extractSectionFromText(text, "Market Stage") || 
-                 `The ${context.industry} market is currently in its growth stage.`,
-    
-    macroEconomie: extractSectionFromText(text, "Macroeconomic") || 
-                   `Macroeconomic factors affecting ${context.industry} include inflation, interest rates, and GDP growth.`,
-    
-    policies: extractSectionFromText(text, "Policies") || 
-              `Key policies affecting ${context.industry} include regulatory frameworks and government initiatives.`
-  };
-}
-
-/**
- * 从文本中提取特定部分的辅助函数
- */
-export function extractSectionFromText(text: string, sectionName: string): string | null {
-  const regex = new RegExp(`(?:##?\\s*${sectionName}|${sectionName})[:\\s]*(.*?)(?:##|$)`, 'is');
-  const match = text.match(regex);
-  return match ? match[1].trim() : null;
-}
