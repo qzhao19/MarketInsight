@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { ModelService } from "../../model/model.service";
-import { MarketTrendsGraph } from "./graph/graph"
+import { MarketOverviewGraph } from "./graph/graph"
 import { AnyRecord } from "./graph/state"
 
 @Injectable()
 export class MarketResearchService {
   private readonly logger = new Logger(MarketResearchService.name);
-  private workflow: ReturnType<typeof MarketTrendsGraph.compile>;
+  private workflow: ReturnType<typeof MarketOverviewGraph.compile>;
 
   constructor(private readonly modelService: ModelService) {
-    this.workflow = MarketTrendsGraph.compile();
+    this.workflow = MarketOverviewGraph.compile();
     this.logger.log('Market research workflow compiled successfully');
   }
 
@@ -40,9 +40,9 @@ export class MarketResearchService {
       return { success: true, result };
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Market research workflow error: ${errorMessage}`);
-      return { success: false, error: errorMessage, };
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Market research workflow error: ${errorMsg}`);
+      return { success: false, error: errorMsg, };
     }
   }
 
