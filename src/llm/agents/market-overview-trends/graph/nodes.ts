@@ -2,6 +2,7 @@ import {
   HumanMessage,
 } from "@langchain/core/messages";
 import { SerpAPI } from "@langchain/community/tools/serpapi";
+import { Logger } from "@nestjs/common"; 
 
 import { ResearchPlan, MarketResearchState } from "./state"
 import { 
@@ -23,6 +24,8 @@ import {
   validateAndEnrichContext 
 } from "./utils"
 
+// Instantiate logger at the top of the file.
+const logger = new Logger('MarketResearchNodes');
 
 export async function planResearchTasks(
   state: typeof MarketResearchState.State,
@@ -45,7 +48,7 @@ export async function planResearchTasks(
 
     researchContext = alignStructureMessage<any>(result, "research context");
   } catch (error) {
-    console.warn("Failed to extract structured context:", error);
+    logger.warn("Failed to extract structured context:", error);
     researchContext = createDefaultResearchContext(state.userInput);
   }
 
@@ -66,7 +69,7 @@ export async function planResearchTasks(
     
     detailedPlan = alignStructureMessage<any>(result, "research plan");
   } catch (error) {
-    console.warn("Failed to generate structured research plan:", error);
+    logger.warn("Failed to generate structured research plan:", error);
     detailedPlan = createDefaultResearchPlan(researchContext);
   }
 
@@ -78,6 +81,7 @@ export async function planResearchTasks(
     trendAnalysisParams: detailedPlan.trend
   };
 
+  logger.log("Research plan created successfully.");
   return {
       researchPlan,
       userContext: {
@@ -97,7 +101,7 @@ export async function macroAnalysisTask(
   const { researchPlan } = state;
 
   if (!researchPlan || !researchPlan.macroAnalysisParams) {
-    console.error("Macro analysis cannot proceed: researchPlan or macroAnalysisParams are missing from the state.");
+    logger.error("Macro analysis cannot proceed: researchPlan or macroAnalysisParams are missing from the state.");
     return {
       macroAnalysisResult: "Error: Missing research plan or macro analysis parameters",
     };
@@ -105,6 +109,7 @@ export async function macroAnalysisTask(
 
   try {
     // Optimizing search queries
+    logger.log("Optimizing search queries for macro analysis.");
     const queryOptimizationPrompt = createMacroAnalysisPrompt(researchPlan);
     const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
     const optimizedQueries = optimizationResult.content.toString()
@@ -113,6 +118,7 @@ export async function macroAnalysisTask(
       .slice(0, 3); // Ensure we only get max 3 queries
 
     // Execute SerpAPI search
+    logger.log("Executing parallel searches for macro analysis.");
     const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
@@ -147,12 +153,13 @@ export async function macroAnalysisTask(
     const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
     const researchBriefing = synthesisResult.content.toString();
 
+    logger.log("Macroeconomic analysis completed successfully.");
     return {
       macroAnalysisResult: researchBriefing,
     };
 
   } catch (error) {
-    console.error(`Error during macroeconomic analysis: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Error during macroeconomic analysis: ${error instanceof Error ? error.message : String(error)}`);
     return {
       macroAnalysisResult: `Error during analysis: ${error}`,
     };
@@ -170,13 +177,14 @@ export async function segmentationAnalysisTask(
   const { researchPlan } = state;
 
   if (!researchPlan || !researchPlan.segmentationAnalysisParams) {
-    console.error("Segmentation analysis cannot proceed: researchPlan or segmentationAnalysisParams are missing from the state.");
+    logger.error("Segmentation analysis cannot proceed: researchPlan or segmentationAnalysisParams are missing from the state.");
     return {
       segmentationAnalysisResult: "Error: Missing research plan or macro analysis parameters",
     };
   }
 
   try {
+    logger.log("Optimizing search queries for segmentation analysis.");
     const queryOptimizationPrompt = createSegmentationAnalysisPrompt(researchPlan);
     const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
     const optimizedQueries = optimizationResult.content.toString()
@@ -185,6 +193,7 @@ export async function segmentationAnalysisTask(
       .slice(0, 3);
     
     // Executing parallel searches
+    logger.log("Executing parallel searches for segmentation analysis.");
     const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
@@ -215,12 +224,13 @@ export async function segmentationAnalysisTask(
     const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
     const segmentationBriefing = synthesisResult.content.toString();
 
+    logger.log("Segmentation analysis completed successfully.");
     return {
       segmentationAnalysisResult: segmentationBriefing,
     };
 
   } catch (error) {
-    console.error(`Error during segmentation analysis: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Error during segmentation analysis: ${error instanceof Error ? error.message : String(error)}`);
     return {
       segmentationAnalysisResult: `Error during segmentation analysis: ${error}`,
     };
@@ -236,13 +246,14 @@ export async function trendAnalysisTask(
   const { researchPlan } = state;
 
   if (!researchPlan || !researchPlan.trendAnalysisParams) {
-    console.error("Market trend analysis cannot proceed: researchPlan or trendAnalysisParams are missing from the state.");
+    logger.error("Market trend analysis cannot proceed: researchPlan or trendAnalysisParams are missing from the state.");
     return {
       trendAnalysisResult: "Error: Missing research plan or market trend analysis parameters",
     };
   }
 
   try {
+    logger.log("Optimizing search queries for trend analysis.");
     const queryOptimizationPrompt = createTrendAnalysisPrompt(researchPlan);
     const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
     const optimizedQueries = optimizationResult.content.toString()
@@ -250,6 +261,7 @@ export async function trendAnalysisTask(
       .filter((query: string) => query.trim().length > 0)
       .slice(0, 3);
     
+    logger.log("Executing parallel searches for trend analysis...");
     const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
@@ -261,7 +273,6 @@ export async function trendAnalysisTask(
     });
 
     const results = await Promise.allSettled(searchPromises);
-
     const successfulSearches = results
       .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
       .map(result => result.value)
@@ -280,12 +291,13 @@ export async function trendAnalysisTask(
     const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
     const trendBriefing = synthesisResult.content.toString();
 
+    logger.log("Trend analysis completed successfully.");
     return {
       trendAnalysisResult: trendBriefing,
     };
 
   } catch (error) {
-    console.error(`Error during trend analysis: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Error during trend analysis: ${error instanceof Error ? error.message : String(error)}`);
     return {
       trendAnalysisResult: `Error during trend analysis: ${error}`,
     };
@@ -302,7 +314,7 @@ export async function synthesisAnalystTask(
 
   // Check necessary inputs 
   if (!researchPlan) {
-    console.error("Report synthesis cannot proceed: Research plan is missing");
+    logger.error("Report synthesis cannot proceed: Research plan is missing");
     return {
       draftReport: "Error: Missing research plan",
     };
@@ -310,30 +322,29 @@ export async function synthesisAnalystTask(
 
   // Make sure that at least one result is available.
   if (!macroAnalysisResult && !segmentationAnalysisResult && !trendAnalysisResult) {
-    console.error("Report synthesis cannot proceed: No analysis results available");
+    logger.error("Report synthesis cannot proceed: No analysis results available");
     return {
       draftReport: "Error: No analysis results available for synthesis",
     };
   }
 
   try {
+    logger.log("Creating final synthesis prompt.");
     const synthesisPrompt = createSynthesisAnalystPrompt(state, researchPlan);
-
     const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
     const reportDraft = synthesisResult.content.toString();
 
+    logger.log("Final report draft generated successfully.");
     return {
       draftReport: reportDraft,
     };
 
   } catch (error) {
-    console.error(`Error during report synthesis: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Error during report synthesis: ${error instanceof Error ? error.message : String(error)}`);
     return {
       draftReport: `Error occurred during report synthesis: ${error}`,
     };
   }
-
-
 }
 
 
