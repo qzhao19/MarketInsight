@@ -88,7 +88,6 @@ export async function planResearchTasks(
         ...state.userContext,
         ...researchContext,
       },
-      nextStep: "execute_parallel_research",
     };
 };
 
@@ -179,7 +178,7 @@ export async function segmentationAnalysisTask(
   if (!researchPlan || !researchPlan.segmentationAnalysisParams) {
     logger.error("Segmentation analysis cannot proceed: researchPlan or segmentationAnalysisParams are missing from the state.");
     return {
-      segmentationAnalysisResult: "Error: Missing research plan or macro analysis parameters",
+      segmentationAnalysisResult: "Error: Missing research plan or segmentation analysis parameters",
     };
   }
 
@@ -261,7 +260,7 @@ export async function trendAnalysisTask(
       .filter((query: string) => query.trim().length > 0)
       .slice(0, 3);
     
-    logger.log("Executing parallel searches for trend analysis...");
+    logger.log("Executing parallel searches for trend analysis.");
     const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
@@ -330,7 +329,7 @@ export async function synthesisAnalystTask(
 
   try {
     logger.log("Creating final synthesis prompt.");
-    const synthesisPrompt = createSynthesisAnalystPrompt(state, researchPlan);
+    const synthesisPrompt = createSynthesisAnalystPrompt(state);
     const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
     const reportDraft = synthesisResult.content.toString();
 
