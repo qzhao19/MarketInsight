@@ -78,12 +78,4 @@ export const MarketResearchState = Annotation.Root({
     reducer: (x, y) => y ?? x,
     default: () => ""
   }),
-  /**
-   * The identifier or description of the next step in the research workflow.
-   */
-  nextStep: Annotation<string>({
-    reducer: (x, y) => y ?? x,
-    default: () => ""
-  }),
- 
 });
