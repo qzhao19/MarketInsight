@@ -7,23 +7,19 @@ import { ResearchPlan, MarketResearchState } from "./state";
  */
 export function createContextExtractionPrompt(userInput: string): string {
   return `
-    You are a seasoned market research expert. Please analyze the following market research requirements and extract key information.
+    As a market research expert, analyze the following research requirement and extract key information about the target market.
 
     User Requirement: "${userInput}"
 
-    Strictly return information in the following JSON format WITHOUT adding extra text:
-    {
-      "industry": "Target industry/product name",
-      "geographicScope": "Geographic scope (e.g., Global, China, North America)",
-      "timeFrame": {
-        "historical": "Historical analysis time period",
-        "current": "Current base year",
-        "forecast": "Forecast timeframe"
-      },
-      "specialFocus": ["Special focus points"],
-      "urgency": "high|medium|low",
-      "complexity": "high|medium|low"
-    }
+    Extract the following information:
+    - The specific industry or product being researched
+    - The geographic scope of the analysis (global, regional, or country-specific)
+    - Relevant timeframes (historical period, current year, and forecast period)
+    - Any special focus points or aspects of particular interest
+    - The apparent urgency level of the request (high, medium, or low)
+    - The complexity level of the analysis needed (high, medium, or low)
+
+    Your extraction should be comprehensive yet precise, inferring information where not explicitly stated using industry best practices.
   `;
 }
 
@@ -233,31 +229,30 @@ export function createTrendSynthesisPrompt(
 
 
 export function createSynthesisAnalystPrompt(
-  state: typeof MarketResearchState.State,
-  researchPlan: ResearchPlan,
+  state: typeof MarketResearchState.State
 ): string {
-  const { industry, geographicScope, timeFrame, specialFocus } = researchPlan;
+  const { macroAnalysisResult, segmentationAnalysisResult, trendAnalysisResult, researchPlan } = state;
 
   return `
     You are a senior market research analyst tasked with synthesizing separate analysis reports into a comprehensive market research report draft.
 
     ## Research Context
-    - Industry: ${industry}
-    - Geographic Scope: ${geographicScope}
-    - Time Period: ${timeFrame.historical} (historical) to ${timeFrame.forecast} (forecast)
-    - Current Year: ${timeFrame.current}
-    - Special Focus Areas: ${specialFocus.join(", ")}
+    - Industry: ${researchPlan?.industry ?? "N/A"}
+    - Geographic Scope: ${researchPlan?.geographicScope ?? "N/A"}
+    - Time Period: ${researchPlan?.timeFrame?.historical ?? "N/A"} (historical) to ${researchPlan?.timeFrame?.forecast ?? "N/A"} (forecast)
+    - Current Year: ${researchPlan?.timeFrame?.current ?? "N/A"}
+    - Special Focus Areas: ${researchPlan?.specialFocus?.join(", ") ?? "N/A"}
 
     ## Individual Analysis Reports
 
     ### 1. MACROECONOMIC ANALYSIS
-    ${state.macroAnalysisResult || "Macroeconomic analysis data unavailable."}
+    ${macroAnalysisResult || "Macroeconomic analysis data unavailable."}
 
     ### 2. MARKET SEGMENTATION ANALYSIS
-    ${state.segmentationAnalysisResult || "Market segmentation analysis data unavailable."}
+    ${segmentationAnalysisResult || "Market segmentation analysis data unavailable."}
 
     ### 3. MARKET TRENDS ANALYSIS
-    ${state.trendAnalysisResult || "Market trends analysis data unavailable."}
+    ${trendAnalysisResult || "Market trends analysis data unavailable."}
 
     ## Your Task
     Create a cohesive, well-structured market research report draft that integrates all the analysis above. The report should follow this structure:
@@ -279,11 +274,7 @@ export function createSynthesisAnalystPrompt(
         - Consumer Behavior Trends
         - Regulatory Trends
         - Growth Forecasts
-    6. Strategic Implications
-        - Opportunities
-        - Challenges
-        - Strategic Recommendations
-    7. Conclusion
+    6. Conclusion
 
     Ensure your report is fact-based, well-organized, and professionally written. Eliminate redundancies between sections and ensure a logical flow of information.
   `;
