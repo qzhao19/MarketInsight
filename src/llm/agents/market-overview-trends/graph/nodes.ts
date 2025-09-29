@@ -16,9 +16,12 @@ import {
   createSegmentationAnalysisPrompt,
   createSynthesisAnalystPrompt 
 } from "./prompts";
-import { ResearchContextSchema, ResearchPlanSchema } from "./schemas"
 import { 
-  alignStructureMessage,
+  ResearchContextSchema, 
+  ResearchPlanSchema, 
+  OptimizedQueriesSchema 
+} from "./schemas"
+import { 
   createDefaultResearchContext, 
   createDefaultResearchPlan, 
   validateAndEnrichContext 
@@ -42,11 +45,11 @@ export async function planResearchTasks(
       name: "ResearchContextExtraction"
     });
 
-    const result = await structuredContextModel.invoke(
+    researchContext = await structuredContextModel.invoke(
       new HumanMessage(contextExtractionPrompt)
     );
 
-    researchContext = alignStructureMessage<any>(result, "research context");
+    // researchContext = alignStructureMessage<any>(result, "research context");
   } catch (error) {
     logger.warn("Failed to extract structured context:", error);
     researchContext = createDefaultResearchContext(state.userInput);
@@ -63,11 +66,9 @@ export async function planResearchTasks(
       name: "ResearchPlanGeneration"
     });
     
-    const result = await structuredPlanModel.invoke(
+    detailedPlan = await structuredPlanModel.invoke(
       new HumanMessage(researchPlanPrompt)
     );
-    
-    detailedPlan = alignStructureMessage<any>(result, "research plan");
   } catch (error) {
     logger.warn("Failed to generate structured research plan:", error);
     detailedPlan = createDefaultResearchPlan(researchContext);
@@ -110,18 +111,32 @@ export async function macroAnalysisTask(
     // Optimizing search queries
     logger.log("Optimizing search queries for macro analysis.");
     const queryOptimizationPrompt = createMacroAnalysisPrompt(researchPlan);
-    const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
-    const optimizedQueries = optimizationResult.content.toString()
-      .split('\n')
-      .filter((query: string) => query.trim().length > 0)
-      .slice(0, 3); // Ensure we only get max 3 queries
+    // Call withStructuredOutput
+    const structuredQueryModel = model.withStructuredOutput(OptimizedQueriesSchema, {
+      name: "MacroQueryOptimization"
+    });
+    const optimizedQueryResult = await structuredQueryModel.invoke(
+      new HumanMessage(queryOptimizationPrompt)
+    );
+    const { searchQueries: optimizedQueries } = optimizedQueryResult;
+
+    if (!optimizedQueries || optimizedQueries.length === 0) {
+      throw new Error("No valid search queries generated, falling back to default queries");
+    }
 
     // Execute SerpAPI search
     logger.log("Executing parallel searches for macro analysis.");
     const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
-        const result = await searchTool.invoke(query);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Search timeout for: "${query}"`)), 15000)
+        );
+        
+        const result = await Promise.race([
+          searchTool.invoke(query),
+          timeoutPromise
+        ]);
         return { query, result, success: true as const };
       } catch (error) {
         return { query, error, success: false as const};
@@ -185,18 +200,29 @@ export async function segmentationAnalysisTask(
   try {
     logger.log("Optimizing search queries for segmentation analysis.");
     const queryOptimizationPrompt = createSegmentationAnalysisPrompt(researchPlan);
-    const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
-    const optimizedQueries = optimizationResult.content.toString()
-      .split('\n')
-      .filter((query: string) => query.trim().length > 0)
-      .slice(0, 3);
     
+    // Call model with withStructuredOutput method
+    const structuredQueryModel = model.withStructuredOutput(OptimizedQueriesSchema, {
+      name: "SegmentationQueryOptimization"
+    });
+    const optimizedQueryResult = await structuredQueryModel.invoke(
+      new HumanMessage(queryOptimizationPrompt)
+    );
+    const { searchQueries: optimizedQueries } = optimizedQueryResult;
+
     // Executing parallel searches
     logger.log("Executing parallel searches for segmentation analysis.");
     const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
-        const result = await searchTool.invoke(query);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Search timeout for: "${query}"`)), 15000)
+        );
+        
+        const result = await Promise.race([
+          searchTool.invoke(query),
+          timeoutPromise
+        ]);
         return { query, result, success: true as const };
       } catch (error) {
         return { query, error, success: false as const};
@@ -254,17 +280,28 @@ export async function trendAnalysisTask(
   try {
     logger.log("Optimizing search queries for trend analysis.");
     const queryOptimizationPrompt = createTrendAnalysisPrompt(researchPlan);
-    const optimizationResult = await model.invoke(new HumanMessage(queryOptimizationPrompt));
-    const optimizedQueries = optimizationResult.content.toString()
-      .split('\n')
-      .filter((query: string) => query.trim().length > 0)
-      .slice(0, 3);
+    
+    // Call model with withStructuredOutput method
+    const structuredQueryModel = model.withStructuredOutput(OptimizedQueriesSchema, {
+      name: "TrendAnalysisQueryOptimization"
+    });
+    const optimizedQueryResult = await structuredQueryModel.invoke(
+      new HumanMessage(queryOptimizationPrompt)
+    );
+    const { searchQueries: optimizedQueries } = optimizedQueryResult;
     
     logger.log("Executing parallel searches for trend analysis.");
     const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
-        const result = await searchTool.invoke(query);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Search timeout for: "${query}"`)), 15000)
+        );
+        
+        const result = await Promise.race([
+          searchTool.invoke(query),
+          timeoutPromise
+        ]);
         return { query, result, success: true as const };
       } catch (error) {
         return { query, error, success: false as const};
