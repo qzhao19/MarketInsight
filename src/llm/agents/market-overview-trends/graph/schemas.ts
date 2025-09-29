@@ -31,3 +31,8 @@ export const ResearchPlanSchema = z.object({
   })
 }).describe("Research plan with detailed analysis parameters");
 
+export const OptimizedQueriesSchema = z.object({
+  keyQuestions: z.array(z.string()).describe("Key questions that these queries aim to answer"),
+  searchQueries: z.array(z.string()).max(3).describe("Optimized search queries (maximum 3)"),
+  priority: z.enum(["high", "medium", "low"]).describe("Priority level for these queries")
+}).describe("Optimized search queries for market research");
