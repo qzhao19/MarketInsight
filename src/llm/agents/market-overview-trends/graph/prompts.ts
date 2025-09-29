@@ -58,7 +58,7 @@ export function createMacroAnalysisPrompt(researchPlan: ResearchPlan): string {
   const { industry, geographicScope, timeFrame, macroAnalysisParams } = researchPlan;
 
   return `
-    You are a search optimization expert specializing in market research.
+    You are a search optimization expert specializing in macroeconomic market research.
     
     **Research Context:**
     - **Industry/Product:** ${industry}
@@ -71,15 +71,19 @@ export function createMacroAnalysisPrompt(researchPlan: ResearchPlan): string {
     **Initial Search Queries:**
     ${macroAnalysisParams.searchQueries.map(q => `- ${q}`).join('\n')}
     
-    **Task:**
-    Consolidate and optimize these initial queries into 2-3 highly effective search queries that will:
-    1. Cover all key research questions
-    2. Minimize redundancy across searches
-    3. Use specific industry terminology for better results
-    4. Include geographic scope and relevant timeframes where appropriate
-    
-    **Output Format:**
-    Return ONLY the optimized search queries, exactly one per line, with no explanations, labels, or additional text.
+    **Your Task:**
+    Analyze the research questions and initial queries, then provide:
+
+    1. The most important key questions (4-5) that should be prioritized
+    2. Exactly 3 highly optimized search queries that will yield the best market research results
+    3. A priority level (high, medium, or low) for this research area
+
+    When creating your optimized queries:
+    - Make them specific and targeted
+    - Include relevant industry terminology
+    - Incorporate geographic scope when appropriate
+    - Add time parameters where relevant
+    - Ensure all queries together cover the most critical information needs
   `;
 }
 
@@ -108,12 +112,11 @@ export function createMacroSynthesisPrompt(
   `;
 }
 
-export function createSegmentationAnalysisPrompt(
-  researchPlan: ResearchPlan
-): string {
+export function createSegmentationAnalysisPrompt(researchPlan: ResearchPlan): string {
   const { industry, geographicScope, timeFrame, segmentationAnalysisParams } = researchPlan;
+  
   return `
-    You are a search optimization expert specializing in market research.
+    You are a search optimization expert specializing in market segmentation research.
     
     **Research Context:**
     - **Industry/Product:** ${industry}
@@ -126,15 +129,19 @@ export function createSegmentationAnalysisPrompt(
     **Initial Search Queries:**
     ${segmentationAnalysisParams.searchQueries.map(q => `- ${q}`).join('\n')}
     
-    **Task:**
-    Consolidate and optimize these initial queries into 2-3 highly effective search queries that will:
-    1. Cover all key market segmentation questions
-    2. Minimize redundancy across searches
-    3. Use specific industry terminology for better results
-    4. Include geographic scope and relevant timeframes where appropriate
-    
-    **Output Format:**
-    Return ONLY the optimized search queries, exactly one per line, with no explanations, labels, or additional text.
+    **Your Task:**
+    Analyze the segmentation questions and initial queries, then provide:
+
+    1. The most important key questions (4-5) about market segmentation that should be prioritized
+    2. Exactly 3 highly optimized search queries that will yield the best segmentation insights
+    3. A priority level (high, medium, or low) for this research area
+
+    When creating your optimized segmentation queries:
+    - Focus on customer segments, product categories, and market divisions
+    - Include industry-specific terminology for segments
+    - Incorporate geographic market segments when appropriate
+    - Target information about segment sizes, growth rates, and characteristics
+    - Ensure the queries together provide comprehensive segmentation coverage
   `;
 }
 
@@ -164,10 +171,9 @@ export function createSegmentationSynthesisPrompt(
   `;
 }
 
-export function createTrendAnalysisPrompt(
-  researchPlan: ResearchPlan
-): string {
+export function createTrendAnalysisPrompt(researchPlan: ResearchPlan): string {
   const { industry, geographicScope, timeFrame, trendAnalysisParams } = researchPlan;
+  
   return `
     You are a search optimization expert specializing in market trends research.
     
@@ -182,16 +188,19 @@ export function createTrendAnalysisPrompt(
     **Initial Search Queries:**
     ${trendAnalysisParams.searchQueries.map(q => `- ${q}`).join('\n')}
     
-    **Task:**
-    Consolidate and optimize these initial queries into 2-3 highly effective search queries that will:
-    1. Cover all key market trend questions
-    2. Minimize redundancy across searches
-    3. Focus on emerging trends, innovations, and future developments
-    4. Include appropriate time markers (e.g., "upcoming", "future", "emerging", "2024-2025")
-    5. Use specific industry terminology for better results
-    
-    **Output Format:**
-    Return ONLY the optimized search queries, exactly one per line, with no explanations, labels, or additional text.
+    **Your Task:**
+    Analyze the trend-related questions and initial queries, then provide:
+
+    1. The most important key questions (4-5) about market trends that should be prioritized
+    2. Exactly 3 highly optimized search queries that will yield the best trend insights
+    3. A priority level (high, medium, or low) for this research area
+
+    When creating your optimized trend queries:
+    - Focus on emerging technologies, changing consumer behaviors, and future developments
+    - Include timeframe indicators (e.g., "emerging", "future", "${timeFrame.forecast}")
+    - Use specific industry terminology related to innovation and change
+    - Target information about growth trajectories and market evolution
+    - Ensure the queries together capture the most important trend information
   `;
 }
 
