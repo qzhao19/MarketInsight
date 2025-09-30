@@ -160,9 +160,14 @@ export class ModelClient {
     options?: ChatOpenAICallOptions
   ): Promise<AIMessageChunk> {
 
+    // Get model name
+    const modelName = ((this.model as any)?.model || 
+                     (this.model as any)?.modelName || 
+                     "model").toString();
+    
     // setup circuit breaker protection, pass fallback function during creation
     const breaker = this.circuitBreaker.getOrCreateBreaker(
-      `${(this.model as any)?.model ?? "Unknown-model-name"}`,
+      modelName,
       async (currentInput: BaseLanguageModelInput) => this.model.invoke(currentInput, options),
       {
         resetTimeout: this.circuitBreakerConfig.resetTimeout,
