@@ -49,7 +49,6 @@ export async function planResearchTasks(
       new HumanMessage(contextExtractionPrompt)
     );
 
-    // researchContext = alignStructureMessage<any>(result, "research context");
   } catch (error) {
     logger.warn("Failed to extract structured context:", error);
     researchContext = createDefaultResearchContext(state.userInput);
