@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ModelModule } from "./llm/model/model.module";
+import { AgentModule } from "./llm/agents/agent.module";
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { ModelModule } from "./llm/model/model.module";
       expandVariables: true,
     }),
     ModelModule,
+    AgentModule,
   ],
   controllers: [], 
   providers: [],
