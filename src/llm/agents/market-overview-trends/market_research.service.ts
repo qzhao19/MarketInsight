@@ -25,10 +25,14 @@ export class MarketResearchService {
 
     const { userContext = {}, modelName = "deepseek-chat", temperature = 0 } = options;
     try {
-      const model = this.modelService.getDeepSeekGuardModel({
+      const model = await this.modelService.getDeepSeekGuardModel({
         model: modelName,
         temperature,
       });
+
+      if (!model) {
+        throw new Error("Failed to initialize model");
+      }
 
       const initialState = {
         userInput,
@@ -36,7 +40,7 @@ export class MarketResearchService {
       };
 
       const config = { configurable: { model } };
-      const result = this.workflow.invoke(initialState, config);
+      const result = await this.workflow.invoke(initialState, config);
       return { success: true, result };
 
     } catch (error) {
