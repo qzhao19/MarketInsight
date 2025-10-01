@@ -46,7 +46,7 @@ export async function planResearchTasks(
     });
 
     researchContext = await structuredContextModel.invoke(
-      new HumanMessage(contextExtractionPrompt)
+      contextExtractionPrompt
     );
 
   } catch (error) {
@@ -66,7 +66,7 @@ export async function planResearchTasks(
     });
     
     detailedPlan = await structuredPlanModel.invoke(
-      new HumanMessage(researchPlanPrompt)
+      researchPlanPrompt
     );
   } catch (error) {
     logger.warn("Failed to generate structured research plan:", error);
@@ -115,7 +115,7 @@ export async function macroAnalysisTask(
       name: "MacroQueryOptimization"
     });
     const optimizedQueryResult = await structuredQueryModel.invoke(
-      new HumanMessage(queryOptimizationPrompt)
+      queryOptimizationPrompt
     );
     const { searchQueries: optimizedQueries } = optimizedQueryResult;
 
@@ -163,7 +163,7 @@ export async function macroAnalysisTask(
 
     // Synthesizing information
     const synthesisPrompt = createMacroSynthesisPrompt(researchPlan, searchResults);
-    const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
+    const synthesisResult = await model.invoke(synthesisPrompt);
     const researchBriefing = synthesisResult.content.toString();
 
     logger.log("Macroeconomic analysis completed successfully.");
@@ -205,7 +205,7 @@ export async function segmentationAnalysisTask(
       name: "SegmentationQueryOptimization"
     });
     const optimizedQueryResult = await structuredQueryModel.invoke(
-      new HumanMessage(queryOptimizationPrompt)
+      queryOptimizationPrompt
     );
     const { searchQueries: optimizedQueries } = optimizedQueryResult;
 
@@ -245,7 +245,7 @@ export async function segmentationAnalysisTask(
     }
 
     const synthesisPrompt = createSegmentationSynthesisPrompt(researchPlan, searchResults);
-    const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
+    const synthesisResult = await model.invoke(synthesisPrompt);
     const segmentationBriefing = synthesisResult.content.toString();
 
     logger.log("Segmentation analysis completed successfully.");
@@ -285,7 +285,7 @@ export async function trendAnalysisTask(
       name: "TrendAnalysisQueryOptimization"
     });
     const optimizedQueryResult = await structuredQueryModel.invoke(
-      new HumanMessage(queryOptimizationPrompt)
+      queryOptimizationPrompt
     );
     const { searchQueries: optimizedQueries } = optimizedQueryResult;
     
@@ -366,7 +366,7 @@ export async function synthesisAnalystTask(
   try {
     logger.log("Creating final synthesis prompt.");
     const synthesisPrompt = createSynthesisAnalystPrompt(state);
-    const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
+    const synthesisResult = await model.invoke(synthesisPrompt);
     const reportDraft = synthesisResult.content.toString();
 
     logger.log("Final report draft generated successfully.");
