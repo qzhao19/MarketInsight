@@ -168,7 +168,10 @@ export class ModelClient {
     // setup circuit breaker protection, pass fallback function during creation
     const breaker = this.circuitBreaker.getOrCreateBreaker(
       modelName,
-      async (currentInput: BaseLanguageModelInput) => this.model.invoke(currentInput, options),
+      async (
+        currentInput: BaseLanguageModelInput, 
+        currentOptions?: ChatOpenAICallOptions
+      ) => this.model.invoke(currentInput, currentOptions),
       {
         resetTimeout: this.circuitBreakerConfig.resetTimeout,
       },
@@ -185,7 +188,8 @@ export class ModelClient {
     // push request to queue
     return this.requestQueue.enqueue(async () => {
       return this.retry.exponentialBackoff(
-        () => breaker.fire(input) as Promise<AIMessageChunk>,
+        // Pass input and options to breaker.fire
+        () => breaker.fire(input, options) as Promise<AIMessageChunk>,
         this.retryConfig,
       );
     });
