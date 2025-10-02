@@ -38,6 +38,7 @@ export class RateLimiterGuard {
         this.tokenBucket + tokensToAdd,
       );
       this.lastRefillTimestamp = now;
+      this.logger.debug(`Refilled tokens. Current: ${this.tokenBucket.toFixed(2)}`);
     }
   }
 
@@ -46,27 +47,39 @@ export class RateLimiterGuard {
    */
   private async processQueue(): Promise<void> {
     if (this.isProcessing || this.waitingQueue.length === 0) {
+      this.logger.debug('Queue processing already in progress, skipping');
       return;
     }
     this.isProcessing = true;
 
-    while (this.waitingQueue.length > 0) {
-      this.refillTokens();
+    try {
+      while (this.waitingQueue.length > 0) {
+        this.refillTokens();
 
-      if (this.tokenBucket >= 1) {
-        this.tokenBucket -= 1;
-        const nextResolver = this.waitingQueue.shift();
-        nextResolver?.(); // Resolve the promise of the waiting request
-      } else {
-        // Not enough tokens, calculate wait time and pause
-        const deficit = 1 - this.tokenBucket;
-        const waitTimeMs = Math.ceil((deficit / this.refillRatePerSecond) * 1000);
-        this.logger.debug(`No tokens. Waiting for ${waitTimeMs}ms.`);
-        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+        if (this.tokenBucket >= 1) {
+          this.tokenBucket -= 1;
+          const nextResolver = this.waitingQueue.shift();
+          nextResolver?.(); // Resolve the promise of the waiting request
+        } else {
+          // Not enough tokens, calculate wait time and pause
+          const deficit = 1 - this.tokenBucket;
+          const waitTimeMs = Math.ceil((deficit / this.refillRatePerSecond) * 1000);
+          this.logger.debug(`No tokens. Waiting for ${waitTimeMs}ms.`);
+          await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+        }
       }
+    } catch (error) {
+      this.logger.error('Error in queue processing:', error);
+      // When an error happened, release all pending requests to prevent suspension.
+      while (this.waitingQueue.length > 0) {
+        const resolver = this.waitingQueue.shift();
+        if (resolver) {
+          resolver();
+        }
+      }
+    } finally {
+      this.isProcessing = false;
     }
-
-    this.isProcessing = false;
   }
 
   /**
@@ -74,9 +87,21 @@ export class RateLimiterGuard {
    * @returns A promise that resolves when a token has been acquired.
    */
   public async acquire(): Promise<void> {
-    return new Promise<void>((resolve) => {
+    const acquirePromise = new Promise<void>((resolve) => {
       this.waitingQueue.push(resolve);
-      this.processQueue();
+      this.logger.debug(
+        `Request queued. Queue length: ${this.waitingQueue.length}, ` +
+        `Available tokens: ${this.tokenBucket.toFixed(2)}`
+      );
     });
+
+    // Use setTimeout to ensure this is asyn
+    setTimeout(() => {
+      this.processQueue().catch(error => {
+        this.logger.error(`Queue processing error: ${error}`);
+      });
+    }, 0);
+
+    return acquirePromise;
   }
 }
