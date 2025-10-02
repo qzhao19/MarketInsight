@@ -26,20 +26,28 @@ export class RequestQueueGuard {
     // Use a while loop to fill all available concurrent slots in one go.
     while (this.queue.length > 0 && this.activeCount < this.maxConcurrent) {
       const item = this.queue.shift()!; // Non-null assertion is safe due to the loop condition.
+      const startTime = Date.now();
       this.activeCount++;
-
       this.logger.debug(`Processing task. Active: ${this.activeCount}, Queue: ${this.queue.length}`);
 
       item.func()
-        .then(item.resolve)
-        .catch(item.reject)
+        .then((result) => {
+          const duration = Date.now() - startTime;
+          this.logger.debug(`Task completed successfully in ${duration}ms`);
+          item.resolve(result);
+        })
+        .catch((error) => {
+          const duration = Date.now() - startTime;
+          this.logger.error(`Task failed after ${duration}ms: ${error.message}`);
+          item.reject(error);
+        })
         .finally(() => {
           this.activeCount--;
           this.logger.debug(`Task finished. Active: ${this.activeCount}, Queue: ${this.queue.length}`);
           // A slot has been freed, so try to process the next item in the queue.
-          this.processQueue();
-        }
-      );
+          setImmediate(() => this.processQueue());
+        })
+
     }
   }
 
