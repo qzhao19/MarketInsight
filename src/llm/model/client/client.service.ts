@@ -91,6 +91,10 @@ export class ModelClient {
     };
   }
 
+  public getUnderlyingModel(): BaseChatModel {
+    return this.model;
+  }
+
   public bindTools(
     tools: ChatOpenAIToolType[], 
     options?: ChatOpenAICallOptions
@@ -164,7 +168,8 @@ export class ModelClient {
     const modelName = ((this.model as any)?.model || 
                      (this.model as any)?.modelName || 
                      "model").toString();
-    
+    this.logger.debug(`Invoking model ${modelName} with input type: ${typeof input}`);
+
     // setup circuit breaker protection, pass fallback function during creation
     const breaker = this.circuitBreaker.getOrCreateBreaker(
       modelName,
@@ -181,7 +186,6 @@ export class ModelClient {
         throw new HttpException(msg, HttpStatus.SERVICE_UNAVAILABLE);
       },
     );
-
     // setup rate limit control, await the acquire promise
     await this.rateLimiter.acquire();
 
