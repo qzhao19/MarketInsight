@@ -38,11 +38,16 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
     fallbackFunc?: (...args: any[]) => any,
   ): CircuitBreaker {
     // Check if a breaker with this name already exists
-    if (this.breakers.has(name)) {
-      return this.breakers.get(name)!;
-    }
+    const existingBreaker = this.breakers.get(name);
+    if (existingBreaker) {
+    this.logger.debug(
+      `Reusing existing circuit breaker "${name}". ` +
+      `Note: Any new func/fallback/options will be ignored.`
+    );
+    return existingBreaker;
+  }
 
-    // If not, create a new one
+    // If not, create a new breaker
     const mergedOptions = { ...this.defaultOptions, ...options, name };
     const breaker = new CircuitBreaker(func, mergedOptions);
 
