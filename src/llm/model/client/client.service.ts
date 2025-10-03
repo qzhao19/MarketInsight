@@ -49,7 +49,8 @@ export class ModelClient {
   private readonly retryConfig: Required<ModelClientOptions["retryConfig"]>;
   private readonly logger: Logger;
   private readonly originalConfig: DeepPartial<ModelClientOptions>;
-  
+  private readonly instanceId: string;
+
   constructor(
     config: DeepPartial<ModelClientOptions>,
     private readonly circuitBreaker: CircuitBreakerGuard,
@@ -59,6 +60,8 @@ export class ModelClient {
   ) {
     this.logger = new Logger(ModelClient.name);
     this.originalConfig = config;
+
+    this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     if (!config.model) {
       const msg = "ModelClient requires a 'model' instance in its configuration.";
@@ -165,14 +168,15 @@ export class ModelClient {
   ): Promise<AIMessageChunk> {
 
     // Get model name
-    const modelName = ((this.model as any)?.model || 
+    const baseModelName = ((this.model as any)?.model || 
                      (this.model as any)?.modelName || 
                      "model").toString();
-    this.logger.debug(`Invoking model ${modelName} with input type: ${typeof input}`);
+    const uniqueBreakerName = `${baseModelName}-${this.instanceId}`;
+    this.logger.debug(`Invoking model ${uniqueBreakerName} with input type: ${typeof input}`);
 
     // setup circuit breaker protection, pass fallback function during creation
     const breaker = this.circuitBreaker.getOrCreateBreaker(
-      modelName,
+      uniqueBreakerName,
       async (
         currentInput: BaseLanguageModelInput, 
         currentOptions?: ChatOpenAICallOptions
@@ -180,8 +184,9 @@ export class ModelClient {
       {
         resetTimeout: this.circuitBreakerConfig.resetTimeout,
       },
-      () => {
-        const msg = `${(this.model as any)?.model} service is temporarily unavailable`;
+      (error) => {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const msg = `Model service "${baseModelName}" (${uniqueBreakerName}) is temporarily unavailable. Reason: ${errorMsg}`;
         this.logger.error(msg);
         throw new HttpException(msg, HttpStatus.SERVICE_UNAVAILABLE);
       },
