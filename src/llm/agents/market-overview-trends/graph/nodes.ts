@@ -19,7 +19,7 @@ import {
 import { 
   ResearchContextSchema, 
   ResearchPlanSchema, 
-  OptimizedQueriesSchema 
+  ResearchQueriesSchema 
 } from "./schemas"
 import { 
   createDefaultResearchContext, 
@@ -68,6 +68,7 @@ export async function planResearchTasks(
     detailedPlan = await structuredPlanModel.invoke(
       researchPlanPrompt
     );
+    
   } catch (error) {
     logger.warn("Failed to generate structured research plan:", error);
     detailedPlan = createDefaultResearchPlan(researchContext);
@@ -81,7 +82,6 @@ export async function planResearchTasks(
     trendAnalysisParams: detailedPlan.trend
   };
 
-  logger.log("Research plan created successfully.");
   return {
       researchPlan,
       userContext: {
@@ -111,7 +111,7 @@ export async function macroAnalysisTask(
     logger.log("Optimizing search queries for macro analysis.");
     const queryOptimizationPrompt = createMacroAnalysisPrompt(researchPlan);
     // Call withStructuredOutput
-    const structuredQueryModel = model.withStructuredOutput(OptimizedQueriesSchema, {
+    const structuredQueryModel = model.withStructuredOutput(ResearchQueriesSchema, {
       name: "MacroQueryOptimization"
     });
     const optimizedQueryResult = await structuredQueryModel.invoke(
@@ -201,7 +201,7 @@ export async function segmentationAnalysisTask(
     const queryOptimizationPrompt = createSegmentationAnalysisPrompt(researchPlan);
     
     // Call model with withStructuredOutput method
-    const structuredQueryModel = model.withStructuredOutput(OptimizedQueriesSchema, {
+    const structuredQueryModel = model.withStructuredOutput(ResearchQueriesSchema, {
       name: "SegmentationQueryOptimization"
     });
     const optimizedQueryResult = await structuredQueryModel.invoke(
@@ -281,7 +281,7 @@ export async function trendAnalysisTask(
     const queryOptimizationPrompt = createTrendAnalysisPrompt(researchPlan);
     
     // Call model with withStructuredOutput method
-    const structuredQueryModel = model.withStructuredOutput(OptimizedQueriesSchema, {
+    const structuredQueryModel = model.withStructuredOutput(ResearchQueriesSchema, {
       name: "TrendAnalysisQueryOptimization"
     });
     const optimizedQueryResult = await structuredQueryModel.invoke(
