@@ -33,7 +33,12 @@ export function createResearchPlanPrompt(researchContext: any): string {
     Research Scope: ${researchContext.geographicScope}
     Time Frame: ${researchContext.timeFrame.historical} → ${researchContext.timeFrame.current} → ${researchContext.timeFrame.forecast}
     
-    Generate specific research parameters for each research direction and return them in JSON format:
+    CRITICAL INSTRUCTIONS:
+    You MUST return ONLY a valid JSON object with EXACTLY these three keys: "macro", "segmentation", and "trend".
+    DO NOT include any explanatory text or analysis outside the JSON object.
+    DO NOT include fields like "industry", "geographicScope", "timeFrame" or other metadata.
+    
+    Required JSON format:
     {
       "macro": {
         "keyQuestions": ["Question1", "Question2", ...],
@@ -46,11 +51,16 @@ export function createResearchPlanPrompt(researchContext: any): string {
         "priority": "high|medium|low"
       },
       "trend": {
-        "keyQuestions": ["Question 1", "Question 2", ...],
-        "searchQueries": ["Query 1", "Query 2", ...],
+        "keyQuestions": ["Question1", "Question2", ...],
+        "searchQueries": ["Query1", "Query2", ...],
         "priority": "high|medium|low"
       }
     }
+    
+    For each section:
+    - Include 3-5 specific research questions
+    - Include 3-5 search queries that would provide answers
+    - Assign a priority level (high/medium/low)
   `;
 }
 
@@ -74,7 +84,7 @@ export function createMacroAnalysisPrompt(researchPlan: ResearchPlan): string {
     **Your Task:**
     Analyze the research questions and initial queries, then provide:
 
-    1. The most important key questions (4-5) that should be prioritized
+    1. The most important key questions (3-5) that should be prioritized
     2. Exactly 3 highly optimized search queries that will yield the best market research results
     3. A priority level (high, medium, or low) for this research area
 
@@ -132,7 +142,7 @@ export function createSegmentationAnalysisPrompt(researchPlan: ResearchPlan): st
     **Your Task:**
     Analyze the segmentation questions and initial queries, then provide:
 
-    1. The most important key questions (4-5) about market segmentation that should be prioritized
+    1. The most important key questions (3-5) about market segmentation that should be prioritized
     2. Exactly 3 highly optimized search queries that will yield the best segmentation insights
     3. A priority level (high, medium, or low) for this research area
 
@@ -191,7 +201,7 @@ export function createTrendAnalysisPrompt(researchPlan: ResearchPlan): string {
     **Your Task:**
     Analyze the trend-related questions and initial queries, then provide:
 
-    1. The most important key questions (4-5) about market trends that should be prioritized
+    1. The most important key questions (3-5) about market trends that should be prioritized
     2. Exactly 3 highly optimized search queries that will yield the best trend insights
     3. A priority level (high, medium, or low) for this research area
 
