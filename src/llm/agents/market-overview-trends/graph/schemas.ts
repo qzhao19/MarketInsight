@@ -13,26 +13,15 @@ export const ResearchContextSchema = z.object({
   complexity: z.enum(["high", "medium", "low"]).describe("Complexity level")
 }).describe("Market research context information");
 
-export const ResearchPlanSchema = z.object({
-  macro: z.object({
-    keyQuestions: z.array(z.string()).describe("Key questions for macro analysis"),
-    searchQueries: z.array(z.string()).describe("Search queries for macro research"),
-    priority: z.enum(["high", "medium", "low"]).describe("Priority level")
-  }),
-  segmentation: z.object({
-    keyQuestions: z.array(z.string()).describe("Key questions for market segmentation"),
-    searchQueries: z.array(z.string()).describe("Search queries for segmentation research"),
-    priority: z.enum(["high", "medium", "low"]).describe("Priority level")
-  }),
-  trend: z.object({
-    keyQuestions: z.array(z.string()).describe("Key questions for trend analysis"),
-    searchQueries: z.array(z.string()).describe("Search queries for trend research"),
-    priority: z.enum(["high", "medium", "low"]).describe("Priority level")
-  })
-}).describe("Research plan with detailed analysis parameters");
-
-export const OptimizedQueriesSchema = z.object({
-  keyQuestions: z.array(z.string()).describe("Key questions that these queries aim to answer"),
-  searchQueries: z.array(z.string()).max(3).describe("Optimized search queries (maximum 3)"),
+export const ResearchQueriesSchema = z.object({
+  keyQuestions: z.array(z.string()).min(3).max(5).describe("Key questions that these queries aim to answer"),
+  searchQueries: z.array(z.string()).min(3).max(5).describe("Optimized search queries (maximum 5)"),
   priority: z.enum(["high", "medium", "low"]).describe("Priority level for these queries")
 }).describe("Optimized search queries for market research");
+
+export const ResearchPlanSchema = z.object({
+  macro: ResearchQueriesSchema.describe("Macroeconomic analysis parameters"),
+  segmentation: ResearchQueriesSchema.describe("Market segmentation analysis parameters"),
+  trend: ResearchQueriesSchema.describe("Market trend analysis parameters")
+}).describe("Research plan with detailed analysis parameters");;
+
