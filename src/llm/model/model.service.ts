@@ -150,21 +150,24 @@ export class ModelService implements OnModuleInit {
    * @returns Guarded model client
    */
   public async getDeepSeekGuardModel(
-    baseConfig: ChatOpenAIFields = this.deepseekConfig,
+    baseModelConfig: Partial<ChatOpenAIFields> = {},
     clientOptions: Record<string, unknown> = {}
   ): Promise<ModelClient | undefined> {
     try {
       // create a copy of the config
-      const config = { ...baseConfig };
-      const configKey = generateModelKey(config);
+      const ModelConfig: ChatOpenAIFields = {
+        ...this.deepseekConfig, 
+        ...baseModelConfig 
+      };
+      const configKey = generateModelKey(ModelConfig);
       
       if (this.models.has(configKey)) {
         return this.models.get(configKey);
       }
       
       // merge config and create new model
-      const mergedConfig = mergeModelConfig(config);
-      const rawModel = new ChatDeepSeek(mergedConfig);
+      const mergedModelConfig = mergeModelConfig(ModelConfig);
+      const rawModel = new ChatDeepSeek(mergedModelConfig);
       
       const newModel = this.modelClientService.createClient({
         model: rawModel,
@@ -199,7 +202,7 @@ export class ModelService implements OnModuleInit {
           (modelNameOrConfig === "deepseek-reasoner" || modelNameOrConfig === "deepseek-chat")) {
         // if it's a model name，create a new config object based on the default configs
         config = { 
-          ...this.deepseekConfig, 
+          ...this.deepseekConfig,
           model: modelNameOrConfig 
         };
       } else if (modelNameOrConfig === undefined) {
