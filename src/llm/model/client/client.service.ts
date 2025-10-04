@@ -214,9 +214,9 @@ export class ModelClientService {
     private retry: RetryGuard,
   ) {};
 
-  public createClient(config: DeepPartial<ModelClientOptions>) {
+  public createClient(modelClientOptions: DeepPartial<ModelClientOptions>) {
     return new ModelClient(
-      config,
+      modelClientOptions,
       this.circuitBreaker,
       this.rateLimiter,
       this.requestQueue,
