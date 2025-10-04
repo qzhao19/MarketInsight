@@ -1,4 +1,6 @@
-import { ResearchPlan, MarketResearchState } from "./state";
+import { MarketResearchState } from "./state";
+import { formatSearchResults } from "../../../../utils/llm.utils"
+import { ResearchPlan, SearchResultItem } from "../../../../types/llm.types"
 
 /**
  * Creates a prompt to extract structured context from the user's initial input.
@@ -97,28 +99,40 @@ export function createMacroAnalysisPrompt(researchPlan: ResearchPlan): string {
   `;
 }
 
-type SearchResultItem = {
-  query: string;
-  result: string;
-};
-
 export function createMacroSynthesisPrompt(
   researchPlan: ResearchPlan,
   searchResults: SearchResultItem[]
 ): string {
-  const { industry, macroAnalysisParams } = researchPlan;
+  const { industry, geographicScope, timeFrame, macroAnalysisParams } = researchPlan;
+  const formattedResults = formatSearchResults(searchResults);
 
   return `
-    You are a market research analyst specializing in ${industry}.
-    Based on the following search results, create a comprehensive research briefing that addresses these key questions:
-    ${macroAnalysisParams.keyQuestions.join("\n- ")}
+    You are a macroeconomic market research analyst specializing in ${industry}.
+    Based on the following search results, create a comprehensive macroeconomic analysis that addresses these key questions:
+    ${macroAnalysisParams.keyQuestions.map(q => `- ${q}`).join('\n')}
     
     Search Results:
-    ${searchResults.map(item => 
-      `--- Query: ${item.query} ---\n${item.result}\n`
+    ${formattedResults.map(item => 
+      `--- Query: ${item.query}\n ---${item.result}\n`
     ).join("\n\n")}
     
-    Create a well-structured, fact-based research briefing with relevant data, trends, and insights.
+    Create a well-structured, fact-based macroeconomic analysis with:
+    1. Current market size and historical growth trajectory (${timeFrame.historical} to ${timeFrame.current})
+    2. Market value forecasts and projected CAGR for ${timeFrame.forecast}
+    3. Key macroeconomic drivers (economic factors, policy impacts, technological advancements)
+    4. Market constraints and challenges (regulatory barriers, supply chain issues, economic headwinds)
+    5. Geographic market distribution and regional variations across ${geographicScope}
+    6. Competitive landscape overview (major market players and their market share)
+    
+    For each analytical point:
+    - Provide specific data points, and statistics from the search results
+    - Include relevant metrics (market value, growth rates, percentages, etc.)
+    - Cite evidence and examples to support your analysis
+    - Highlight regional differences when applicable
+    - Note any significant changes or inflection points in market dynamics
+
+    Present your analysis as a coherent report with clear headings, well-organized sections.
+    Use bullet points for key findings and ensure all claims are backed by data from the search results.
   `;
 }
 
@@ -160,14 +174,16 @@ export function createSegmentationSynthesisPrompt(
   searchResults: SearchResultItem[]
 ): string {
   const { industry, segmentationAnalysisParams } = researchPlan;
+  const formattedResults = formatSearchResults(searchResults);
+
   return `
     You are a market segmentation expert specializing in ${industry}.
     Based on the following search results, create a comprehensive segmentation analysis that addresses these key questions:
     ${segmentationAnalysisParams.keyQuestions.join("\n- ")}
     
     Search Results:
-    ${searchResults.map(item => 
-      `--- Query: ${item.query} ---\n${item.result}\n`
+    ${formattedResults.map(item => 
+      `--- Query: ${item.query}\n --- ${item.result}\n`
     ).join("\n\n")}
     
     Create a well-structured, fact-based segmentation analysis with:
@@ -176,8 +192,16 @@ export function createSegmentationSynthesisPrompt(
     3. Key characteristics and needs of each segment
     4. Competitive landscape within each important segment
     5. Most profitable or fastest growing segments
+
+    For each analytical point:
+    - Provide specific data points, and statistics from the search results
+    - Include relevant metrics (market value, growth rates, percentages, etc.)
+    - Cite evidence and examples to support your analysis
+    - Highlight regional differences when applicable
+    - Note any significant changes or inflection points in market dynamics
     
     Present your analysis as a coherent report with headings and well-organized sections.
+    Use bullet points for key findings and ensure all claims are backed by data from the search results.
   `;
 }
 
@@ -219,14 +243,16 @@ export function createTrendSynthesisPrompt(
   searchResults: SearchResultItem[]
 ): string {
   const { industry, trendAnalysisParams } = researchPlan;
+  const formattedResults = formatSearchResults(searchResults);
+
   return `
     You are a market trend analyst specializing in ${industry}.
     Based on the following search results, create a comprehensive trend analysis that addresses these key questions:
     ${trendAnalysisParams.keyQuestions.join("\n- ")}
     
     Search Results:
-    ${searchResults.map(item => 
-      `--- Query: ${item.query} ---\n${item.result}\n`
+    ${formattedResults.map(item => 
+      `--- Query: ${item.query}\n --- ${item.result}\n`
     ).join("\n\n")}
     
     Create a well-structured, fact-based trend analysis with:
@@ -243,6 +269,7 @@ export function createTrendSynthesisPrompt(
     - Identify key players leading or benefiting from the trend
     
     Present your analysis as a coherent report with headings and well-organized sections.
+    Use bullet points for key findings and ensure all claims are backed by data from the search results.
   `;
 }
 
