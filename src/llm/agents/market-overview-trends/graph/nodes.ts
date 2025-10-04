@@ -1,10 +1,9 @@
-import {
-  HumanMessage,
-} from "@langchain/core/messages";
 import { SerpAPI } from "@langchain/community/tools/serpapi";
 import { Logger } from "@nestjs/common"; 
 
-import { ResearchPlan, MarketResearchState } from "./state"
+import { validateAndEnrichResearchContext } from "../../../../utils/llm.utils"
+import { ResearchPlan } from "../../../../types/llm.types"
+import { MarketResearchState } from "./state"
 import { 
   createContextExtractionPrompt, 
   createResearchPlanPrompt,
@@ -21,11 +20,6 @@ import {
   ResearchPlanSchema, 
   ResearchQueriesSchema 
 } from "./schemas"
-import { 
-  createDefaultResearchContext, 
-  createDefaultResearchPlan, 
-  validateAndEnrichContext 
-} from "./utils"
 
 // Instantiate logger at the top of the file.
 const logger = new Logger('MarketResearchNodes');
@@ -50,12 +44,12 @@ export async function planResearchTasks(
     );
 
   } catch (error) {
-    logger.warn("Failed to extract structured context:", error);
-    researchContext = createDefaultResearchContext(state.userInput);
+    const errorMsg = `Failed to extract structured context: ${error instanceof Error ? error.message : String(error)}`;
+    throw new Error(errorMsg);
   }
 
   // Verify the integrity of the parsing results
-  researchContext = validateAndEnrichContext(researchContext, state.userContext);
+  researchContext = validateAndEnrichResearchContext(researchContext, state.userContext);
 
   // 2. Create a structured output model for generating research plans
   let detailedPlan;
@@ -70,8 +64,8 @@ export async function planResearchTasks(
     );
     
   } catch (error) {
-    logger.warn("Failed to generate structured research plan:", error);
-    detailedPlan = createDefaultResearchPlan(researchContext);
+    const errorMsg = `Failed to generate structured research plan: ${error instanceof Error ? error.message : String(error)}`;
+    throw new Error(errorMsg);
   }
 
   // Create research plan
@@ -155,7 +149,6 @@ export async function macroAnalysisTask(
       query: item.query,
       result: item.result
     }));
-
 
     if (searchResults.length === 0) {
       throw new Error("All searches failed. Cannot proceed with analysis.");
@@ -323,7 +316,7 @@ export async function trendAnalysisTask(
     }
 
     const synthesisPrompt = createTrendSynthesisPrompt(researchPlan, searchResults);
-    const synthesisResult = await model.invoke(new HumanMessage(synthesisPrompt));
+    const synthesisResult = await model.invoke(synthesisPrompt);
     const trendBriefing = synthesisResult.content.toString();
 
     logger.log("Trend analysis completed successfully.");
@@ -355,11 +348,19 @@ export async function synthesisAnalystTask(
     };
   }
 
+  const isSuccessful = (result: string) => result && !result.startsWith("Error:");
+  const availableResults = {
+    macro: isSuccessful(macroAnalysisResult),
+    segmentation: isSuccessful(segmentationAnalysisResult),
+    trend: isSuccessful(trendAnalysisResult),
+  };
+  const successfulAnalyses = Object.values(availableResults).filter(Boolean).length;
+
   // Make sure that at least one result is available.
-  if (!macroAnalysisResult && !segmentationAnalysisResult && !trendAnalysisResult) {
-    logger.error("Report synthesis cannot proceed: No analysis results available");
+  if (successfulAnalyses === 0) {
+    logger.error("Report synthesis cannot proceed: No successful analysis results are available.");
     return {
-      draftReport: "Error: No analysis results available for synthesis",
+      draftReport: "Error: No analysis results available for synthesis. Synthesis aborted.",
     };
   }
 
