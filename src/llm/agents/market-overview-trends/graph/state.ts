@@ -1,26 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
-
-export type AnyRecord = Record<string, any>;
-
-export interface ResearchParams {
-  keyQuestions: string[];
-  searchQueries: string[];
-  priority: 'high' | 'medium' | 'low';
-}
-
-export interface ResearchPlan {
-  industry: string;
-  geographicScope: string;
-  timeFrame: {
-    historical: string;
-    current: string;
-    forecast: string;
-  };
-  specialFocus: string[];
-  macroAnalysisParams: ResearchParams;
-  segmentationAnalysisParams: ResearchParams;
-  trendAnalysisParams: ResearchParams;
-}
+import { AnyRecord, ResearchPlan } from "../../../../types/llm.types"
 
 export const MarketResearchState = Annotation.Root({
     
