@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 
 import { MarketResearchService } from "./market-overview-trends/market_research.service"
 import { ModelService } from "../model/model.service";
-import { AnyRecord } from "./market-overview-trends/graph/state"
+import { AnyRecord } from "../../types/llm.types"
 
 export interface AgentOptions {
   userContext?: AnyRecord;
@@ -23,7 +23,7 @@ export class AgentService implements OnModuleInit {
     this.logger.log('AgentService initialized');
   }
 
-   async analyze(userInput: string, options: AgentOptions = {}): Promise<any> {
+  async analyze(userInput: string, options: AgentOptions = {}): Promise<any> {
     try {
       const result = await this.marketResearchService.invoke(userInput, options);
           
