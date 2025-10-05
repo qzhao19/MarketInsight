@@ -37,7 +37,7 @@ export class ModelService implements OnModuleInit {
 
   // default client options
   readonly defaultModelClientOptions = {
-    CircuitBreakerConfig: {
+    circuitBreakerConfig: {
       resetTimeout: 20000,
     },
     rateLimiterConfig: {
