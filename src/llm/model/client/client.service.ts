@@ -7,36 +7,12 @@ import { ChatOpenAICallOptions } from "@langchain/openai";
 import { HttpException, HttpStatus, Logger, Injectable } from "@nestjs/common";
 import { z } from "zod";
 
-import { ChatOpenAIToolType } from "../../../types/llm.types"
+import { ChatOpenAIToolType, ModelClientOptions } from "../../../types/llm.types"
 import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
 import { RateLimiterGuard } from "./guards/rate-limiter.guard";
 import { RequestQueueGuard } from "./guards/request-queue.guard";
 import { RetryGuard } from "./guards/retry.guard";
 
-interface ModelClientOptions {
-  // model instance
-  model: BaseChatModel;
-
-  // configs for circuit breaker guard
-  CircuitBreakerConfig: {
-    resetTimeout: number;
-  };
-
-  // configs for rate limiter guard
-  rateLimiterConfig: {
-    maxRequestsPerMinute: number;
-  };
-
-  // retry config
-  retryConfig: {
-    maxRetries: number;
-    initialDelayMs: number;
-    maxDelayMs: number;
-    factor: number;
-    retryableErrors: RegExp[];
-    jitter: boolean;
-  };
-};
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -73,7 +49,7 @@ export class ModelClient {
     // defaults configs
     this.circuitBreakerConfig = {
       resetTimeout: 30000,
-      ...config.CircuitBreakerConfig,
+      ...config.circuitBreakerConfig,
     };
 
     this.rateLimiterConfig = {
