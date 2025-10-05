@@ -1,4 +1,6 @@
 import { OpenAI as OpenAIClient } from "openai";
+import { ChatOpenAIFields } from "@langchain/openai";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { BindToolsInput } from "@langchain/core/language_models/chat_models";
 
 /**
@@ -71,3 +73,60 @@ export type SearchResultItem = {
   result: string;
 };
 
+/**
+ * Model client configuration options
+ * Defines protection mechanisms: circuit breaker, rate limiter, retry logic
+ */
+export interface ModelClientOptions {
+  // model instance
+  model: BaseChatModel;
+
+  // configs for circuit breaker guard
+  circuitBreakerConfig: {
+    resetTimeout: number;
+  };
+
+  // configs for rate limiter guard
+  rateLimiterConfig: {
+    maxRequestsPerMinute: number;
+  };
+
+  // retry config
+  retryConfig: {
+    maxRetries: number;
+    initialDelayMs: number;
+    maxDelayMs: number;
+    factor: number;
+    retryableErrors: RegExp[];
+    jitter: boolean;
+  };
+};
+
+/**
+ * Options for invoking market research analysis
+ * Separates model configuration from client protection settings
+ */
+export interface MarketResearchInvokeOptions {
+  /** Additional user context for research */
+  userContext?: AnyRecord;
+  
+  /** Model configuration (LangChain ChatOpenAIFields) */
+  modelConfig?: Partial<ChatOpenAIFields>;
+  
+  /** Client protection mechanisms configuration */
+  modelClientOptions?: ModelClientOptions;
+}
+
+/**
+ * Result structure for market research analysis
+ */
+export interface MarketResearchResult {
+  /** Whether the analysis was successful */
+  success: boolean;
+  
+  /** Analysis result data (if successful) */
+  result?: any;
+  
+  /** Error message (if failed) */
+  error?: string;
+}
