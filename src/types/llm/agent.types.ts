@@ -1,8 +1,7 @@
 import { OpenAI as OpenAIClient } from "openai";
 import { ChatOpenAIFields } from "@langchain/openai";
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { BindToolsInput } from "@langchain/core/language_models/chat_models";
-
+import { ModelClientOptions } from "./client.types"
 /**
  * Type representing a single tool definition for OpenAI responses.
  * Extracted from OpenAIClient.Responses.ResponseCreateParams["tools"].
@@ -71,35 +70,6 @@ export interface ResearchPlan {
 export type SearchResultItem = {
   query: string;
   result: string;
-};
-
-/**
- * Model client configuration options
- * Defines protection mechanisms: circuit breaker, rate limiter, retry logic
- */
-export interface ModelClientOptions {
-  // model instance
-  model: BaseChatModel;
-
-  // configs for circuit breaker guard
-  circuitBreakerConfig: {
-    resetTimeout: number;
-  };
-
-  // configs for rate limiter guard
-  rateLimiterConfig: {
-    maxRequestsPerMinute: number;
-  };
-
-  // retry config
-  retryConfig: {
-    maxRetries: number;
-    initialDelayMs: number;
-    maxDelayMs: number;
-    factor: number;
-    retryableErrors: RegExp[];
-    jitter: boolean;
-  };
 };
 
 /**
