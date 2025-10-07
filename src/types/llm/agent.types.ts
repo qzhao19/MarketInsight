@@ -1,25 +1,6 @@
-import { OpenAI as OpenAIClient } from "openai";
 import { ChatOpenAIFields } from "@langchain/openai";
-import { BindToolsInput } from "@langchain/core/language_models/chat_models";
 import { ModelClientOptions } from "./client.types"
-/**
- * Type representing a single tool definition for OpenAI responses.
- * Extracted from OpenAIClient.Responses.ResponseCreateParams["tools"].
- */
-type ResponsesTool = NonNullable<
-  OpenAIClient.Responses.ResponseCreateParams["tools"]
->[number];
 
-/**
- * Supported tool types for ChatOpenAI models.
- * - BindToolsInput: LangChain tool binding input
- * - OpenAIClient.Chat.ChatCompletionTool: OpenAI chat completion tool definition
- * - ResponsesTool: OpenAI response tool definition
- */
-export type ChatOpenAIToolType =
-  | BindToolsInput
-  | OpenAIClient.Chat.ChatCompletionTool
-  | ResponsesTool;
 
 /**
  * Generic record type for arbitrary key-value objects.
