@@ -1,5 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
-import { AnyRecord, ResearchPlan } from "../../../../types/llm.types"
+import { AnyRecord, ResearchPlan } from "../../../../types/llm/agent.types"
 
 export const MarketResearchState = Annotation.Root({
     

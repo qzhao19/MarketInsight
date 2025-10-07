@@ -1,6 +1,6 @@
 import { MarketResearchState } from "./state";
 import { formatSearchResults } from "../../../../utils/llm.utils"
-import { ResearchPlan, SearchResultItem } from "../../../../types/llm.types"
+import { ResearchPlan, SearchResultItem } from "../../../../types/llm/agent.types"
 
 /**
  * Creates a prompt to extract structured context from the user's initial input.

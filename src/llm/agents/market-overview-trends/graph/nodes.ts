@@ -2,7 +2,7 @@ import { SerpAPI } from "@langchain/community/tools/serpapi";
 import { Logger } from "@nestjs/common"; 
 
 import { validateAndEnrichResearchContext } from "../../../../utils/llm.utils"
-import { ResearchPlan } from "../../../../types/llm.types"
+import { ResearchPlan } from "../../../../types/llm/agent.types"
 import { MarketResearchState } from "./state"
 import { 
   createContextExtractionPrompt, 
