@@ -1,0 +1,230 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService as NestConfigService } from '@nestjs/config';
+import { ClientConfigService } from './llm/client.config';
+import { ModelConfigService } from './llm/model.config';
+
+/**
+ * Application configuration service
+ * Provides centralized access to all configuration services
+ * Acts as a facade for client and model configurations
+ */
+@Injectable()
+export class AppConfigService {
+  private readonly logger = new Logger(AppConfigService.name);
+
+  constructor(
+    private readonly nestConfigService: NestConfigService,
+    private readonly clientConfig: ClientConfigService,
+    private readonly modelConfig: ModelConfigService,
+  ) {
+    this.logger.log('AppConfigService initialized');
+  }
+
+  // ==================== Client Configuration Access ====================
+
+  /**
+   * Get client configuration service
+   * Provides access to circuit breaker, rate limiter, request queue, and retry configs
+   */
+  get LLMClientConfig(): ClientConfigService {
+    return this.clientConfig;
+  }
+
+  // ==================== Model Configuration Access ====================
+
+  /**
+   * Get model configuration service
+   * Provides access to LLM model parameters and settings
+   */
+  get LLMModelConfig(): ModelConfigService {
+    return this.modelConfig;
+  }
+
+  // ==================== Environment Variables Access ====================
+
+  /**
+   * Get environment variable value
+   * @param key - Environment variable key
+   * @param defaultValue - Default value if not found
+   */
+  get<T = any>(key: string, defaultValue?: T): T | undefined {
+    if (defaultValue === undefined) {
+      return this.nestConfigService.get<T>(key);
+    }
+    return this.nestConfigService.get<T>(key, defaultValue);
+  }
+
+  /**
+   * Get environment variable as string
+   */
+  getString(key: string, defaultValue: string): string {
+    return this.nestConfigService.get<string>(key, defaultValue);
+  }
+
+  /**
+   * Get environment variable as number
+   */
+  getNumber(key: string, defaultValue: number): number {
+    return this.nestConfigService.get<number>(key, defaultValue);
+  }
+
+  /**
+   * Get environment variable as boolean
+   */
+  getBoolean(key: string, defaultValue: boolean): boolean {
+    const value = this.nestConfigService.get<string>(key);
+    
+    if (value === undefined || value === null) {
+      return defaultValue;
+    }
+
+    const lowerValue = String(value).toLowerCase().trim();
+    return lowerValue === 'true' || lowerValue === '1';
+  }
+
+  // ==================== Application-Level Configuration ====================
+
+  /**
+   * Get application port
+   */
+  get appPort(): number {
+    return this.getNumber('PORT', 3000);
+  }
+
+  /**
+   * Get application environment
+   */
+  get appEnvironment(): string {
+    return this.getString('NODE_ENV', 'development');
+  }
+
+  /**
+   * Check if running in production
+   */
+  get isProduction(): boolean {
+    return this.appEnvironment === 'production';
+  }
+
+  /**
+   * Check if running in development
+   */
+  get isDevelopment(): boolean {
+    return this.appEnvironment === 'development';
+  }
+
+  /**
+   * Check if running in test
+   */
+  get isTest(): boolean {
+    return this.appEnvironment === 'test';
+  }
+
+  /**
+   * Get application name
+   */
+  get appName(): string {
+    return this.getString('APP_NAME', 'MarketInsight');
+  }
+
+  /**
+   * Get application version
+   */
+  get appVersion(): string {
+    return this.getString('APP_VERSION', '1.0.0');
+  }
+
+  // ==================== API Configuration ====================
+
+  /**
+   * Get API prefix
+   */
+  get apiPrefix(): string {
+    return this.getString('API_PREFIX', 'api');
+  }
+
+  /**
+   * Get API version
+   */
+  get apiVersion(): string {
+    return this.getString('API_VERSION', 'v1');
+  }
+
+  /**
+   * Get full API path
+   */
+  get apiPath(): string {
+    return `/${this.apiPrefix}/${this.apiVersion}`;
+  }
+
+  // ==================== Database Configuration ====================
+
+  /**
+   * Get database host
+   */
+  get dbHost(): string {
+    return this.getString('DB_HOST', 'localhost');
+  }
+
+  /**
+   * Get database port
+   */
+  get dbPort(): number {
+    return this.getNumber('DB_PORT', 5432);
+  }
+
+  /**
+   * Get database name
+   */
+  get dbName(): string {
+    return this.getString('DB_NAME', 'marketinsight');
+  }
+
+  /**
+   * Get database username
+   */
+  get dbUsername(): string {
+    return this.getString('DB_USERNAME', 'postgres');
+  }
+
+  /**
+   * Get database password
+   */
+  get dbPassword(): string {
+    return this.getString('DB_PASSWORD', '');
+  }
+
+  // ==================== CORS Configuration ====================
+
+  /**
+   * Get CORS origins
+   */
+  get corsOrigins(): string[] {
+    const origins = this.getString('CORS_ORIGINS', '*');
+    return origins.split(',').map(origin => origin.trim());
+  }
+
+  /**
+   * Check if CORS is enabled
+   */
+  get corsEnabled(): boolean {
+    return this.getBoolean('CORS_ENABLED', true);
+  }
+
+  // ==================== Rate Limiting Configuration ====================
+
+  /**
+   * Get global rate limit window (ms)
+   */
+  get rateLimitWindow(): number {
+    return this.getNumber('RATE_LIMIT_WINDOW', 60000);
+  }
+
+  /**
+   * Get global rate limit max requests
+   */
+  get rateLimitMax(): number {
+    return this.getNumber('RATE_LIMIT_MAX', 100);
+  }
+
+  
+}
