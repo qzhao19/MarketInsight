@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService as NestConfigService } from '@nestjs/config';
-import { ClientConfigService } from './llm/client.config';
-import { ModelConfigService } from './llm/model.config';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService as NestConfigService } from "@nestjs/config";
+import { ClientConfigService } from "./llm/client.config";
+import { ModelConfigService } from "./llm/model.config";
 
 /**
  * Application configuration service
@@ -17,7 +17,7 @@ export class AppConfigService {
     private readonly clientConfig: ClientConfigService,
     private readonly modelConfig: ModelConfigService,
   ) {
-    this.logger.log('AppConfigService initialized');
+    this.logger.log("AppConfigService initialized");
   }
 
   // ==================== Client Configuration Access ====================
@@ -79,7 +79,7 @@ export class AppConfigService {
     }
 
     const lowerValue = String(value).toLowerCase().trim();
-    return lowerValue === 'true' || lowerValue === '1';
+    return lowerValue === "true" || lowerValue === "1";
   }
 
   // ==================== Application-Level Configuration ====================
@@ -88,49 +88,74 @@ export class AppConfigService {
    * Get application port
    */
   get appPort(): number {
-    return this.getNumber('PORT', 3000);
+    return this.getNumber("PORT", 3000);
   }
 
   /**
    * Get application environment
    */
   get appEnvironment(): string {
-    return this.getString('NODE_ENV', 'development');
+    return this.getString("NODE_ENV", "development");
   }
 
   /**
    * Check if running in production
    */
   get isProduction(): boolean {
-    return this.appEnvironment === 'production';
+    return this.appEnvironment === "production";
   }
 
   /**
    * Check if running in development
    */
   get isDevelopment(): boolean {
-    return this.appEnvironment === 'development';
+    return this.appEnvironment === "development";
   }
 
   /**
    * Check if running in test
    */
   get isTest(): boolean {
-    return this.appEnvironment === 'test';
+    return this.appEnvironment === "test";
   }
 
   /**
    * Get application name
    */
   get appName(): string {
-    return this.getString('APP_NAME', 'MarketInsight');
+    return this.getString("APP_NAME", "MarketInsight");
   }
 
   /**
    * Get application version
    */
   get appVersion(): string {
-    return this.getString('APP_VERSION', '1.0.0');
+    return this.getString("APP_VERSION", "1.0.0");
+  }
+
+  // ==================== LLM API Configuration ====================
+
+  /**
+   * Get LLM API key
+   */
+  get llmApiKey(): string {
+    return this.getString("LLM_API_KEY", "");
+  }
+
+  /**
+   * Get LLM API base url
+   */
+  get llmBaseURL(): string {
+    return this.getString("LLM_BASE_URL", "");
+  }
+
+  // ==================== LLM API Configuration ====================
+
+  /**
+   * Get SERPER API key
+   */
+  get serperApiKey(): string {
+    return this.getString("SERPER_API_KEY", "");
   }
 
   // ==================== API Configuration ====================
@@ -139,14 +164,14 @@ export class AppConfigService {
    * Get API prefix
    */
   get apiPrefix(): string {
-    return this.getString('API_PREFIX', 'api');
+    return this.getString("API_PREFIX", "api");
   }
 
   /**
    * Get API version
    */
   get apiVersion(): string {
-    return this.getString('API_VERSION', 'v1');
+    return this.getString("API_VERSION", "v1");
   }
 
   /**
@@ -162,35 +187,35 @@ export class AppConfigService {
    * Get database host
    */
   get dbHost(): string {
-    return this.getString('DB_HOST', 'localhost');
+    return this.getString("DB_HOST", "localhost");
   }
 
   /**
    * Get database port
    */
   get dbPort(): number {
-    return this.getNumber('DB_PORT', 5432);
+    return this.getNumber("DB_PORT", 5432);
   }
 
   /**
    * Get database name
    */
   get dbName(): string {
-    return this.getString('DB_NAME', 'marketinsight');
+    return this.getString("DB_NAME", "marketinsight");
   }
 
   /**
    * Get database username
    */
   get dbUsername(): string {
-    return this.getString('DB_USERNAME', 'postgres');
+    return this.getString("DB_USERNAME", "postgres");
   }
 
   /**
    * Get database password
    */
   get dbPassword(): string {
-    return this.getString('DB_PASSWORD', '');
+    return this.getString("DB_PASSWORD", "");
   }
 
   // ==================== CORS Configuration ====================
@@ -199,15 +224,15 @@ export class AppConfigService {
    * Get CORS origins
    */
   get corsOrigins(): string[] {
-    const origins = this.getString('CORS_ORIGINS', '*');
-    return origins.split(',').map(origin => origin.trim());
+    const origins = this.getString("CORS_ORIGINS", "*");
+    return origins.split(",").map(origin => origin.trim());
   }
 
   /**
    * Check if CORS is enabled
    */
   get corsEnabled(): boolean {
-    return this.getBoolean('CORS_ENABLED', true);
+    return this.getBoolean("CORS_ENABLED", true);
   }
 
   // ==================== Rate Limiting Configuration ====================
@@ -216,14 +241,14 @@ export class AppConfigService {
    * Get global rate limit window (ms)
    */
   get rateLimitWindow(): number {
-    return this.getNumber('RATE_LIMIT_WINDOW', 60000);
+    return this.getNumber("RATE_LIMIT_WINDOW", 60000);
   }
 
   /**
    * Get global rate limit max requests
    */
   get rateLimitMax(): number {
-    return this.getNumber('RATE_LIMIT_MAX', 100);
+    return this.getNumber("RATE_LIMIT_MAX", 100);
   }
 
   
