@@ -1,4 +1,6 @@
 import { Injectable, Logger, OnApplicationShutdown } from "@nestjs/common";
+import { CircuitBreakerConfig } from "../../../../types/llm/client.types"
+import { toOpossumOptions } from "../../../../utils/llm.utils"
 import CircuitBreaker from "opossum";
 
 // Define a more specific type for the function passed to the breaker onApplicationShutdown
@@ -7,19 +9,23 @@ type BreakerAction<T extends any[], R> = (...args: T) => Promise<R>;
 @Injectable()
 export class CircuitBreakerGuard implements OnApplicationShutdown {
   private readonly breakers: Map<string, CircuitBreaker> = new Map();
-  private readonly defaultOptions: CircuitBreaker.Options;
+  private readonly defaultConfig: CircuitBreakerConfig;
   private readonly logger: Logger;
 
   // Inject Logger and allow for global default options
-  constructor() {
-    this.defaultOptions = {
-      resetTimeout: 30000, // 30 seconds before trying to half-open
-      timeout: 100000, // 100 seconds timeout is considered a failure
-      errorThresholdPercentage: 50,
-      rollingCountTimeout: 60000, // 1-minute statistics window
-    };
+  constructor(defaultConfig: CircuitBreakerConfig) {
+    this.defaultConfig = defaultConfig;
     this.logger = new Logger(CircuitBreakerGuard.name);
-    this.logger.log("CircuitBreakerGuard initialized.");
+    this.logger.log(
+      `Circuit breaker guard initialized with config: ` +
+      `resetTimeout=${this.defaultConfig.resetTimeout}, ` +
+      `timeout=${this.defaultConfig.timeout}, ` +
+      `errorThresholdPercentage=${this.defaultConfig.errorThresholdPercentage}, ` +
+      `rollingCountTimeout=${this.defaultConfig.rollingCountTimeout}, ` +
+      `volumeThreshold=${this.defaultConfig.volumeThreshold}, ` +
+      `capacity=${this.defaultConfig.capacity}, ` +
+      `name=${this.defaultConfig.name}`
+    );
   }
 
   /**
@@ -28,28 +34,26 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
    * the same name could be created.
    * @param name - The unique name for the circuit breaker.
    * @param func - The function to wrap in the circuit breaker.
-   * @param options - Opossum options to override the defaults.
    * @returns The existing or newly created CircuitBreaker instance.
    */
   public getOrCreateBreaker<T extends any[], R>(
     name: string,
     func: BreakerAction<T, R>,
-    options: CircuitBreaker.Options = {},
     fallbackFunc?: (...args: any[]) => any,
   ): CircuitBreaker {
     // Check if a breaker with this name already exists
     const existingBreaker = this.breakers.get(name);
     if (existingBreaker) {
-    this.logger.debug(
-      `Reusing existing circuit breaker "${name}". ` +
-      `Note: Any new func/fallback/options will be ignored.`
-    );
-    return existingBreaker;
-  }
+      this.logger.debug(
+        `Reusing existing circuit breaker "${name}". ` +
+        `Note: Any new func/fallback/options will be ignored.`
+      );
+      return existingBreaker;
+    }
 
     // If not, create a new breaker
-    const mergedOptions = { ...this.defaultOptions, ...options, name };
-    const breaker = new CircuitBreaker(func, mergedOptions);
+    const opossumOptions = toOpossumOptions(this.defaultConfig);
+    const breaker = new CircuitBreaker(func, opossumOptions);
 
     // Set fallback function only one time
     if (fallbackFunc) {
