@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ChatOpenAIFields } from '@langchain/openai';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { ChatOpenAIFields } from "@langchain/openai";
 
 /**
  * Model configuration service
@@ -78,7 +78,7 @@ export class ModelConfigService {
       );
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       this.logger.debug(
         `ModelConfig loaded:\n${JSON.stringify(config, null, 2)}`
       );
@@ -137,10 +137,10 @@ export class ModelConfigService {
 
   /**
    * Get default model name
-   * Default: 'deepseek-chat'
+   * Default: "deepseek-chat"
    */
   get defaultModelName(): string {
-    return this.getString('DEFAULT_MODEL_NAME', 'deepseek-chat');
+    return this.getString("DEFAULT_MODEL_NAME", "deepseek-chat");
   }
 
   /**
@@ -149,7 +149,7 @@ export class ModelConfigService {
    * Default: 0, Range: 0-2
    */
   get defaultModelTemperature(): number {
-    return this.getNumber('DEFAULT_MODEL_TEMPERATURE', 0, 0, 2);
+    return this.getNumber("DEFAULT_MODEL_TEMPERATURE", 0, 0, 2);
   }
 
   /**
@@ -158,7 +158,7 @@ export class ModelConfigService {
    * Default: 1, Range: 0-1
    */
   get defaultModelTopP(): number {
-    return this.getNumber('DEFAULT_MODEL_TOP_P', 1, 0, 1);
+    return this.getNumber("DEFAULT_MODEL_TOP_P", 1, 0, 1);
   }
 
   /**
@@ -167,7 +167,7 @@ export class ModelConfigService {
    * Default: 0, Range: -2 to 2
    */
   get defaultModelFrequencyPenalty(): number {
-    return this.getNumber('DEFAULT_MODEL_FREQUENCY_PENALTY', 0, -2, 2);
+    return this.getNumber("DEFAULT_MODEL_FREQUENCY_PENALTY", 0, -2, 2);
   }
 
   /**
@@ -176,7 +176,7 @@ export class ModelConfigService {
    * Default: 0, Range: -2 to 2
    */
   get defaultModelPresencePenalty(): number {
-    return this.getNumber('DEFAULT_MODEL_PRESENCE_PENALTY', 0, -2, 2);
+    return this.getNumber("DEFAULT_MODEL_PRESENCE_PENALTY", 0, -2, 2);
   }
 
   /**
@@ -185,7 +185,7 @@ export class ModelConfigService {
    * Default: 4096, Range: 1-32768
    */
   get defaultModelMaxTokens(): number {
-    return this.getNumber('DEFAULT_MODEL_MAX_TOKENS', 4096, 1, 32768);
+    return this.getNumber("DEFAULT_MODEL_MAX_TOKENS", 4096, 1, 32768);
   }
 
   /**
@@ -194,7 +194,7 @@ export class ModelConfigService {
    * Default: 10, Range: 1-1000
    */
   get defaultModelMaxConcurrency(): number {
-    return this.getNumber('DEFAULT_MODEL_MAX_CONCURRENCY', 10, 1, 1000);
+    return this.getNumber("DEFAULT_MODEL_MAX_CONCURRENCY", 10, 1, 1000);
   }
 
   /**
@@ -203,7 +203,7 @@ export class ModelConfigService {
    * Default: 3, Range: 0-10
    */
   get defaultModelMaxRetries(): number {
-    return this.getNumber('DEFAULT_MODEL_MAX_RETRIES', 3, 0, 10);
+    return this.getNumber("DEFAULT_MODEL_MAX_RETRIES", 3, 0, 10);
   }
 
   /**
@@ -212,7 +212,7 @@ export class ModelConfigService {
    * Default: 60000 (60 seconds), Range: 1000-300000
    */
   get defaultModelTimeout(): number {
-    return this.getNumber('DEFAULT_MODEL_TIMEOUT', 60000, 1000, 300000);
+    return this.getNumber("DEFAULT_MODEL_TIMEOUT", 60000, 1000, 300000);
   }
 
   /**
@@ -221,9 +221,9 @@ export class ModelConfigService {
    * Default: false
    */
   get defaultModelStreaming(): boolean {
-    const value = this.configService.get<string>('DEFAULT_MODEL_STREAMING', 'false');
+    const value = this.configService.get<string>("DEFAULT_MODEL_STREAMING", "false");
     const lowerValue = String(value).toLowerCase().trim();
-    return lowerValue === 'true' || lowerValue === '1';
+    return lowerValue === "true" || lowerValue === "1";
   }
 
   /**
@@ -232,9 +232,9 @@ export class ModelConfigService {
    * Default: false
    */
   get defaultModelVerbose(): boolean {
-    const value = this.configService.get<string>('DEFAULT_MODEL_VERBOSE', 'false');
+    const value = this.configService.get<string>("DEFAULT_MODEL_VERBOSE", "false");
     const lowerValue = String(value).toLowerCase().trim();
-    return lowerValue === 'true' || lowerValue === '1';
+    return lowerValue === "true" || lowerValue === "1";
   }
 
   // ==================== Composite Configuration ====================
@@ -398,7 +398,7 @@ export class ModelConfigService {
     const validation = this.validateModelConfig(merged);
     if (!validation.isValid) {
       this.logger.warn(
-        `Configuration validation warnings:\n${validation.errors.join('\n')}`
+        `Configuration validation warnings:\n${validation.errors.join("\n")}`
       );
     }
 
