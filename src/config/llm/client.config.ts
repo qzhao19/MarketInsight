@@ -1,11 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   CircuitBreakerConfig,
   RateLimiterConfig,
   RequestQueueConfig,
   RetryConfig,
-} from '../../types/llm/client.types';
+} from "../../types/llm/client.types";
 
 /**
  * Client configuration service
@@ -30,6 +30,7 @@ export class ClientConfigService {
         rollingCountTimeout: this.defaultCircuitBreakerRollingCountTimeout,
         volumeThreshold: this.defaultCircuitBreakerVolumeThreshold,
         capacity: this.defaultCircuitBreakerCapacity,
+        name: this.defaultCircuitBreakerName,
       },
       rateLimiter: {
         maxRequestsPerMinute: this.defaultRateLimiterMaxRequestsPerMinute,
@@ -46,21 +47,86 @@ export class ClientConfigService {
       },
     };
 
+    // Validate Circuit Breaker
     if (configs.circuitBreaker.resetTimeout <= 0) {
       this.logger.warn(
-        `Invalid DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT: ${configs.circuitBreaker.resetTimeout}. Using default: 20000`
+        `Invalid resetTimeout: ${configs.circuitBreaker.resetTimeout}. Must be > 0.`
       );
     }
 
+    if (configs.circuitBreaker.timeout && configs.circuitBreaker.timeout <= 0) {
+      this.logger.warn(
+        `Invalid timeout: ${configs.circuitBreaker.timeout}. Must be > 0.`
+      );
+    }
+
+    if (
+      configs.circuitBreaker.errorThresholdPercentage &&
+      (configs.circuitBreaker.errorThresholdPercentage < 1 ||
+        configs.circuitBreaker.errorThresholdPercentage > 100)
+    ) {
+      this.logger.warn(
+        `Invalid errorThresholdPercentage: ${configs.circuitBreaker.errorThresholdPercentage}. Must be between 1 and 100.`
+      );
+    }
+
+    if (
+      configs.circuitBreaker.rollingCountTimeout &&
+      configs.circuitBreaker.rollingCountTimeout <= 0
+    ) {
+      this.logger.warn(
+        `Invalid rollingCountTimeout: ${configs.circuitBreaker.rollingCountTimeout}. Must be > 0.`
+      );
+    }
+
+    if (
+      configs.circuitBreaker.volumeThreshold &&
+      configs.circuitBreaker.volumeThreshold <= 0
+    ) {
+      this.logger.warn(
+        `Invalid volumeThreshold: ${configs.circuitBreaker.volumeThreshold}. Must be > 0.`
+      );
+    }
+
+    if (
+      configs.circuitBreaker.capacity &&
+      configs.circuitBreaker.capacity <= 0
+    ) {
+      this.logger.warn(
+        `Invalid capacity: ${configs.circuitBreaker.capacity}. Must be > 0.`
+      );
+    }
+
+    // Validate Rate Limiter
     if (configs.rateLimiter.maxRequestsPerMinute <= 0) {
       this.logger.warn(
-        `Invalid DEFAULT_RATE_LIMITER_MAX_REQUESTS_PER_MINUTE: ${configs.rateLimiter.maxRequestsPerMinute}. Using default: 60`
+        `Invalid maxRequestsPerMinute: ${configs.rateLimiter.maxRequestsPerMinute}. Must be > 0.`
       );
     }
 
+    // Validate Request Queue
     if (configs.requestQueue.maxConcurrent <= 0) {
       this.logger.warn(
-        `Invalid DEFAULT_REQUEST_QUEUE_MAX_CONCURRENT: ${configs.requestQueue.maxConcurrent}. Using default: 5`
+        `Invalid maxConcurrent: ${configs.requestQueue.maxConcurrent}. Must be > 0.`
+      );
+    }
+
+    // Validate Retry
+    if (configs.retry.maxRetries < 0) {
+      this.logger.warn(
+        `Invalid maxRetries: ${configs.retry.maxRetries}. Must be >= 0.`
+      );
+    }
+
+    if (configs.retry.initialDelayMs <= 0) {
+      this.logger.warn(
+        `Invalid initialDelayMs: ${configs.retry.initialDelayMs}. Must be > 0.`
+      );
+    }
+
+    if (configs.retry.maxDelayMs <= 0) {
+      this.logger.warn(
+        `Invalid maxDelayMs: ${configs.retry.maxDelayMs}. Must be > 0.`
       );
     }
 
@@ -70,7 +136,14 @@ export class ClientConfigService {
       );
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (configs.retry.factor < 1) {
+      this.logger.warn(
+        `Invalid factor: ${configs.retry.factor}. Must be >= 1.`
+      );
+    }
+
+    // Print loaded config in development mode
+    if (process.env.NODE_ENV === "development") {
       this.logger.debug(
         `ClientConfig loaded:\n${JSON.stringify(configs, null, 2)}`
       );
@@ -122,11 +195,11 @@ export class ClientConfigService {
     // Check string "true" / "false"
     const lowerValue = String(value).toLowerCase().trim();
     
-    if (lowerValue === 'true' || lowerValue === '1') {
+    if (lowerValue === "true" || lowerValue === "1") {
       return true;
     }
     
-    if (lowerValue === 'false' || lowerValue === '0') {
+    if (lowerValue === "false" || lowerValue === "0") {
       return false;
     }
 
@@ -144,7 +217,7 @@ export class ClientConfigService {
    */
   get defaultCircuitBreakerResetTimeout(): number {
     return this.getNumber(
-      'DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT',
+      "DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT",
       20000,
       1000,
       300000
@@ -157,7 +230,7 @@ export class ClientConfigService {
    */
   get defaultCircuitBreakerTimeout(): number {
     return this.getNumber(
-      'DEFAULT_CIRCUIT_BREAKER_TIMEOUT',
+      "DEFAULT_CIRCUIT_BREAKER_TIMEOUT",
       30000,
       1000,
       300000
@@ -170,7 +243,7 @@ export class ClientConfigService {
    */
   get defaultCircuitBreakerErrorThreshold(): number {
     return this.getNumber(
-      'DEFAULT_CIRCUIT_BREAKER_ERROR_THRESHOLD',
+      "DEFAULT_CIRCUIT_BREAKER_ERROR_THRESHOLD",
       50,
       1,
       100
@@ -183,7 +256,7 @@ export class ClientConfigService {
    */
   get defaultCircuitBreakerRollingCountTimeout(): number {
     return this.getNumber(
-      'DEFAULT_CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT',
+      "DEFAULT_CIRCUIT_BREAKER_ROLLING_COUNT_TIMEOUT",
       10000,
       1000,
       60000
@@ -197,7 +270,7 @@ export class ClientConfigService {
    */
   get defaultCircuitBreakerVolumeThreshold(): number {
     return this.getNumber(
-      'DEFAULT_CIRCUIT_BREAKER_VOLUME_THRESHOLD',
+      "DEFAULT_CIRCUIT_BREAKER_VOLUME_THRESHOLD",
       10,
       1,
       1000
@@ -211,7 +284,7 @@ export class ClientConfigService {
    */
   get defaultCircuitBreakerCapacity(): number {
     return this.getNumber(
-      'DEFAULT_CIRCUIT_BREAKER_CAPACITY',
+      "DEFAULT_CIRCUIT_BREAKER_CAPACITY",
       100,
       1,
       10000
@@ -222,7 +295,7 @@ export class ClientConfigService {
    * Get circuit breaker name (optional)
    */
   get defaultCircuitBreakerName(): string | undefined {
-    return this.configService.get<string>('DEFAULT_CIRCUIT_BREAKER_NAME');
+    return this.configService.get<string>("DEFAULT_CIRCUIT_BREAKER_NAME");
   }
 
   // ==================== Rate Limiter ====================
@@ -233,7 +306,7 @@ export class ClientConfigService {
    */
   get defaultRateLimiterMaxRequestsPerMinute(): number {
     return this.getNumber(
-      'DEFAULT_RATE_LIMITER_MAX_REQUESTS_PER_MINUTE',
+      "DEFAULT_RATE_LIMITER_MAX_REQUESTS_PER_MINUTE",
       60,
       1,
       10000
@@ -248,7 +321,7 @@ export class ClientConfigService {
    */
   get defaultRequestQueueMaxConcurrent(): number {
     return this.getNumber(
-      'DEFAULT_REQUEST_QUEUE_MAX_CONCURRENT',
+      "DEFAULT_REQUEST_QUEUE_MAX_CONCURRENT",
       5,
       1,
       1000
@@ -262,7 +335,7 @@ export class ClientConfigService {
    * Valid range: 0 - 10
    */
   get defaultRetryMaxRetries(): number {
-    return this.getNumber('DEFAULT_RETRY_MAX_RETRIES', 3, 0, 10);
+    return this.getNumber("DEFAULT_RETRY_MAX_RETRIES", 3, 0, 10);
   }
 
   /**
@@ -270,7 +343,7 @@ export class ClientConfigService {
    * Valid range: 100 - 60000
    */
   get defaultRetryInitialDelayMs(): number {
-    return this.getNumber('DEFAULT_RETRY_INITIAL_DELAY_MS', 1000, 100, 60000);
+    return this.getNumber("DEFAULT_RETRY_INITIAL_DELAY_MS", 1000, 100, 60000);
   }
 
   /**
@@ -278,7 +351,7 @@ export class ClientConfigService {
    * Valid range: 1000 - 300000
    */
   get defaultRetryMaxDelayMs(): number {
-    return this.getNumber('DEFAULT_RETRY_MAX_DELAY_MS', 30000, 1000, 300000);
+    return this.getNumber("DEFAULT_RETRY_MAX_DELAY_MS", 30000, 1000, 300000);
   }
 
   /**
@@ -286,14 +359,14 @@ export class ClientConfigService {
    * Valid range: 1.1 - 10
    */
   get defaultRetryFactor(): number {
-    return this.getNumber('DEFAULT_RETRY_FACTOR', 2, 1.1, 10);
+    return this.getNumber("DEFAULT_RETRY_FACTOR", 2, 1.1, 10);
   }
 
   /**
    * Get default retry jitter
    */
   get defaultRetryJitter(): boolean {
-    return this.getBoolean('DEFAULT_RETRY_JITTER', true);
+    return this.getBoolean("DEFAULT_RETRY_JITTER", true);
   }
 
   /**
@@ -301,11 +374,11 @@ export class ClientConfigService {
    * Note: RegExp patterns cannot be stored in .env, so we define them here
    */
   get defaultRetryableErrors(): RegExp[] {
-    const customErrorCodes = this.configService.get<string>('RETRYABLE_ERROR_CODES', '');
+    const customErrorCodes = this.configService.get<string>("RETRYABLE_ERROR_CODES", "");
     const customPatterns = customErrorCodes
-      .split(',')
+      .split(",")
       .filter(code => code.trim())
-      .map(code => new RegExp(code.trim(), 'i'));
+      .map(code => new RegExp(code.trim(), "i"));
 
     return [
       ...customPatterns,
