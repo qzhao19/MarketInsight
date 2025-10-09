@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { RequestQueueConfig } from "../../../../types/llm/client.types"
 
 interface QueueItem<T> {
   func: () => Promise<T>;
@@ -12,9 +13,11 @@ export class RequestQueueGuard {
   private queue: QueueItem<any>[] = [];
   private activeCount = 0;
   private readonly maxConcurrent: number;
+  private readonly defaultConfig: RequestQueueConfig;
 
-  constructor(maxConcurrent: number = 5) {
-    this.maxConcurrent = maxConcurrent;
+  constructor(defaultConfig: RequestQueueConfig) {
+    this.defaultConfig = defaultConfig;
+    this.maxConcurrent = this.defaultConfig.maxConcurrent;
     this.logger = new Logger(RequestQueueGuard.name);
     this.logger.log(`Queue initialized with max concurrency: ${this.maxConcurrent}`);
   }
@@ -30,7 +33,7 @@ export class RequestQueueGuard {
       this.activeCount++;
       this.logger.debug(`Processing task. Active: ${this.activeCount}, Queue: ${this.queue.length}`);
 
-      item.func()
+      Promise.resolve()
         .then((result) => {
           const duration = Date.now() - startTime;
           this.logger.debug(`Task completed successfully in ${duration}ms`);
