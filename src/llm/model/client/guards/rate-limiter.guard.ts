@@ -1,26 +1,32 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { RateLimiterConfig } from "../../../../types/llm/client.types"
 
 // A type for items in our internal queue
-type WaitingResolver = () => void;
+type WaitingResolver = {
+  resolve: () => void;
+  reject: (error: Error) => void;
+};
 
 @Injectable()
 export class RateLimiterGuard {
   private readonly logger: Logger;
-  private tokenBucket: number;
-  private lastRefillTimestamp: number;
   private readonly maxTokens: number;
   private readonly refillRatePerSecond: number;
+  private readonly defaultConfig: RateLimiterConfig;
   private waitingQueue: WaitingResolver[] = [];
+  private lastRefillTimestamp: number;
+  private tokenBucket: number;
   private isProcessing = false;
 
-  constructor(maxRequestsPerMinute: number = 60) {
-    this.maxTokens = maxRequestsPerMinute;
-    this.refillRatePerSecond = maxRequestsPerMinute / 60;
+  constructor(defaultConfig: RateLimiterConfig) {
+    this.defaultConfig = defaultConfig;
+    this.maxTokens = this.defaultConfig.maxRequestsPerMinute;
+    this.refillRatePerSecond = this.defaultConfig.maxRequestsPerMinute / 60;
     this.tokenBucket = this.maxTokens;
     this.lastRefillTimestamp = Date.now();
     this.logger = new Logger(RateLimiterGuard.name);
     this.logger.log(
-      `Rate limiter initialized: ${maxRequestsPerMinute} requests/minute.`,
+      `Rate limiter initialized: ${this.defaultConfig.maxRequestsPerMinute} requests/minute.`,
     );
   }
 
@@ -47,7 +53,7 @@ export class RateLimiterGuard {
    */
   private async processQueue(): Promise<void> {
     if (this.isProcessing || this.waitingQueue.length === 0) {
-      this.logger.debug('Queue processing already in progress, skipping');
+      this.logger.debug("Queue processing already in progress, skipping");
       return;
     }
     this.isProcessing = true;
@@ -58,8 +64,8 @@ export class RateLimiterGuard {
 
         if (this.tokenBucket >= 1) {
           this.tokenBucket -= 1;
-          const nextResolver = this.waitingQueue.shift();
-          nextResolver?.(); // Resolve the promise of the waiting request
+          const next = this.waitingQueue.shift();
+          next?.resolve(); // Resolve the promise of the waiting request
         } else {
           // Not enough tokens, calculate wait time and pause
           const deficit = 1 - this.tokenBucket;
@@ -69,12 +75,12 @@ export class RateLimiterGuard {
         }
       }
     } catch (error) {
-      this.logger.error('Error in queue processing:', error);
+      this.logger.error("Error in queue processing:", error);
       // When an error happened, release all pending requests to prevent suspension.
       while (this.waitingQueue.length > 0) {
-        const resolver = this.waitingQueue.shift();
-        if (resolver) {
-          resolver();
+        const item = this.waitingQueue.shift();
+        if (item) {
+          item.reject(new Error("Rate limiter queue processing failed"));
         }
       }
     } finally {
@@ -87,8 +93,8 @@ export class RateLimiterGuard {
    * @returns A promise that resolves when a token has been acquired.
    */
   public async acquire(): Promise<void> {
-    const acquirePromise = new Promise<void>((resolve) => {
-      this.waitingQueue.push(resolve);
+    const acquirePromise = new Promise<void>((resolve, reject) => {
+      this.waitingQueue.push({ resolve, reject });
       this.logger.debug(
         `Request queued. Queue length: ${this.waitingQueue.length}, ` +
         `Available tokens: ${this.tokenBucket.toFixed(2)}`
