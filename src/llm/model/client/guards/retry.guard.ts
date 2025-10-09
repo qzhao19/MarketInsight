@@ -1,59 +1,59 @@
 import { Injectable, Logger } from "@nestjs/common";
-
-// Define default options in a constant for clarity
-const DEFAULT_RETRY_OPTIONS = {
-  maxRetries: 3,
-  initialDelayMs: 1000,
-  maxDelayMs: 30000,
-  factor: 2,
-  retryableErrors: [] as RegExp[],
-  jitter: true,
-};
-
-export type RetryOptions = Partial<Omit<typeof DEFAULT_RETRY_OPTIONS, "retryableErrors"> & { retryableErrors: RegExp[] }>;
+import { RetryConfig } from "../../../../types/llm/client.types"
 
 // Helper function for sleeping
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) => 
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 @Injectable()
 export class RetryGuard {
   private readonly logger: Logger;
+  private readonly defaultConfig: RetryConfig;
 
-  constructor() {
+  constructor(defaultConfig: RetryConfig) {
+    // Merge default config
+    this.defaultConfig = defaultConfig;
     this.logger = new Logger(RetryGuard.name);
+    this.logger.log(
+      `Retry guard initialized: maxRetries=${this.defaultConfig.maxRetries}, ` +
+      `initialDelay=${this.defaultConfig.initialDelayMs}ms, ` +
+      `maxDelay=${this.defaultConfig.maxDelayMs}ms, ` +
+      `factor=${this.defaultConfig.factor}, ` +
+      `jitter=${this.defaultConfig.jitter}`
+    );
   }
 
   public async exponentialBackoff<T>(
     func: () => Promise<T>,
-    options: RetryOptions = {},
   ): Promise<T> {
-    // Merge user options with defaults
-    const { 
-      maxRetries, 
-      initialDelayMs, 
-      maxDelayMs, 
-      factor, 
-      retryableErrors,
-      jitter,
-    } = { ...DEFAULT_RETRY_OPTIONS, ...options };
-
-    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    const totalAttempts = this.defaultConfig.maxRetries + 1;
+    for (let attempt = 1; attempt <= this.defaultConfig.maxRetries + 1; attempt++) {
       try {
-        return await func();
+        const startTime = Date.now();
+        const result = await func();
+        const duration = Date.now() - startTime;
+        
+        if (attempt > 1) {
+          this.logger.log(
+            `Retry successful on attempt ${attempt}/${totalAttempts} (${duration}ms)`
+          );
+        }
+        
+        return result;
       } catch (error) {
         // If this was the last attempt, throw the error
-        if (attempt > maxRetries) {
+        if (attempt === totalAttempts) {
           this.logger.error(
-            `Maximum number of retries (${maxRetries}) reached. Failing permanently.`,
+            `All retry attempts exhausted (${totalAttempts} attempts).`,
             error instanceof Error ? error.stack : error,
           );
           throw error;
         }
 
         // If retryableErrors are specified, check if the error is one of them
-        if (retryableErrors && retryableErrors.length > 0) {
+        if (this.defaultConfig.retryableErrors && this.defaultConfig.retryableErrors.length > 0) {
           const errorStr = error instanceof Error ? error.message : String(error);
-          const shouldRetry = retryableErrors.some((pattern) => pattern.test(errorStr));
+          const shouldRetry = this.defaultConfig.retryableErrors.some((pattern) => pattern.test(errorStr));
           
           if (!shouldRetry) {
             this.logger.warn(
@@ -65,13 +65,13 @@ export class RetryGuard {
         }
 
         // Calculate delay with exponential backoff and optional jitter
-        let delayMs = initialDelayMs * Math.pow(factor, attempt - 1);
-        if (jitter) {
+        let delayMs = this.defaultConfig.initialDelayMs * Math.pow(this.defaultConfig.factor, attempt - 1);
+        if (this.defaultConfig.jitter) {
           // Add a random jitter (e.g., +/- 20% of the delay)
           const jitterValue = delayMs * 0.4 * (Math.random() - 0.5);
           delayMs += jitterValue;
         }
-        delayMs = Math.min(delayMs, maxDelayMs);
+        delayMs = Math.min(delayMs, this.defaultConfig.maxDelayMs);
 
         this.logger.warn(
           `Attempt ${attempt} failed. Retrying in ${Math.round(delayMs)}ms...`,
