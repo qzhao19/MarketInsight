@@ -26,7 +26,8 @@ export class RateLimiterGuard {
     this.lastRefillTimestamp = Date.now();
     this.logger = new Logger(RateLimiterGuard.name);
     this.logger.log(
-      `Rate limiter initialized: ${this.defaultConfig.maxRequestsPerMinute} requests/minute.`,
+      `Rate limiter initializedwith config:\n ` + 
+      `  maxRequestsPerMinute=${this.defaultConfig.maxRequestsPerMinute} requests/minute`,
     );
   }
 
