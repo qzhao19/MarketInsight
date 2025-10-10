@@ -154,7 +154,7 @@ export class ClientConfigService {
    * Safely get number from config with validation
    */
   private getNumber(key: string, defaultValue: number, min?: number, max?: number): number {
-    const value = this.configService.get<number>(key, defaultValue);
+    const value = Number(this.configService.get<number>(key, defaultValue));
     
     // Check if number is valid
     if (isNaN(value) || !isFinite(value)) {
