@@ -19,7 +19,10 @@ export class RequestQueueGuard {
     this.defaultConfig = defaultConfig;
     this.maxConcurrent = this.defaultConfig.maxConcurrent;
     this.logger = new Logger(RequestQueueGuard.name);
-    this.logger.log(`Queue initialized with max concurrency: ${this.maxConcurrent}`);
+    this.logger.log(
+      `Queue initialized with config:\n ` + 
+      `  maxConcurrency=${this.maxConcurrent}`
+    );
   }
 
   /**
@@ -33,7 +36,7 @@ export class RequestQueueGuard {
       this.activeCount++;
       this.logger.debug(`Processing task. Active: ${this.activeCount}, Queue: ${this.queue.length}`);
 
-      Promise.resolve()
+      item.func()
         .then((result) => {
           const duration = Date.now() - startTime;
           this.logger.debug(`Task completed successfully in ${duration}ms`);
