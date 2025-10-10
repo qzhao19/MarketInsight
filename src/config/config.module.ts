@@ -21,6 +21,7 @@ import * as path from "path";
       envFilePath: [
         // Load in order: specific to general
         // Later files override earlier ones
+        path.resolve(process.cwd(), "env/.env.secrets"),
         path.resolve(process.cwd(), "env/.env.base"),   // Base configuration
         path.resolve(process.cwd(), "env/.env.llm"),    // LLM-Model-specific config
       ],
