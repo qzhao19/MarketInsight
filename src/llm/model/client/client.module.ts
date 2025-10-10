@@ -1,28 +1,67 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
 import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
 import { RateLimiterGuard } from "./guards/rate-limiter.guard";
 import { RequestQueueGuard } from "./guards/request-queue.guard";
 import { RetryGuard } from "./guards/retry.guard";
 import { ModelClientService } from "./client.service";
+import { AppConfigModule } from "../../../config/config.module";
+import { AppConfigService } from "../../../config/config.service";
 
 @Module({
-  imports: [ConfigModule],
+  imports: [
+    // Explicitly import AppConfigModule
+    AppConfigModule
+  ],
   providers: [
-    ModelClientService,
-    CircuitBreakerGuard,
-    RetryGuard,
+    // ==================== Circuit Breaker Guard ====================
     {
-      provide: RequestQueueGuard,
-      useFactory: () => new RequestQueueGuard(5)
+      provide: CircuitBreakerGuard,
+      useFactory: (clientConfig: AppConfigService) => {
+        return new CircuitBreakerGuard(
+          clientConfig.LLMClientConfig.circuitBreakerConfig
+        );
+      },
+      inject: [AppConfigService],
     },
+
+    // ==================== Rate Limiter Guard ====================
     {
       provide: RateLimiterGuard,
-      useFactory: () => new RateLimiterGuard(60)
-    }
+      useFactory: (clientConfig: AppConfigService) => {
+        return new RateLimiterGuard(
+          clientConfig.LLMClientConfig.rateLimiterConfig
+        );
+      },
+      inject: [AppConfigService],
+    },
+
+    // ==================== Request Queue Guard ====================
+    {
+      provide: RequestQueueGuard,
+      useFactory: (clientConfig: AppConfigService) => {
+        return new RequestQueueGuard(
+          clientConfig.LLMClientConfig.requestQueueConfig
+        );
+      },
+      inject: [AppConfigService],
+    },
+
+    // ==================== Retry Guard ====================
+    {
+      provide: RetryGuard,
+      useFactory: (clientConfig: AppConfigService) => {
+        return new RetryGuard(
+          clientConfig.LLMClientConfig.retryConfig
+        );
+      },
+      inject: [AppConfigService],
+    },
+
+    // ==================== Model Client Service ====================
+    ModelClientService,
   ],
   exports: [
-    ModelClientService
+    ModelClientService,
   ],
 })
 export class ModelClientModule {}
