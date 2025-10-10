@@ -15,11 +15,12 @@ export class RetryGuard {
     this.defaultConfig = defaultConfig;
     this.logger = new Logger(RetryGuard.name);
     this.logger.log(
-      `Retry guard initialized: maxRetries=${this.defaultConfig.maxRetries}, ` +
-      `initialDelay=${this.defaultConfig.initialDelayMs}ms, ` +
-      `maxDelay=${this.defaultConfig.maxDelayMs}ms, ` +
-      `factor=${this.defaultConfig.factor}, ` +
-      `jitter=${this.defaultConfig.jitter}`
+      `Retry guard initialized with config:\n` +
+      `  maxRetries=${this.defaultConfig.maxRetries},\n` +
+      `  initialDelay=${this.defaultConfig.initialDelayMs}ms,\n` +
+      `  maxDelay=${this.defaultConfig.maxDelayMs}ms,\n` +
+      `  factor=${this.defaultConfig.factor},\n` +
+      `  jitter=${this.defaultConfig.jitter}`
     );
   }
 
