@@ -17,14 +17,14 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
     this.defaultConfig = defaultConfig;
     this.logger = new Logger(CircuitBreakerGuard.name);
     this.logger.log(
-      `Circuit breaker guard initialized with config: ` +
-      `resetTimeout=${this.defaultConfig.resetTimeout}, ` +
-      `timeout=${this.defaultConfig.timeout}, ` +
-      `errorThresholdPercentage=${this.defaultConfig.errorThresholdPercentage}, ` +
-      `rollingCountTimeout=${this.defaultConfig.rollingCountTimeout}, ` +
-      `volumeThreshold=${this.defaultConfig.volumeThreshold}, ` +
-      `capacity=${this.defaultConfig.capacity}, ` +
-      `name=${this.defaultConfig.name}`
+      `Circuit breaker guard initialized with config:\n` +
+      `  resetTimeout=${this.defaultConfig.resetTimeout},\n` +
+      `  timeout=${this.defaultConfig.timeout},\n` +
+      `  errorThresholdPercentage=${this.defaultConfig.errorThresholdPercentage},\n` +
+      `  rollingCountTimeout=${this.defaultConfig.rollingCountTimeout},\n` +
+      `  volumeThreshold=${this.defaultConfig.volumeThreshold},\n` +
+      `  capacity=${this.defaultConfig.capacity},\n` +
+      `  name=${this.defaultConfig.name}`
     );
   }
 
