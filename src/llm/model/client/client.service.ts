@@ -1,76 +1,50 @@
-import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { StructuredOutputMethodOptions } from "@langchain/core/language_models/base";
-
 import { AIMessageChunk } from "@langchain/core/messages";
 import { ChatOpenAICallOptions } from "@langchain/openai";
+import { 
+  BaseLanguageModelInput, 
+  StructuredOutputMethodOptions 
+} from "@langchain/core/language_models/base";
 import { HttpException, HttpStatus, Logger, Injectable } from "@nestjs/common";
 import { z } from "zod";
 
-import { ChatOpenAIToolType, ModelClientOptions } from "../../../types/llm.types"
+import { ChatOpenAIToolType, LLMChatModel } from "../../../types/llm/client.types"
 import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
 import { RateLimiterGuard } from "./guards/rate-limiter.guard";
 import { RequestQueueGuard } from "./guards/request-queue.guard";
 import { RetryGuard } from "./guards/retry.guard";
 
 
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
-
 export class ModelClient {
-  private readonly model: BaseChatModel;
-  private readonly circuitBreakerConfig: { resetTimeout: number; };
-  private readonly rateLimiterConfig: { maxRequestsPerMinute: number; };
-  private readonly retryConfig: Required<ModelClientOptions["retryConfig"]>;
+  private readonly model: LLMChatModel;
   private readonly logger: Logger;
-  private readonly originalConfig: DeepPartial<ModelClientOptions>;
   private readonly instanceId: string;
 
   constructor(
-    config: DeepPartial<ModelClientOptions>,
+    model: LLMChatModel, 
     private readonly circuitBreaker: CircuitBreakerGuard,
     private readonly rateLimiter: RateLimiterGuard,
     private readonly requestQueue: RequestQueueGuard,
     private readonly retry: RetryGuard,
   ) {
     this.logger = new Logger(ModelClient.name);
-    this.originalConfig = config;
-
+    this.model = model
     this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    if (!config.model) {
+    if (!this.model) {
       const msg = "ModelClient requires a 'model' instance in its configuration.";
       this.logger.error(msg);
       throw new Error(msg);
-    }
-    this.model = config.model as BaseChatModel;
-
-    // defaults configs
-    this.circuitBreakerConfig = {
-      resetTimeout: 30000,
-      ...config.circuitBreakerConfig,
-    };
-
-    this.rateLimiterConfig = {
-      maxRequestsPerMinute: 60,
-      ...config.rateLimiterConfig,
-    };
-
-    this.retryConfig = {
-      maxRetries: 3,
-      initialDelayMs: 1000,
-      maxDelayMs: 30000,
-      factor: 2,
-      jitter: true,
-      ...config.retryConfig,
-      retryableErrors: (
-        config.retryConfig?.retryableErrors ?? []
-      ).filter((x): x is RegExp => x instanceof RegExp),
-    };
+    } 
   }
 
-  public getUnderlyingModel(): BaseChatModel {
+  private getModelName(): string {
+    return ((this.model as any)?.model || 
+           (this.model as any)?.modelName || 
+           (this.model as any)?.name ||
+           "unknown-model").toString();
+  }
+
+  public getUnderlyingModel(): LLMChatModel {
     return this.model;
   }
 
@@ -80,8 +54,9 @@ export class ModelClient {
   ): ModelClient {
 
     try {
-      if (!this.model || typeof (this.model as any).bindTools !== 'function') {
-        const errorMsg = `Model does not support bindTools method: ${(this.model as any)?.model || 'unknown'}`;
+      // Check if model supports bindTools
+      if (!this.model || typeof (this.model as any).bindTools !== "function") {
+        const errorMsg = `Model does not support bindTools method: ${this.getModelName()}`;
         this.logger.error(errorMsg);
         throw new Error(errorMsg);
       }
@@ -89,14 +64,9 @@ export class ModelClient {
       // Use type assertion to safely call bindTools
       const modelWithTools = (this.model as any).bindTools(tools, options);
 
-      // Create a new config with the tools-enabled model
-      const newConfig: DeepPartial<ModelClientOptions> = {
-        ...this.originalConfig,
-        model: modelWithTools,
-      };
-
+      // Use new model to create client service
       return new ModelClient(
-        newConfig,
+        modelWithTools,
         this.circuitBreaker,
         this.rateLimiter,
         this.requestQueue,
@@ -116,16 +86,18 @@ export class ModelClient {
   ): ModelClient {
 
     try {
-      // Create the new structured model from the current model
-      const structuredModel = this.model.withStructuredOutput(schema, options);
+      // Check if model supports withStructuredOutput
+      if (!this.model || typeof (this.model as any).withStructuredOutput !== "function") {
+        const errorMsg = `Model does not support withStructuredOutput method: ${this.getModelName()}`;
+        this.logger.error(errorMsg);
+        throw new Error(errorMsg);
+      }
 
-      const newConfig: DeepPartial<ModelClientOptions> = {
-        ...this.originalConfig,
-        model: structuredModel,
-      };
+      // Create the new structured model from the current model
+      const structuredModel = (this.model as any).withStructuredOutput(schema, options);
 
       return new ModelClient(
-        newConfig,
+        structuredModel,
         this.circuitBreaker,
         this.rateLimiter,
         this.requestQueue,
@@ -144,22 +116,28 @@ export class ModelClient {
   ): Promise<AIMessageChunk> {
 
     // Get model name
-    const baseModelName = ((this.model as any)?.model || 
-                     (this.model as any)?.modelName || 
-                     "model").toString();
+    const baseModelName = this.getModelName();
     const uniqueBreakerName = `${baseModelName}-${this.instanceId}`;
     this.logger.debug(`Invoking model ${uniqueBreakerName} with input type: ${typeof input}`);
+
+    // Create a invoke wrapper
+    const invokeWrapper = async (
+      currentInput: BaseLanguageModelInput, 
+      currentOptions?: ChatOpenAICallOptions
+    ) => {
+      if (typeof (this.model as any).invoke === "function") {
+        return (this.model as any).invoke(currentInput, currentOptions);
+      } else {
+        throw new Error(
+          `Model ${baseModelName} does not support invoke method`
+        );
+      }
+    };
 
     // setup circuit breaker protection, pass fallback function during creation
     const breaker = this.circuitBreaker.getOrCreateBreaker(
       uniqueBreakerName,
-      async (
-        currentInput: BaseLanguageModelInput, 
-        currentOptions?: ChatOpenAICallOptions
-      ) => this.model.invoke(currentInput, currentOptions),
-      {
-        resetTimeout: this.circuitBreakerConfig.resetTimeout,
-      },
+      invokeWrapper,
       (error) => {
         const errorMsg = error instanceof Error ? error.message : String(error);
         const msg = `Model service "${baseModelName}" (${uniqueBreakerName}) is temporarily unavailable. Reason: ${errorMsg}`;
@@ -175,7 +153,6 @@ export class ModelClient {
       return this.retry.exponentialBackoff(
         // Pass input and options to breaker.fire
         () => breaker.fire(input, options) as Promise<AIMessageChunk>,
-        this.retryConfig,
       );
     });
   }
@@ -190,9 +167,13 @@ export class ModelClientService {
     private retry: RetryGuard,
   ) {};
 
-  public createClient(modelClientOptions: DeepPartial<ModelClientOptions>) {
+  public createClient(model: LLMChatModel) {
+    if (!model) {
+      throw new Error("ModelClient requires a valid model instance");
+    }
+
     return new ModelClient(
-      modelClientOptions,
+      model,
       this.circuitBreaker,
       this.rateLimiter,
       this.requestQueue,
