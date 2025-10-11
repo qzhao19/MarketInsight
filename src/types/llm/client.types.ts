@@ -47,18 +47,6 @@ export interface RetryConfig {
   jitter: boolean;
 }
 
-/**
- * Model client configuration options
- * Defines protection mechanisms: circuit breaker, rate limiter, retry logic
- */
-export interface ModelClientOptions {
-  // model instance
-  model: BaseChatModel;
-  circuitBreakerConfig: CircuitBreakerConfig;
-  rateLimiterConfig: RateLimiterConfig;
-  requestQueueConfig: RequestQueueConfig;
-  retryConfig: RetryConfig;
-};
 
 /**
  * Type representing a single tool definition for OpenAI responses.
@@ -92,7 +80,7 @@ export type ChatOpenAIToolType =
  * This type allows ModelClient and related logic to flexibly support both native
  * chat models and transformed models (e.g., with tools or structured output).
  */
-export type LLMChatModel =  
+export type LLMChatModelType =  
   | BaseChatModel
   | Runnable<BaseLanguageModelInput, Record<string, any>, RunnableConfig<Record<string, any>>>
   | Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOpenAICallOptions>;

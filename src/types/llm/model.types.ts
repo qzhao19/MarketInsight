@@ -15,7 +15,7 @@
  * - verbose: Whether to enable verbose logging (1 for true, 0 for false).
  */
 export interface LLMModelConfig {
-    model: string,
+    model?: string,
     temperature?: number,
     topP?: number,
     frequencyPenalty?: number,

@@ -1,11 +1,4 @@
-import { ChatOpenAIFields } from "@langchain/openai";
-import { ModelClientOptions } from "./client.types"
-
-
-/**
- * Generic record type for arbitrary key-value objects.
- */
-export type AnyRecord = Record<string, any>;
+import { LLMModelConfig } from "./model.types";
 
 /**
  * Structure representing research parameters for a specific analysis section.
@@ -48,7 +41,7 @@ export interface ResearchPlan {
  * - query: The search query string
  * - result: The result string (usually JSON or plain text)
  */
-export type SearchResultItem = {
+export interface SearchResultItem {
   query: string;
   result: string;
 };
@@ -59,13 +52,10 @@ export type SearchResultItem = {
  */
 export interface MarketResearchInvokeOptions {
   /** Additional user context for research */
-  userContext?: AnyRecord;
+  userContext?: Record<string, any>;
   
   /** Model configuration (LangChain ChatOpenAIFields) */
-  modelConfig?: Partial<ChatOpenAIFields>;
-  
-  /** Client protection mechanisms configuration */
-  modelClientOptions?: ModelClientOptions;
+  modelConfig?: LLMModelConfig;
 }
 
 /**
