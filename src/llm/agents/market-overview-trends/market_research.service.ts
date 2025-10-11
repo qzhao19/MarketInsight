@@ -1,22 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
-
 import { ModelService } from "../../model/model.service";
 import { MarketOverviewGraph } from "./graph/graph";
-import { AgentConfigService } from "../../../config/agent.config";
+import { AppConfigService } from "../../../config/config.service";
 import { 
   MarketResearchInvokeOptions, 
   MarketResearchResult 
-} from "../../../types/llm.types";
+} from "../../../types/llm/agent.types";
 
 @Injectable()
 export class MarketResearchService {
   private readonly logger = new Logger(MarketResearchService.name);
   private workflow: ReturnType<typeof MarketOverviewGraph.compile>;
+  private serperApiKey: string;
 
   constructor(
     private readonly modelService: ModelService, 
-    private readonly agentConfig: AgentConfigService
+    private readonly configService: AppConfigService
   ) {
+    
+    // Read from AppConfigService
+    this.serperApiKey = this.configService.serperApiKey;
+    if (!this.serperApiKey) {
+      throw new Error("Serper API key is missing from workflow configuration.");
+    }
+
     try {
       this.workflow = MarketOverviewGraph.compile();
       this.logger.log('Market research workflow compiled successfully');
@@ -33,39 +40,12 @@ export class MarketResearchService {
   ): Promise<MarketResearchResult> {
 
     // Extract options
-    const { 
-      userContext, modelConfig, modelClientOptions,
+    const {
+      userContext, modelConfig
     } = options;
 
-    // Set default model configuration
-    const finalModelConfig = {
-      model: this.agentConfig.defaultModelName,
-      temperature: this.agentConfig.defaultModelTemperature,
-      ...modelConfig, // User overrides
-    };
-
-    // Merge client configuration with defaults
-    const finalModelClientOptions = {
-      circuitBreakerConfig: {
-        ...this.agentConfig.defaultCircuitBreakerConfig,
-        ...modelClientOptions?.circuitBreakerConfig,
-      },
-      rateLimiterConfig: {
-        ...this.agentConfig.defaultRateLimiterConfig,
-        ...modelClientOptions?.rateLimiterConfig,
-      },
-      retryConfig: {
-        ...this.agentConfig.defaultRetryConfig,
-        ...modelClientOptions?.retryConfig,
-      },
-    };
-
     try {
-      const model = await this.modelService.getDeepSeekGuardModel(
-        finalModelConfig,    // Model-level config (ChatOpenAIFields)
-        finalModelClientOptions    // Model-client-level config (protection mechanisms)
-      );
-
+      const model = await this.modelService.getDeepSeekGuardModel(modelConfig || {});
       if (!model) {
         throw new Error("Failed to initialize model");
       }
@@ -75,7 +55,12 @@ export class MarketResearchService {
         userContext
       };
 
-      const workflowConfig = { configurable: { model } };
+      const workflowConfig = { 
+        configurable: { 
+          model,
+          serperApiKey: this.serperApiKey
+        } 
+      };
       const result = await this.workflow.invoke(initialState, workflowConfig);
       return { success: true, result };
 
