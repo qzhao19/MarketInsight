@@ -1,8 +1,11 @@
 import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { ChatDeepSeek } from "@langchain/deepseek";
 import { ChatOpenAIFields } from "@langchain/openai";
+
 import { ModelClient, ModelClientService } from "./client/client.service";
+import { AppConfigService } from "../../config/config.service";
+import { LLMModelConfig } from "../../types/llm/model.types";
+import { toOpenAIConfig } from "../../utils/llm.utils"
 
 /**
  * Generate a unique key for caching model configurations
@@ -13,64 +16,35 @@ function generateModelKey(config: ChatOpenAIFields): string {
   return `${model || "default"}-${temperature || 0}-${topP || 1}`;
 }
 
-/**
- * Merge model configs
- */
-function mergeModelConfig<T extends { configuration?: unknown }>(
-  config: T
-): Omit<T, "configuration"> & Record<string, unknown> {
-  const { configuration, ...baseConfig } = config;
-  return {
-    ...baseConfig,
-    ...(configuration || {})
-  };
-}
-
 @Injectable()
 export class ModelService implements OnModuleInit {
   private readonly logger: Logger;
   private models: Map<string, ModelClient> = new Map();
   private rawModels: Map<string, ChatDeepSeek> = new Map();
 
-  // lazily initialized configs
-  private _deepseekConfig: ChatOpenAIFields | null = null;
-
-  // default client options
-  readonly defaultModelClientOptions = {
-    circuitBreakerConfig: {
-      resetTimeout: 20000,
-    },
-    rateLimiterConfig: {
-      maxRequestsPerMinute: 60
-    },
-    retryConfig: {
-      maxRetries: 3,
-      initialDelayMs: 1000,
-      maxDelayMs: 30000,
-      factor: 2,
-      retryableErrors: [
-        /429/,        // rate limit error
-        /503/,        // service unavailable
-        /timeout/,    // timeout error
-        /ECONNRESET/, // connection reset
-        /ETIMEDOUT/   // connection timeout
-      ],
-      jitter: true,
-    }
-  };
+  // API credentials (not stored in .env.llm for security)
+  private apiKey: string;
+  private baseURL: string;
 
   constructor(
     @Inject(forwardRef(() => ModelClientService))
     private readonly modelClientService: ModelClientService,
-    private readonly configService: ConfigService,
+    private readonly configService: AppConfigService,
   ) {
     this.logger = new Logger(ModelService.name);
+
+    // Fetch API credentials from environment variables
+    this.apiKey = this.configService.llmApiKey;
+    this.baseURL = this.configService.llmBaseURL;
+
+    if (!this.apiKey) {
+      this.logger.warn("LLM API key not found in environment variables!");
+    }
   }
 
   onModuleInit() {
-    this.logger.debug("ModelService constructor called");
+    this.logger.debug("ModelService initializing...");
     this.logger.debug(`ConfigService injected: ${!!this.configService}`);
-    this.logger.debug(`ModelClientService injected: ${!!this.modelClientService}`);
     
     if (!this.modelClientService) {
       this.logger.error("ModelClientService not injected properly!");
@@ -83,28 +57,35 @@ export class ModelService implements OnModuleInit {
     }
 
     this.initializeDefaultModels();
+    this.logger.log("ModelService initialized successfully");
   }
 
-  get deepseekConfig(): ChatOpenAIFields {
-    if (!this._deepseekConfig) {
-      const apiKey = this.configService.get<string>("DEEPSEEK_API_KEY");
-      const baseURL = this.configService.get<string>("DEEPSEEK_BASE_URL");
+  /**
+   * Get the default DeepSeek model configuration
+   * Combines model parameters from ModelConfigService with API credentials
+   */
+  private getDefaultDeepSeekConfig(): ChatOpenAIFields {
+    // Get default model configuration from ModelConfigService
+    const defaultConfig = this.configService.LLMModelConfig.defaultModelConfig;
 
-      if (!apiKey) {
-        this.logger.warn("DEEPSEEK API key not found in environment variables!");
-      } 
-      
-      this._deepseekConfig = {
-        model: "deepseek-reasoner",
-        configuration: {
-          apiKey,
-          timeout: 600000,
-          baseURL,
-          maxRetries: 3
-        }
-      };
+    // Create basic config: 
+    const modelConfig: ChatOpenAIFields = {
+      ...defaultConfig,
+      apiKey: this.apiKey,
+      // Add client connection-related configuration
+      configuration: {
+        apiKey: this.apiKey,
+        baseURL: this.baseURL,
+      }
+    };
+
+    // Valid configs
+    const validation = this.configService.LLMModelConfig.validateModelConfig(modelConfig);
+    if (!validation.isValid) {
+      this.logger.warn(`Invalid model configuration: ${validation.errors.join(", ")}`);
     }
-    return this._deepseekConfig;
+
+    return modelConfig;
   }
 
   /**
@@ -112,78 +93,84 @@ export class ModelService implements OnModuleInit {
    */
   private initializeDefaultModels(): void {
     try {
-      // create raw model
-      const mergedConfig = mergeModelConfig(this.deepseekConfig);
-      const rawModel = new ChatDeepSeek(mergedConfig);
+      // Get default model configuration from ModelConfigService
+      const defaultConfig = this.getDefaultDeepSeekConfig();
       
-      // cache raw model
-      const configKey = generateModelKey(this.deepseekConfig);
+      const rawModel = new ChatDeepSeek(defaultConfig);
+      
+      // Cache raw model
+      const configKey = generateModelKey(defaultConfig);
       this.rawModels.set(configKey, rawModel);
       
-      // create and cache guarded model
-      const guardedModel = this.modelClientService.createClient({
-        model: rawModel,
-        ...this.defaultModelClientOptions
-      });
+      // Create and cache guarded model
+      const guardedModel = this.modelClientService.createClient(rawModel);
       this.models.set(configKey, guardedModel);
-      
+
       this.logger.log(
-        `Default DeepSeek model initialized: ${this.deepseekConfig.model}`
+        `Default LLM model initialized: ${defaultConfig.model}`
       );
+
     } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(
-          `Failed to initialize default models: ${error.message}`, error.stack
-        );
-      } else {
-        this.logger.error(
-          `Failed to initialize default models: ${JSON.stringify(error)}`
-        );
-      }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to initialize default models: ${errorMsg}`
+      );
     }
   }
 
   /**
    * Get DeepSeek model with protection mechanisms
-   * @param baseConfig Base configuration (defaults to service default configuration)
-   * @param clientOptions Client option overrides
+   * @param modelConfigOverrides Override default model configuration (optional)
    * @returns Guarded model client
    */
   public async getDeepSeekGuardModel(
-    baseModelConfig: Partial<ChatOpenAIFields> = {},
-    clientOptions: Record<string, unknown> = {}
+    modelConfigOverrides: Partial<LLMModelConfig>
   ): Promise<ModelClient | undefined> {
     try {
-      // create a copy of the config
-      const ModelConfig: ChatOpenAIFields = {
-        ...this.deepseekConfig, 
-        ...baseModelConfig 
+      // Start with default config from config service
+      const defaultConfig = this.getDefaultDeepSeekConfig();
+
+      // Convert modelConfigOverrides to ChatOpenAIFields format if provided
+      const convertedOverrides = modelConfigOverrides && Object.keys(modelConfigOverrides).length > 0 
+        ? toOpenAIConfig(modelConfigOverrides as LLMModelConfig)
+        : {};
+
+      // Create a merged config with overrides
+      // BUT keep configuration object intact with API credentials
+      const modelConfig: ChatOpenAIFields = {
+        ...defaultConfig,           // Default model parameters
+        ...convertedOverrides,      // User overrides (model, temperature, topP, etc.)
+        apiKey: this.apiKey,
+        configuration: {
+          apiKey: this.apiKey,      // Use the service's API key
+          baseURL: this.baseURL,    // Use the service's base URL
+        }
       };
-      const configKey = generateModelKey(ModelConfig);
-      
+
+      // Validate the merged configuration
+      const validation = this.configService.LLMModelConfig.validateModelConfig(modelConfig);
+      if (!validation.isValid) {
+        this.logger.warn(`Invalid model configuration: ${validation.errors.join(", ")}`);
+      }
+
+      // Create model key
+      const configKey = generateModelKey(modelConfig);
       if (this.models.has(configKey)) {
         return this.models.get(configKey);
       }
+
+      const rawModel = new ChatDeepSeek(modelConfig);
+      const newModel = this.modelClientService.createClient(rawModel);
       
-      // merge config and create new model
-      const mergedModelConfig = mergeModelConfig(ModelConfig);
-      const rawModel = new ChatDeepSeek(mergedModelConfig);
-      
-      const newModel = this.modelClientService.createClient({
-        model: rawModel,
-        ...this.defaultModelClientOptions,
-        ...clientOptions
-      });
-      
-      // cache
+      // Cache
       this.models.set(configKey, newModel);
       return newModel;
+
     } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(`Error creating guarded model: ${error.message}`, error.stack);
-      } else {
-        this.logger.error(`Error creating guarded model: ${JSON.stringify(error)}`);
-      }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Error creating guarded model: ${errorMsg}`
+      );
       return undefined;
     }
   }
@@ -193,46 +180,77 @@ export class ModelService implements OnModuleInit {
    * @param modelNameOrConfig Model name or full configuration
    * @returns ChatDeepSeek instance
    */
-  public getDeepSeekRawModel(modelNameOrConfig?: string | ChatOpenAIFields): ChatDeepSeek | undefined {
+  public async getDeepSeekRawModel(
+    modelNameOrConfig?: string | Partial<LLMModelConfig>
+  ): Promise<ChatDeepSeek | undefined> {
     try {
-      let config: ChatOpenAIFields;
+      // Get default config from config service
+      const defaultConfig = this.getDefaultDeepSeekConfig();
+      let modelConfig: ChatOpenAIFields;
       
-      // handle different types of input parameters
-      if (typeof modelNameOrConfig === "string" && 
-          (modelNameOrConfig === "deepseek-reasoner" || modelNameOrConfig === "deepseek-chat")) {
-        // if it's a model name，create a new config object based on the default configs
-        config = { 
-          ...this.deepseekConfig,
-          model: modelNameOrConfig 
+      // Handle different types of input parameters
+      if (typeof modelNameOrConfig === "string") {
+        // If it"s a model name, create a config with that model name
+        modelConfig = { 
+          ...defaultConfig,
+          model: modelNameOrConfig,
+          apiKey: this.apiKey,
+          configuration: {
+            apiKey: this.apiKey,
+            baseURL: this.baseURL,
+          }
         };
       } else if (modelNameOrConfig === undefined) {
-        // use default configs
-        config = { ...this.deepseekConfig };
+        // Use default config
+        modelConfig = defaultConfig;
       } else if (typeof modelNameOrConfig === "object") {
-        // use given configs
-        config = { ...modelNameOrConfig };
+        const convertedOverrides = toOpenAIConfig(modelNameOrConfig as LLMModelConfig);
+        modelConfig = { 
+          ...defaultConfig,
+          ...convertedOverrides,
+          apiKey: this.apiKey,
+          configuration: {
+            apiKey: this.apiKey,
+            baseURL: this.baseURL,
+          }
+        };
       } else {
         throw new Error(`Invalid model configuration: ${modelNameOrConfig}`);
       }
       
-      const configKey = generateModelKey(config);
-      
+      const configKey = generateModelKey(modelConfig);
       if (this.rawModels.has(configKey)) {
         return this.rawModels.get(configKey);
       }
-      
-      // create model
-      const mergedConfig = mergeModelConfig(config);
-      const newModel = new ChatDeepSeek(mergedConfig);
+
+      const newModel = new ChatDeepSeek(modelConfig);
       this.rawModels.set(configKey, newModel);
       return newModel;
+
     } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(`Error creating raw model: ${error.message}`, error.stack);
-      } else {
-        this.logger.error(`Error creating raw model: ${JSON.stringify(error)}`);
-      }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Error creating raw model: ${errorMsg}`
+      );
       return undefined;
     }
   }
+
+  /**
+   * Get current model configuration stats
+   * @returns Current default model configuration statistics
+   */
+  public getModelConfigStats() {
+    return this.configService.LLMModelConfig.getConfigStats();
+  }
+  
+  /**
+   * Clear model caches
+   */
+  public clearModelCaches(): void {
+    this.models.clear();
+    this.rawModels.clear();
+    this.logger.log("Model caches cleared");
+  }
+
 }
