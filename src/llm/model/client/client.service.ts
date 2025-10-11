@@ -7,20 +7,19 @@ import {
 import { HttpException, HttpStatus, Logger, Injectable } from "@nestjs/common";
 import { z } from "zod";
 
-import { ChatOpenAIToolType, LLMChatModel } from "../../../types/llm/client.types"
+import { ChatOpenAIToolType, LLMChatModelType } from "../../../types/llm/client.types"
 import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
 import { RateLimiterGuard } from "./guards/rate-limiter.guard";
 import { RequestQueueGuard } from "./guards/request-queue.guard";
 import { RetryGuard } from "./guards/retry.guard";
 
-
 export class ModelClient {
-  private readonly model: LLMChatModel;
+  private readonly model: LLMChatModelType;
   private readonly logger: Logger;
   private readonly instanceId: string;
 
   constructor(
-    model: LLMChatModel, 
+    model: LLMChatModelType, 
     private readonly circuitBreaker: CircuitBreakerGuard,
     private readonly rateLimiter: RateLimiterGuard,
     private readonly requestQueue: RequestQueueGuard,
@@ -44,7 +43,7 @@ export class ModelClient {
            "unknown-model").toString();
   }
 
-  public getUnderlyingModel(): LLMChatModel {
+  public getUnderlyingModel(): LLMChatModelType {
     return this.model;
   }
 
@@ -167,7 +166,7 @@ export class ModelClientService {
     private retry: RetryGuard,
   ) {};
 
-  public createClient(model: LLMChatModel) {
+  public createClient(model: LLMChatModelType) {
     if (!model) {
       throw new Error("ModelClient requires a valid model instance");
     }
