@@ -1,5 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
-import { AnyRecord, ResearchPlan } from "../../../../types/llm/agent.types"
+import { ResearchPlan } from "../../../../types/llm/agent.types"
 
 export const MarketResearchState = Annotation.Root({
     
@@ -12,7 +12,7 @@ export const MarketResearchState = Annotation.Root({
   }),
 
   // The user context stores additional metadata or parameters about the user or session.
-  userContext: Annotation<AnyRecord>({
+  userContext: Annotation<Record<string, any>>({
     reducer: (x, y) => ({ ...x, ...y }),
     default: () => ({}),
   }),

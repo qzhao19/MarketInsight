@@ -91,6 +91,7 @@ export async function macroAnalysisTask(
   config: any
 ): Promise<Partial<typeof MarketResearchState.State>> {
   const model = config.configurable.model;
+  const serperApiKey = config.configurable.serperApiKey;
   const { researchPlan } = state;
 
   if (!researchPlan || !researchPlan.macroAnalysisParams) {
@@ -119,7 +120,7 @@ export async function macroAnalysisTask(
 
     // Execute SerpAPI search
     logger.log("Executing parallel searches for macro analysis.");
-    const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
+    const searchTool = new SerpAPI(serperApiKey);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
         const timeoutPromise = new Promise((_, reject) => 
@@ -180,6 +181,7 @@ export async function segmentationAnalysisTask(
 
   // Get LLM model
   const model = config.configurable.model;
+  const serperApiKey = config.configurable.serperApiKey;
   const { researchPlan } = state;
 
   if (!researchPlan || !researchPlan.segmentationAnalysisParams) {
@@ -204,7 +206,7 @@ export async function segmentationAnalysisTask(
 
     // Executing parallel searches
     logger.log("Executing parallel searches for segmentation analysis.");
-    const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
+    const searchTool = new SerpAPI(serperApiKey);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
         const timeoutPromise = new Promise((_, reject) => 
@@ -258,8 +260,9 @@ export async function trendAnalysisTask(
   state: typeof MarketResearchState.State,
   config: any
 ): Promise<Partial<typeof MarketResearchState.State>> {
-  // Get LLM model
+  // Get LLM model and Serper API key
   const model = config.configurable.model;
+  const serperApiKey = config.configurable.serperApiKey;
   const { researchPlan } = state;
 
   if (!researchPlan || !researchPlan.trendAnalysisParams) {
@@ -283,7 +286,7 @@ export async function trendAnalysisTask(
     const { searchQueries: optimizedQueries } = optimizedQueryResult;
     
     logger.log("Executing parallel searches for trend analysis.");
-    const searchTool = new SerpAPI(process.env.SERPER_API_KEY);
+    const searchTool = new SerpAPI(serperApiKey);
     const searchPromises = optimizedQueries.map(async (query: string) => {
       try {
         const timeoutPromise = new Promise((_, reject) => 
