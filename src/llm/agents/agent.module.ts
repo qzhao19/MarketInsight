@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AgentService } from './agent.service';
-import { MarketResearchService } from './market-overview-trends/market_research.service';
-import { ModelModule } from '../model/model.module';
+import { AppConfigModule } from '../../config/config.module';
+import { MarketResearchModule } from './market-overview-trends/market_research.module';
 
 @Module({
   imports: [
-    ModelModule,
+    AppConfigModule,
+    MarketResearchModule,
   ],
   providers: [
-    AgentService,
-    MarketResearchService,
+    AgentService
   ],
   exports: [
     AgentService,
