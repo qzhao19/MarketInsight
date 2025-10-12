@@ -1,14 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-
 import { MarketResearchService } from "./market-overview-trends/market_research.service"
-import { ModelService } from "../model/model.service";
-import { AnyRecord } from "../../types/llm.types"
-
-export interface AgentOptions {
-  userContext?: AnyRecord;
-  modelName?: string;
-  temperature?: number;
-}
+import { 
+  MarketResearchInvokeOptions, 
+  MarketResearchResult 
+} from '../../types/llm/agent.types';
 
 @Injectable()
 export class AgentService implements OnModuleInit {
@@ -16,28 +11,33 @@ export class AgentService implements OnModuleInit {
 
   constructor(
     private readonly marketResearchService: MarketResearchService,
-    private readonly modelService: ModelService 
   ) {}
 
   onModuleInit() {
     this.logger.log('AgentService initialized');
   }
 
-  async analyze(userInput: string, options: AgentOptions = {}): Promise<any> {
+  public async executeMarketResearch(
+    userInput: string, 
+    options?: MarketResearchInvokeOptions
+  ): Promise<MarketResearchResult> {
+    this.logger.log(`Executing market research for: ${userInput}`);
+
     try {
       const result = await this.marketResearchService.invoke(userInput, options);
           
-      return {
-        ...result,
-      };
+      if (result.success) {
+        this.logger.log('Market research completed successfully');
+      } else {
+        this.logger.error(`Market research failed: ${result.error}`);
+      }
+
+      return result;
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Analysis failed: ${errorMsg}`);
-      return {
-        success: false,
-        error: errorMsg,
-      };
+      this.logger.error(`Error in market research execution: ${errorMsg}`);
+      throw error;
     }
   }
 
