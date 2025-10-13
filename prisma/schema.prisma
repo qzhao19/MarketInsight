@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
     provider = "mysql"
-    url      = env("mysql://user1:1234@localhost:3306/market_insight_db") // database connection string
+    url      = env("DATABASE_URL") // database connection string
 }
 
 // Enum for TaskStatus, mirroring the one in TypeScript
@@ -19,7 +19,7 @@ enum TaskStatus {
 model User {
     id        String   @id @default(cuid())
     email     String   @unique
-    name      String?
+    username  String   @unique
     password  String // Remember to hash passwords
     campaigns MarketingCampaign[]
     createdAt DateTime @default(now())
@@ -48,7 +48,7 @@ model Task {
 // New: MarketingCampaign model
 model MarketingCampaign {
     id          String   @id @default(cuid())
-    name        String
+    username    String
     description String?
     status      String   @default("DRAFT") // e.g., DRAFT, ACTIVE, ARCHIVED
     user        User     @relation(fields: [userId], references: [id])
