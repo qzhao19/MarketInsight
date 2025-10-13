@@ -7,7 +7,7 @@ import {
   CampaignNotFoundException, 
   TaskNotFoundException, 
   InvalidStatusTransitionException 
-} from "../../common/exceptions";
+} from "../../common/exceptions/database.exceptions";
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
