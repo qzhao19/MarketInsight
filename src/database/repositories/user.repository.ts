@@ -1,16 +1,16 @@
 import { Injectable } from "@nestjs/common";
-import { User } from "../../types/domain.types";
+import { User } from "../../types/database.types";
 import { PrismaService } from "../prisma/prisma.service";
-import { UserAlreadyExistsException, UserNotFoundException } from "../../common/exceptions";
-
-// Define more specific types for method inputs to improve clarity and type safety.
-type CreateUserData = {
-    email: string;
-    name?: string;
-    password: string;
-};
-type UpdateUserData = Partial<Omit<CreateUserData, "email">> & { email?: string };
-type ListUsersOptions = { skip?: number; take?: number; includeCampaigns?: boolean };
+import { 
+  UserAlreadyExistsException, 
+  UserNotFoundException,
+} from "../../common/exceptions/database.exceptions";
+import {
+  CreateUserData,
+  UpdateUserData,
+  ListUsersOptions,
+  PaginatedUsersResponse,
+} from "../../types/database/user.types"
 
 /**
  * User Repository - implements all database operations related to the User entity
@@ -25,11 +25,18 @@ export class UserRepository {
 
   /**
    * Generates a unique email for deleted users to maintain the unique constraint
-   * @param id - The user's unique ID
-   * @returns A unique email string
+   * @private
    */
   private generateDeletedEmail(id: string): string {
       return `deleted_${id}_${Date.now()}@deleted.local`;
+  }
+
+  /**
+   * Generates a unique username for deleted users
+   * @private
+   */
+  private generateDeletedUsername(id: string): string {
+      return `deleted_${id}_${Date.now()}`;
   }
 
   /**
@@ -40,10 +47,33 @@ export class UserRepository {
    */
   public async createUser(data: CreateUserData): Promise<User> {
       try {
-        const exists = await this.prisma.user.findUnique({ 
-          where: { email: data.email } 
-        });
-        if (exists) throw new UserAlreadyExistsException(data.email);
+        const [existsByEmail, existsByUsername] = await Promise.all([
+          // Only check active users
+          this.prisma.user.findFirst({ 
+            where: { email: data.email, deletedAt: null },
+            select: { id: true }
+          }),
+          this.prisma.user.findFirst({ 
+            where: { username: data.username, deletedAt: null },
+            select: { id: true }
+          })
+        ]);
+
+        // Check email uniqueness
+        if (existsByEmail) {
+          throw new UserAlreadyExistsException(
+            `User with email "${data.email}" already exists`,
+            "email"
+          );
+        }
+        
+        // Check username uniqueness
+        if (existsByUsername) {
+          throw new UserAlreadyExistsException(
+            `User with username "${data.username}" already exists`,
+            "username"
+          );
+        }
 
         const user = await this.prisma.user.create({ 
           data: {
@@ -65,11 +95,15 @@ export class UserRepository {
    */
   public async findUserById(id: string): Promise<User> {
     try {
+      // findUnique only accepts unique fields (id, email, username)
       const user = await this.prisma.user.findUnique({ 
-        where: { id, deletedAt: null } // Only find non-deleted users
+        where: { id } 
       });
       
-      if (!user) throw new UserNotFoundException(id);
+      // Only find non-deleted users
+      if (!user || user.deletedAt !== null) {
+        throw new UserNotFoundException(id);
+      }
       return user as User;
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to find user by ID: ${id}`);
@@ -77,16 +111,46 @@ export class UserRepository {
   }
 
   /**
+   * Finds a user by their username
+   * @param id - The user's unique username
+   * @returns The found user
+   * @throws UserNotFoundException if no user with the username exists
+   */
+  public async findUserByUsername(username: string): Promise<User> {
+    try {
+      const user = await this.prisma.user.findUnique({ 
+        where: { username } 
+      });
+      
+      // Only find non-deleted users
+      if (!user || user.deletedAt !== null) {
+        throw new UserNotFoundException(username);
+      }
+
+      return user as User;
+    } catch (error) {
+      throw this.prisma.handlePrismaError(error, `Failed to find user by username: ${username}`);
+    }
+  }
+
+
+  /**
    * Finds a user by their email address
    * @param email - The user's email address
    * @returns The found user or null if not found
    */
-  public async findUserByEmail(email: string): Promise<User | null> {
+  public async findUserByEmail(email: string): Promise<User> {
     try {
       const user = await this.prisma.user.findUnique({ 
-        where: { email, deletedAt: null } // Only find non-deleted users
+        where: { email } 
       });
-      return user as User | null;
+
+      // Only find non-deleted users
+      if (!user || user.deletedAt !== null) {
+        throw new UserNotFoundException(email);
+      }
+      
+      return user as User;
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to find user by email: ${email}`);
     }
@@ -101,11 +165,31 @@ export class UserRepository {
    */
   public async updateUser(id: string, data: UpdateUserData): Promise<User> {
     try {
-      const user = await this.prisma.user.update({ 
-        where: { id, deletedAt: null }, 
+      // Verify the user exists and is not soft-delete 
+      const currentUser = await this.findUserById(id);
+
+      if (data.username && data.username !== currentUser.username) {
+        const existingUser = await this.prisma.user.findUnique({
+          where: { username: data.username },
+          select: { id: true }
+        });
+
+        // Check if username is taken by another active user
+        if (existingUser && existingUser.id !== id) {
+          throw new UserAlreadyExistsException(
+            `Username "${data.username}" is already taken`,
+            "username"
+          );
+        }
+      }
+
+      // Update the user (only with provided fields)
+      const updatedUser = await this.prisma.user.update({ 
+        where: { id }, 
         data 
       });
-      return user as User;
+      return updatedUser as User;
+
     } catch (error) {
       // if the user doesn't exist, Prisma throws P2025
       throw this.prisma.handlePrismaError(error, `Failed to update user: ${id}`);
@@ -124,6 +208,7 @@ export class UserRepository {
         data: {
           deletedAt: new Date(),
           email: this.generateDeletedEmail(id),
+          username: this.generateDeletedUsername(id),
         },
       });
       return user as User;
@@ -151,19 +236,93 @@ export class UserRepository {
    * @param options - Pagination and include options
    * @returns Array of users matching criteria
    */
-  public async findManyUsersByOptions(options: ListUsersOptions = {}): Promise<User[]> {
-    const { skip = 0, take = 20, includeCampaigns = false } = options;
+  public async findManyUsersByOptions(
+    options: ListUsersOptions = {}
+  ): Promise<PaginatedUsersResponse> {
     try {
-      const users = await this.prisma.user.findMany({
-        skip,
-        take,
-        where: { deletedAt: null },
-        include: { campaigns: includeCampaigns },
-        orderBy: { createdAt: "desc" },
-      });
-      return users as User[];
+      // Extract and validate pagination parameters
+      const skip = Math.max(0, options.skip ?? 0); // Ensure non-negative
+      const take = Math.min(100, Math.max(1, options.take ?? 20)); // Clamp between 1-100
+
+      // Build where clause with filters
+      // By default, exclude soft-deleted users unless explicitly included
+      const whereClause: any = {
+        deletedAt: options.where?.includeDeleted ? undefined : null,
+      };
+
+      // Add exact match filters
+      if (options.where?.email) {
+        whereClause.email = options.where.email;
+      }
+
+      if (options.where?.username) {
+        whereClause.username = options.where.username;
+      }
+
+      // Add search filter (case-insensitive search in email or username)
+      if (options.where?.searchTerm) {
+        whereClause.OR = [
+          { email: { contains: options.where.searchTerm, mode: "insensitive" } },
+          { username: { contains: options.where.searchTerm, mode: "insensitive" } },
+        ];
+      }
+
+      // Build orderBy clause
+      const orderByField = options.orderBy?.field ?? 'createdAt';
+      const orderByDirection = options.orderBy?.direction ?? 'desc';
+      const orderBy = { [orderByField]: orderByDirection };
+
+      // Build include clause for relations 
+      const include: any = {};
+      if (options.include?.campaigns) {
+        if (typeof options.include.campaigns === 'boolean') {
+          include.campaigns = options.include.campaigns;
+        } else {
+          // campaigns with filters
+          const campaignConfig = options.include.campaigns;
+          include.campaigns = {
+            take: Math.min(50, campaignConfig.take ?? 10), // Limit to 50
+            orderBy: { [campaignConfig.orderBy ?? 'createdAt']: 'desc' },
+          };
+
+          // Add campaign status filter if specified
+          if (campaignConfig.where?.status) {
+            include.campaigns.where = { status: campaignConfig.where?.status };
+          }
+        }
+      }
+
+      //  Execute queries in parallel for better performance
+      const [users, totalCount] = await Promise.all([
+        this.prisma.user.findMany({
+          skip,
+          take,
+          where: whereClause,
+          include: Object.keys(include).length > 0 ? include : undefined,
+          orderBy,
+        }),
+        this.prisma.user.count({ where: whereClause }),
+      ]);
+
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(totalCount / take);
+      const currentPage = Math.floor(skip / take) + 1;
+      const hasMore = skip + take < totalCount;
+
+      // Return paginated response
+      return {
+        data: users as User[],
+        pagination: {
+          total: totalCount,
+          skip,
+          take,
+          hasMore,
+          totalPages,
+          currentPage,
+        },
+      };
     } catch (error) {
-      throw this.prisma.handlePrismaError(error, "Failed to list users");
+      throw this.prisma.handlePrismaError(error, "Failed to list users with options");
     }
   }
 
