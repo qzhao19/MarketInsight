@@ -1,4 +1,4 @@
-import { CampaignStatus } from '../types/domain.types';
+import { CampaignStatus } from '../../types/database.types';
 
 // Custom exceptions
 export class UserNotFoundException extends Error {
@@ -9,9 +9,12 @@ export class UserNotFoundException extends Error {
 }
 
 export class UserAlreadyExistsException extends Error {
-  constructor(email: string) {
-    super(`User with email ${email} already exists`);
-    this.name = 'UserAlreadyExistsException';
+  constructor(
+    message: string,
+    public readonly field?: "email" | "username"
+  ) {
+    super(message);
+    this.name = "UserAlreadyExistsException";
   }
 }
 
