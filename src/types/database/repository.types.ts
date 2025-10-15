@@ -61,7 +61,7 @@ export interface User {
   email: string;
   username: string;
   // Related campaigns optional
-  campaigns?: MarketingCampaign[];
+  campaigns?: Campaign[];
   createdAt: Date; // add this field
   updatedAt: Date; // add this field
   deletedAt?: Date | null; // add this optional/nullable field
@@ -75,7 +75,7 @@ export interface User {
 export interface Task {
   id: string;
   campaignId: string; // Add this foreign key
-  campaign?: MarketingCampaign; // Add the related campaign object, make it optional
+  campaign?: Campaign; // Add the related campaign object, make it optional
   status: TaskStatus;
   priority: number;
   input: LLMInput;
@@ -88,7 +88,7 @@ export interface Task {
 /**
  * Marketing Campaign entity for a Marketing Campaign.
  */
-export interface MarketingCampaign {
+export interface Campaign {
   id: string;
   userId: string;
   user?: User; // Add the related user object, make it optional
