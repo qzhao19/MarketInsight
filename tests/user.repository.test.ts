@@ -3,7 +3,7 @@ import {
   UserNotFoundException,
   UserAlreadyExistsException,
 } from "../src/common/exceptions/database.exceptions";
-import { User } from "../src/types/database.types";
+import { SafeUser as User } from "../src/types/database.types";
 import { PrismaService } from "../src/database/prisma/prisma.service";
 
 describe("UserRepository", () => {
@@ -100,7 +100,7 @@ describe("UserRepository", () => {
     it("should throw UserAlreadyExistsException if email exists", async () => {
       // Mock email check returns existing user
       (mockPrismaService.user.findFirst as jest.Mock)
-        .mockResolvedValueOnce({ id: 'existing-user' }); // email exists
+        .mockResolvedValueOnce({ id: "existing-user" }); // email exists
 
       const newUser = { 
         email: "test@example.com", 
@@ -122,8 +122,8 @@ describe("UserRepository", () => {
     it("should throw UserAlreadyExistsException if username exists", async () => {
       // Mock checks: email OK, username exists
       (mockPrismaService.user.findFirst as jest.Mock)
-        .mockResolvedValueOnce(null)                    // email doesn't exist
-        .mockResolvedValueOnce({ id: 'existing-user' }); // username exists
+        .mockResolvedValueOnce(null)                    // email doesn"t exist
+        .mockResolvedValueOnce({ id: "existing-user" }); // username exists
 
       const newUser = { 
         email: "test@example.com", 
@@ -244,22 +244,25 @@ describe("UserRepository", () => {
 
   describe("updateUser", () => {
     it("should update user successfully", async () => {
-      const updatedUser = { ...mockUser, username: "updateduser" };
+      const updatedUser = { ...mockUser, username: "updateduser", email: "updateduser@example.com" };
       
       // Mock findUserById (internal call)
       (mockPrismaService.user.findUnique as jest.Mock)
-        .mockResolvedValueOnce(mockUser)      // findUserById
-        .mockResolvedValueOnce(null);         // username uniqueness check
+        .mockResolvedValueOnce(mockUser);      // findUserById
+
+      (mockPrismaService.user.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null)         // For username check
+        .mockResolvedValueOnce(null);        // For email check
       
       (mockPrismaService.user.update as jest.Mock).mockResolvedValue(updatedUser);
 
       const result = await userRepository.updateUser("user-1", { 
-        username: "updateduser" 
+        username: "updateduser", email: "updateduser@example.com"
       });
 
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: "user-1" },
-        data: { username: "updateduser" },
+        data: { username: "updateduser", email: "updateduser@example.com" },
       });
       expect(result).toEqual(updatedUser);
     });
@@ -273,20 +276,92 @@ describe("UserRepository", () => {
     });
 
     it("should throw UserAlreadyExistsException if new username is taken", async () => {
+      // Mock findUserById (internal call)
       (mockPrismaService.user.findUnique as jest.Mock)
-        .mockResolvedValueOnce(mockUser)                    // findUserById
-        .mockResolvedValueOnce({ id: 'other-user' });       // username taken by another user
+        .mockResolvedValueOnce(mockUser);  // findUserById succeeds
+      
+      // Mock findFirst for username check - returns existing user
+      (mockPrismaService.user.findFirst as jest.Mock)
+        .mockResolvedValueOnce({ id: "other-user" }); // Username taken
 
       await expect(
         userRepository.updateUser("user-1", { username: "takenname" })
       ).rejects.toThrow(UserAlreadyExistsException);
+
+      // Verify findFirst was called with correct parameters
+      expect(mockPrismaService.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          username: "takenname",
+          deletedAt: null,
+          id: { not: "user-1" }
+        },
+        select: { id: true }
+      });
+
+      // Update should NOT be called
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
+    });
+
+    it("should throw UserAlreadyExistsException if new email is taken", async () => {
+      // Mock findUserById
+      (mockPrismaService.user.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockUser);
+      
+      // Mock findFirst for email check - returns existing user
+      (mockPrismaService.user.findFirst as jest.Mock)
+        .mockResolvedValueOnce({ id: "other-user" }); // Email taken
+
+      await expect(
+        userRepository.updateUser("user-1", { email: "taken@example.com" })
+      ).rejects.toThrow(UserAlreadyExistsException);
+
+      expect(mockPrismaService.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          email: "taken@example.com",
+          deletedAt: null,
+          id: { not: "user-1" }
+        },
+        select: { id: true }
+      });
+
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
+    });
+
+    it("should update both username and email if both are available", async () => {
+      const updatedUser = { 
+        ...mockUser, 
+        username: "newusername",
+        email: "newemail@example.com"
+      };
+      
+      // Mock findUserById
+      (mockPrismaService.user.findUnique as jest.Mock)
+        .mockResolvedValueOnce(mockUser);
+      
+      // Mock both checks - no conflicts
+      (mockPrismaService.user.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null)  // username check
+        .mockResolvedValueOnce(null); // email check
+      
+      (mockPrismaService.user.update as jest.Mock).mockResolvedValue(updatedUser);
+
+      const result = await userRepository.updateUser("user-1", { 
+        username: "newusername",
+        email: "newemail@example.com"
+      });
+
+      expect(result.username).toBe("newusername");
+      expect(result.email).toBe("newemail@example.com");
+      
+      // Verify both checks were performed
+      expect(mockPrismaService.user.findFirst).toHaveBeenCalledTimes(2);
     });
 
     it("should update password without checking uniqueness", async () => {
       (mockPrismaService.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
       (mockPrismaService.user.update as jest.Mock).mockResolvedValue({
         ...mockUser,
-        password: 'newhashedpassword'
+        password: "newhashedpassword"
       });
 
       const result = await userRepository.updateUser("user-1", { 
@@ -367,7 +442,7 @@ describe("UserRepository", () => {
         take: 20,
         where: { deletedAt: null },
         include: undefined,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
     });
 
@@ -401,7 +476,7 @@ describe("UserRepository", () => {
       (mockPrismaService.user.count as jest.Mock).mockResolvedValue(1);
 
       await userRepository.findManyUsersByOptions({
-        where: { searchTerm: 'john' }
+        where: { searchTerm: "john" }
       });
 
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith(
@@ -409,8 +484,8 @@ describe("UserRepository", () => {
           where: expect.objectContaining({
             deletedAt: null,
             OR: [
-              { email: { contains: 'john', mode: 'insensitive' } },
-              { username: { contains: 'john', mode: 'insensitive' } },
+              { email: { contains: "john", mode: "insensitive" } },
+              { username: { contains: "john", mode: "insensitive" } },
             ],
           }),
         })
@@ -423,13 +498,13 @@ describe("UserRepository", () => {
       (mockPrismaService.user.count as jest.Mock).mockResolvedValue(1);
 
       await userRepository.findManyUsersByOptions({
-        where: { email: 'test@example.com' }
+        where: { email: "test@example.com" }
       });
 
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            email: 'test@example.com',
+            email: "test@example.com",
             deletedAt: null,
           }),
         })
@@ -442,12 +517,12 @@ describe("UserRepository", () => {
       (mockPrismaService.user.count as jest.Mock).mockResolvedValue(1);
 
       await userRepository.findManyUsersByOptions({
-        orderBy: { field: 'username', direction: 'asc' }
+        orderBy: { field: "username", direction: "asc" }
       });
 
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderBy: { username: 'asc' },
+          orderBy: { username: "asc" },
         })
       );
     });
@@ -485,8 +560,8 @@ describe("UserRepository", () => {
         include: {
           campaigns: {
             take: 5,
-            orderBy: 'createdAt',
-            where: { status: 'ACTIVE' }
+            orderBy: "createdAt",
+            where: { status: "ACTIVE" }
           }
         }
       });
@@ -496,8 +571,8 @@ describe("UserRepository", () => {
           include: {
             campaigns: {
               take: 5,
-              orderBy: { createdAt: 'desc' },
-              where: { status: 'ACTIVE' },
+              orderBy: { createdAt: "desc" },
+              where: { status: "ACTIVE", deletedAt: null  },
             },
           },
         })
@@ -547,7 +622,7 @@ describe("UserRepository", () => {
     });
 
     it("should include deleted users when specified", async () => {
-      const users = [mockUser, { ...mockUser, id: 'user-2', deletedAt: new Date() }];
+      const users = [mockUser, { ...mockUser, id: "user-2", deletedAt: new Date() }];
       (mockPrismaService.user.findMany as jest.Mock).mockResolvedValue(users);
       (mockPrismaService.user.count as jest.Mock).mockResolvedValue(2);
 
@@ -567,8 +642,8 @@ describe("UserRepository", () => {
 
     it("should execute count and findMany in parallel", async () => {
       const users = [mockUser];
-      const findManySpy = jest.spyOn(mockPrismaService.user, 'findMany').mockResolvedValue(users);
-      const countSpy = jest.spyOn(mockPrismaService.user, 'count').mockResolvedValue(1);
+      const findManySpy = jest.spyOn(mockPrismaService.user, "findMany").mockResolvedValue(users);
+      const countSpy = jest.spyOn(mockPrismaService.user, "count").mockResolvedValue(1);
 
       await userRepository.findManyUsersByOptions();
 
