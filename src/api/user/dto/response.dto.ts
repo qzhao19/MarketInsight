@@ -1,5 +1,5 @@
 import { Exclude, Expose, Transform } from "class-transformer";
-import { User } from "../../../types/database/repository.types";
+import { SafeUser } from "../../../types/database/repository.types";
 import { TokenData } from "../../../types/api/dto.types"
 // ==================== User Response DTO ====================
 
@@ -37,7 +37,7 @@ export class ClientUserResponseDto extends BaseResponseDto {
   /**
    * Creates a UserResponseDto from a User entity
    */
-  static fromEntity(user: User): ClientUserResponseDto {
+  static fromEntity(user: SafeUser): ClientUserResponseDto {
     const dto = new ClientUserResponseDto();
     dto.id = user.id;
     dto.username = user.username;
@@ -54,7 +54,7 @@ export class ClientUserResponseDto extends BaseResponseDto {
   /**
    * Creates an array of UserResponseDto from User entities
    */
-  static fromEntities(users: User[]): ClientUserResponseDto[] {
+  static fromEntities(users: SafeUser[]): ClientUserResponseDto[] {
     return users.map(user => ClientUserResponseDto.fromEntity(user));
   }
 }
@@ -93,7 +93,7 @@ export class LoginResponseDto {
   /**
    * Creates a LoginResponseDto from user and token data
    */
-  static fromLogin(user: User, tokens: TokenData): LoginResponseDto {
+  static fromLogin(user: SafeUser, tokens: TokenData): LoginResponseDto {
     const response = new LoginResponseDto();
     response.user = ClientUserResponseDto.fromEntity(user);
     response.accessToken = tokens.accessToken;
@@ -283,7 +283,7 @@ export class PaginatedClientUsersResponseDto {
    * Creates a paginated response from users and pagination metadata
    */
   static fromPaginated(
-    users: User[],
+    users: SafeUser[],
     pagination: PaginationMetadata
   ): PaginatedClientUsersResponseDto {
     const response = new PaginatedClientUsersResponseDto();
