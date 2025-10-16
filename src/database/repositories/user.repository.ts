@@ -1,5 +1,5 @@
+import { User as PrismaUser } from '@prisma/client';
 import { Injectable } from "@nestjs/common";
-import { User } from "../../types/database.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { 
   UserAlreadyExistsException, 
@@ -11,6 +11,13 @@ import {
   ListUsersOptions,
   PaginatedUsersResponse,
 } from "../../types/database/user.types"
+import { SafeUser } from '../../types/database/repository.types';
+
+// User lookup criteria types
+type UserQueryById = { id: string };
+type UserQueryByEmail = { email: string };
+type UserQueryByUsername = { username: string };
+type UserQueryCriteria = UserQueryById | UserQueryByEmail | UserQueryByUsername;
 
 /**
  * User Repository - implements all database operations related to the User entity
@@ -25,7 +32,6 @@ export class UserRepository {
 
   /**
    * Generates a unique email for deleted users to maintain the unique constraint
-   * @private
    */
   private generateDeletedEmail(id: string): string {
       return `deleted_${id}_${Date.now()}@deleted.local`;
@@ -33,163 +39,202 @@ export class UserRepository {
 
   /**
    * Generates a unique username for deleted users
-   * @private
    */
   private generateDeletedUsername(id: string): string {
       return `deleted_${id}_${Date.now()}`;
   }
 
   /**
-   * Creates a new user
-   * @param data - User data including email, name, and password
-   * @returns The created user
-   * @throws UserAlreadyExistsException if a user with the email already exists
+   * Removes password field from user object
    */
-  public async createUser(data: CreateUserData): Promise<User> {
-      try {
-        const [existsByEmail, existsByUsername] = await Promise.all([
-          // Only check active users
-          this.prisma.user.findFirst({ 
-            where: { email: data.email, deletedAt: null },
-            select: { id: true }
-          }),
-          this.prisma.user.findFirst({ 
-            where: { username: data.username, deletedAt: null },
-            select: { id: true }
-          })
-        ]);
+  private excludePassword(user: PrismaUser): SafeUser {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
 
-        // Check email uniqueness
-        if (existsByEmail) {
-          throw new UserAlreadyExistsException(
-            `User with email "${data.email}" already exists`,
-            "email"
-          );
-        }
-        
-        // Check username uniqueness
-        if (existsByUsername) {
-          throw new UserAlreadyExistsException(
-            `User with username "${data.username}" already exists`,
-            "username"
-          );
-        }
 
-        const user = await this.prisma.user.create({ 
-          data: {
-            ...data,
-            deletedAt: null // ensure the user starts as not deleted
-          } 
-        });
-        return user as User;
-      } catch (error) {
-        throw this.prisma.handlePrismaError(error, `Failed to create user: ${data.email}`);
+  /**
+   * Removes password field from array of user objects
+   */
+  private excludePasswordFromUsers(users: PrismaUser[]): SafeUser[] {
+    return users.map(user => this.excludePassword(user));
+  }
+  
+  /**
+   * Creates a new user
+   */
+  public async createUser(data: CreateUserData): Promise<SafeUser> {
+    try {
+      const [existsByEmail, existsByUsername] = await Promise.all([
+        // Only check active users
+        this.prisma.user.findFirst({ 
+          where: { email: data.email, deletedAt: null },
+          select: { id: true }
+        }),
+        this.prisma.user.findFirst({ 
+          where: { username: data.username, deletedAt: null },
+          select: { id: true }
+        })
+      ]);
+
+      // Check email uniqueness
+      if (existsByEmail) {
+        throw new UserAlreadyExistsException(
+          `User with email "${data.email}" already exists`, "email"
+        );
       }
+      
+      // Check username uniqueness
+      if (existsByUsername) {
+        throw new UserAlreadyExistsException(
+          `User with username "${data.username}" already exists`, "username"
+        );
+      }
+
+      const user = await this.prisma.user.create({ 
+        data: { ...data, deletedAt: null } 
+      });
+      //  Remove password before returning
+      return this.excludePassword(user);
+    } catch (error) {
+      throw this.prisma.handlePrismaError(error, `Failed to create user: ${data.email}`);
+    }
+  }
+
+  /**
+   * Gets a human-readable identifier from user criteria
+   */
+  private extractQueryIdentifier(criteria: UserQueryCriteria): string {
+    if ("id" in criteria) return criteria.id;
+    if ("email" in criteria) return criteria.email;
+    if ("username" in criteria) return criteria.username;
+    return "unknown"
+  }
+
+  /**
+   * Internal method to find a user by various criteria
+   */
+  private async findUserByCriteria(
+    criteria: UserQueryCriteria,
+    includePassword: boolean = false
+  ): Promise<PrismaUser | SafeUser> {
+    try {
+      // Prisma's findUnique only accepts unique fields
+      const user: PrismaUser | null = await this.prisma.user.findUnique({ 
+        where: criteria 
+      });
+
+      // Only return non-deleted users
+      if (!user || user.deletedAt !== null) {
+        const identifier = this.extractQueryIdentifier(criteria);
+        throw new UserNotFoundException(identifier);
+      }
+
+      // Return user with or without password based on flag
+      return includePassword ? user : this.excludePassword(user);
+    } catch (error) {
+      const identifier = this.extractQueryIdentifier(criteria);
+      throw this.prisma.handlePrismaError(
+        error, 
+        `Failed to find user: ${identifier}`
+      );
+    }
   }
 
   /**
    * Finds a user by their ID
-   * @param id - The user's unique ID
-   * @returns The found user
-   * @throws UserNotFoundException if no user with the ID exists
    */
-  public async findUserById(id: string): Promise<User> {
-    try {
-      // findUnique only accepts unique fields (id, email, username)
-      const user = await this.prisma.user.findUnique({ 
-        where: { id } 
-      });
-      
-      // Only find non-deleted users
-      if (!user || user.deletedAt !== null) {
-        throw new UserNotFoundException(id);
-      }
-      return user as User;
-    } catch (error) {
-      throw this.prisma.handlePrismaError(error, `Failed to find user by ID: ${id}`);
-    }
+  public async findUserById(id: string): Promise<SafeUser> {
+    return this.findUserByCriteria({ id }) as Promise<SafeUser>;
   }
 
   /**
    * Finds a user by their username
-   * @param id - The user's unique username
-   * @returns The found user
-   * @throws UserNotFoundException if no user with the username exists
    */
-  public async findUserByUsername(username: string): Promise<User> {
-    try {
-      const user = await this.prisma.user.findUnique({ 
-        where: { username } 
-      });
-      
-      // Only find non-deleted users
-      if (!user || user.deletedAt !== null) {
-        throw new UserNotFoundException(username);
-      }
-
-      return user as User;
-    } catch (error) {
-      throw this.prisma.handlePrismaError(error, `Failed to find user by username: ${username}`);
-    }
+  public async findUserByUsername(username: string): Promise<SafeUser> {
+    return this.findUserByCriteria({ username }) as Promise<SafeUser>;
   }
-
 
   /**
    * Finds a user by their email address
-   * @param email - The user's email address
-   * @returns The found user or null if not found
    */
-  public async findUserByEmail(email: string): Promise<User> {
-    try {
-      const user = await this.prisma.user.findUnique({ 
-        where: { email } 
-      });
+  public async findUserByEmail(email: string): Promise<SafeUser> {
+    return this.findUserByCriteria({ email }) as Promise<SafeUser>;
+  }
 
-      // Only find non-deleted users
-      if (!user || user.deletedAt !== null) {
-        throw new UserNotFoundException(email);
-      }
-      
-      return user as User;
-    } catch (error) {
-      throw this.prisma.handlePrismaError(error, `Failed to find user by email: ${email}`);
-    }
+  /**
+   * Finds a user by ID and returns WITH password (for authentication)
+   */
+  public async findUserByIdWithPassword(id: string): Promise<PrismaUser> {
+    return this.findUserByCriteria({ id }, true) as Promise<PrismaUser>;
+  }
+
+  /**
+   * Finds a user by email and returns WITH password (for authentication)
+   */
+  public async findUserByEmailWithPassword(email: string): Promise<PrismaUser> {
+    return this.findUserByCriteria({ email }, true) as Promise<PrismaUser>;
+  }
+
+  /**
+   * Finds a user by username and returns WITH password (for authentication)
+   */
+  public async findUserByUsernameWithPassword(username: string): Promise<PrismaUser> {
+    return this.findUserByCriteria({ username }, true) as Promise<PrismaUser>;
   }
 
   /**
    * Updates a user's information
-   * @param id - The user's unique ID
-   * @param data - Object with fields to update
-   * @returns The updated user
-   * @throws UserNotFoundException if no user with the ID exists
    */
-  public async updateUser(id: string, data: UpdateUserData): Promise<User> {
+  public async updateUser(id: string, data: UpdateUserData): Promise<SafeUser> {
     try {
       // Verify the user exists and is not soft-delete 
-      const currentUser = await this.findUserById(id);
+      await this.findUserById(id);
 
-      if (data.username && data.username !== currentUser.username) {
-        const existingUser = await this.prisma.user.findUnique({
-          where: { username: data.username },
-          select: { id: true }
-        });
+      // Parallel checks
+      const checks: Promise<any>[] = [];
+      
+      // If username is being updated, and only check active user
+      if (data.username) {
+        checks.push(
+          this.prisma.user.findFirst({
+            where: { username: data.username, deletedAt: null, id: { not: id } },
+            select: { id: true }
+          }).then(user => ({ field: 'username', user, value: data.username }))
+        );
+      }
 
-        // Check if username is taken by another active user
-        if (existingUser && existingUser.id !== id) {
-          throw new UserAlreadyExistsException(
-            `Username "${data.username}" is already taken`,
-            "username"
-          );
+      // If email is being updated
+      if (data.email) {
+        checks.push(
+          this.prisma.user.findFirst({
+            where: { email: data.email, deletedAt: null, id: { not: id } },
+            select: { id: true }
+          }).then(user => ({ field: 'email', user, value: data.email }))
+        );
+      }
+
+      // Execute all checks in parallel
+      if (checks.length > 0) {
+        const results = await Promise.all(checks);
+        for (const { field, user, value } of results) {
+          if (user) {
+            throw new UserAlreadyExistsException(
+              `${field.charAt(0).toUpperCase() + field.slice(1)} "${value}" is already taken`,
+              field
+            );
+          }
         }
       }
 
       // Update the user (only with provided fields)
-      const updatedUser = await this.prisma.user.update({ 
-        where: { id }, 
-        data 
+      const updatedUser: PrismaUser = await this.prisma.user.update({ 
+        where: { id }, data 
       });
-      return updatedUser as User;
-
+      
+      // Remove password before returning
+      return this.excludePassword(updatedUser);
     } catch (error) {
       // if the user doesn't exist, Prisma throws P2025
       throw this.prisma.handlePrismaError(error, `Failed to update user: ${id}`);
@@ -198,10 +243,8 @@ export class UserRepository {
 
   /**
    * Soft deletes a user by marking them as deleted without removing from database
-   * @param id - The user's unique ID
-   * @returns The updated user with deletedAt timestamp
    */
-  public async softDeleteUser(id: string): Promise<User> {
+  public async softDeleteUser(id: string): Promise<SafeUser> {
     try {
       const user = await this.prisma.user.update({
         where: { id },
@@ -211,7 +254,7 @@ export class UserRepository {
           username: this.generateDeletedUsername(id),
         },
       });
-      return user as User;
+      return this.excludePassword(user);
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to soft delete user: ${id}`);
     }
@@ -219,22 +262,18 @@ export class UserRepository {
 
   /**
    * Permanently deletes a user from the database
-   * @param id - The user's unique ID
-   * @returns The deleted user
    */
-  public async hardDeleteUser(id: string): Promise<User> {
+  public async hardDeleteUser(id: string): Promise<SafeUser> {
     try {
       const user = await this.prisma.user.delete({ where: { id } });
-      return user as User;
+      return this.excludePassword(user);
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to hard delete user: ${id}`);
     }
   }
 
   /**
-   * Lists users with pagination
-   * @param options - Pagination and include options
-   * @returns Array of users matching criteria
+   * Lists users with pagination and include options
    */
   public async findManyUsersByOptions(
     options: ListUsersOptions = {}
@@ -280,14 +319,19 @@ export class UserRepository {
         } else {
           // campaigns with filters
           const campaignConfig = options.include.campaigns;
-          include.campaigns = {
-            take: Math.min(50, campaignConfig.take ?? 10), // Limit to 50
-            orderBy: { [campaignConfig.orderBy ?? 'createdAt']: 'desc' },
-          };
+
+          // Build campaign where clause, exclude deleted
+          const campaignWhere: any = { deletedAt: null }
 
           // Add campaign status filter if specified
           if (campaignConfig.where?.status) {
-            include.campaigns.where = { status: campaignConfig.where?.status };
+            campaignWhere.status = campaignConfig.where?.status
+          }
+
+          include.campaigns = {
+            take: Math.min(50, campaignConfig.take ?? 10),
+            orderBy: { [campaignConfig.orderBy ?? 'createdAt']: 'desc' },
+            where: campaignWhere,
           }
         }
       }
@@ -300,7 +344,7 @@ export class UserRepository {
           where: whereClause,
           include: Object.keys(include).length > 0 ? include : undefined,
           orderBy,
-        }),
+        }) as Promise<PrismaUser[]>,
         this.prisma.user.count({ where: whereClause }),
       ]);
 
@@ -311,7 +355,7 @@ export class UserRepository {
 
       // Return paginated response
       return {
-        data: users as User[],
+        data: this.excludePasswordFromUsers(users),
         pagination: {
           total: totalCount,
           skip,
@@ -328,7 +372,6 @@ export class UserRepository {
 
   /**
    * Gets the total count of non-deleted users
-   * @returns The count of users
    */
   public async findUserCount(): Promise<number> {
     try {
