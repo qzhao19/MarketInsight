@@ -1,4 +1,4 @@
-import { User } from "./repository.types";
+import { SafeUser } from "./repository.types";
 
 // ==================== Repository Operation Types ====================
 
@@ -10,7 +10,12 @@ export type CreateUserData = {
 };
 
 // Data structure for updating user information
-export type UpdateUserData = Partial<Pick<CreateUserData, "username" | "password">>;
+export type UpdateUserData = {
+  email?: string;
+  username?: string;
+  // New hashed password
+  password?: string;
+};
 
 // ==================== List/Query Types ====================
 
@@ -51,7 +56,7 @@ export type ListUsersOptions = {
 
 // Response type for paginated user list
 export type PaginatedUsersResponse = {
-  data: User[];
+  data: SafeUser[];
   pagination: {
     total: number;       // Total number of users matching the filter
     skip: number;        // Number of records skipped
@@ -62,10 +67,3 @@ export type PaginatedUsersResponse = {
   };
 };
 
-// ==================== API Response Types ====================
-
-// User data returned to API clients (excludes password)
-export type UserResponse = Omit<User, 'password' | 'deletedAt'> & {
-  /** Include deletedAt only if it's actually deleted (for admin views) */
-  deletedAt?: Date;
-};
