@@ -28,7 +28,6 @@ export const VALID_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
   ARCHIVED: [],
 };
 
-
 // ==================== LLM Related Types ====================
 
 /**
@@ -54,9 +53,9 @@ export interface LLMResult {
 // ==================== Entity Interfaces ====================
 
 /**
- * User entity, mirroring the Prisma model.
+ * User entity exclude password, mirroring the Prisma model.
  */
-export interface User {
+export interface SafeUser {
   id: string;
   email: string;
   username: string;
@@ -67,7 +66,6 @@ export interface User {
   deletedAt?: Date | null; // add this optional/nullable field
   // Note: The password hash should never be included in types used for API responses.
 }
-
 
 /**
  * Task entity, corresponding to the table model in the database.
@@ -91,13 +89,12 @@ export interface Task {
 export interface Campaign {
   id: string;
   userId: string;
-  user?: User; // Add the related user object, make it optional
-  username: string;
+  user?: SafeUser; // Add the related user object, make it optional
+  name: string;
   description: string | null;
   status: CampaignStatus;
   tasks?: Task[]; // Add the related tasks array, make it optional
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date | null; 
 }
-
-
