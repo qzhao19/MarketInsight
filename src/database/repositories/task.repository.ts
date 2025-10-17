@@ -1,111 +1,127 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { TaskNotFoundException, CampaignNotFoundException } from "../../common/exceptions/database.exceptions";
+import { LLMInput, LLMResult, Task, TaskStatus, CampaignStatus } from "../../types/database/entities.types";
 import { 
-  Task, 
-  TaskStatus, 
-  LLMInput, 
-  LLMResult, 
-  CampaignStatus
-} from "../../types/domain.types";
-import { TaskNotFoundException, CampaignNotFoundException } from "../../common/exceptions";
-
-// Define more specific types for method inputs
-type CreateTaskData = {
-  campaignId: string;
-  input: LLMInput;
-  priority?: number;
-  status?: TaskStatus; // default is PENDING
-};
-
-type UpdateTaskData = Partial<{
-  status: TaskStatus;
-  priority: number;
-  input: LLMInput;
-  result: LLMResult | null;
-  error: string | null;
-}>;
-
-type ListTasksOptions = {
-  skip?: number;
-  take?: number;
-  // use Prisma's Where type to enhance flexibility
-  where?: { 
-    campaignId?: string;
-    status?: TaskStatus;
-    priority?: number;
-    createdAt?: {
-      gte?: Date; // "greater than or equal to"
-      lte?: Date; // "less than or equal to"
-    };
-  };
-  orderBy?: Array<{
-    field: "createdAt" | "priority" | "updatedAt";
-    direction: "asc" | "desc";
-  }>;
-
-  includeCampaign?: boolean;
-};
-
+  CreateTaskData, 
+  UpdateTaskData, 
+  ListTasksOptions, 
+  PaginatedTasksResponse 
+} from "../../types/database/task.types"
 
 @Injectable()
 export class TaskRepository {
+  
+  /**
+   * Initializes the service with a PrismaService
+   */
   constructor(private prisma: PrismaService) {}
 
   /**
    * Maps a Prisma Task object to the domain Task model.
-   * It correctly handles type casting for enums and JSON fields, and conditionally
-   * includes the related campaign object.
-   *
-   * @param task - The Prisma Task object, potentially including the campaign relation.
-   * @param includeCampaign - A flag to determine if the campaign should be in the final object.
-   * @returns The mapped domain Task object, or null if the input is null.
    */
-  private mapPrismaTaskToDomain(
-    task: Prisma.TaskGetPayload<{ include: { campaign?: boolean } }>,
-    includeCampaign: boolean = true
+  private mapPrismaTaskToDomainTask(
+    prismaTask: Prisma.TaskGetPayload<{ include: { campaign?: boolean } }>,
   ): Task | null {
-    if (!task) {
+    if (!prismaTask) {
       return null;
     }
+    // Destructure to separate the campaign from the rest of the task properties.
+    const { campaign, ...taskWithoutCampaign } = prismaTask;
 
-    // 1. Destructure to separate the campaign from the rest of the task properties.
-    // This avoids the type conflict during the initial spread.
-    const { campaign, ...restOfTask } = task;
-
-    // 2. Create the base domain task, casting its own properties to the correct domain types.
+    // Create the base domain task, casting its own properties to the correct domain types.
     const domainTask: Task = {
-      ...restOfTask,
-      status: restOfTask.status as TaskStatus,
-      input: restOfTask.input as unknown as LLMInput,
-      result: restOfTask.result as LLMResult | null,
+      ...taskWithoutCampaign,
+      status: taskWithoutCampaign.status as TaskStatus,
+      input: taskWithoutCampaign.input as unknown as LLMInput,
+      result: taskWithoutCampaign.result as unknown as LLMResult | null,
     };
 
-    // 3. Conditionally map and add the campaign object if requested and available.
-    if (includeCampaign && campaign) {
+    // Conditionally map and add the campaign object if requested and available.
+    if (campaign) {
       domainTask.campaign = {
         ...campaign,
         status: campaign.status as CampaignStatus,
       };
     }
-
     return domainTask;
+  }
+
+  // Helper methods for building query clauses
+  private buildWhereClause(
+    where: ListTasksOptions['where'] = {}
+  ): Prisma.TaskWhereInput {
+    const whereClause: Prisma.TaskWhereInput = {};
+
+    if (where?.campaignId) whereClause.campaignId = where.campaignId;
+    if (where?.status) whereClause.status = where.status;
+    if (where?.priority) whereClause.priority = where.priority;
+    if (where?.priorityRange) {
+      whereClause.priority = { 
+        ...(where.priorityRange.gte !== undefined && { gte: where.priorityRange.gte }),
+        ...(where.priorityRange.lte !== undefined && { lte: where.priorityRange.lte }),
+      };
+    }
+    if (where?.createdAt) {
+      whereClause.createdAt = {
+        ...(where.createdAt.gte && { gte: where.createdAt.gte }),
+        ...(where.createdAt.lte && { lte: where.createdAt.lte }),
+      };
+    }
+     if (where?.updatedAt) {
+      whereClause.updatedAt = {
+        ...(where.updatedAt.gte && { gte: where.updatedAt.gte }),
+        ...(where.updatedAt.lte && { lte: where.updatedAt.lte }),
+      };
+    }
+    if (where?.hasError !== undefined) {
+      whereClause.error = where.hasError ? { not: null } : null;
+    }
+    if (where?.hasResult !== undefined) {
+      whereClause.result = where.hasResult ? { not: Prisma.JsonNull } : { equals: Prisma.JsonNull };
+    }
+    if (where?.searchError) whereClause.error =  where.searchError;
+    return whereClause;
+  }
+
+  private buildOrderByClause(
+    orderBy: ListTasksOptions['orderBy']
+  ): Prisma.TaskOrderByWithRelationInput {
+    const orderByField = orderBy?.field ?? 'createdAt';
+    const orderByDirection = orderBy?.direction ?? 'desc';
+    return { [orderByField]: orderByDirection };;
+  }
+
+  private buildIncludeClause(
+    includeOptions: ListTasksOptions['include']
+  ): Prisma.TaskInclude | undefined {
+
+    const include: any = {};
+    if (includeOptions?.campaign) {
+      if (typeof includeOptions.campaign === 'boolean') {
+        include.campaign = true;
+      } else {
+        include.campaign = {
+          select: includeOptions.campaign.select
+        };
+      }
+    }
+    return Object.keys(include).length > 0 ? include : undefined;
   }
 
   /**
    * Creates a new task in the database associated with a marketing campaign.
-   * 
-   * @param task The data required to create the task, including `campaignId` and `input`.
-   * @param includeCampaign - Whether to load the related MarketingCampaign object
-   * @returns A `Promise` that resolves to the newly created `Task` object.
    */
-  public async createTask(task: CreateTaskData, includeCampaign: boolean = false): Promise<Task> {
+  public async createTask(
+    task: CreateTaskData, 
+    includeCampaign: boolean = false
+  ): Promise<Task> {
     try {
-      // check if campaign activities exists
-      // still keep following code even handlePrismaError can catch such error
-      const campaignExists = await this.prisma.marketingCampaign.findUnique({
-        where: {id: task.campaignId},
-        select: {id: true}
+      // Check if campaign activities exists
+      const campaignExists = await this.prisma.campaign.findUnique({
+        where: { id: task.campaignId },
+        select: { id: true }
       });
 
       if (!campaignExists) {
@@ -116,14 +132,14 @@ export class TaskRepository {
         data: {
           campaignId: task.campaignId,
           input: task.input as unknown as Prisma.JsonObject,
-          priority: task.priority ?? 1,
-          status: task.status ?? TaskStatus.PENDING,
+          priority: task.priority,
+          status: task.status,
         },
         include: { campaign: includeCampaign }
       });
 
       // use the centralized mapper, passing the include flag
-      return this.mapPrismaTaskToDomain(newTask, includeCampaign) as Task;
+      return this.mapPrismaTaskToDomainTask(newTask) as Task;
 
     } catch (error) {
       throw this.prisma.handlePrismaError(
@@ -135,12 +151,11 @@ export class TaskRepository {
 
   /**
    * Get task by its ID, optionally including its associated marketing campaign.
-   * 
-   * @param id - The task ID
-   * @param includeCampaign - Whether to load the related MarketingCampaign object
-   * @returns A `Promise` that resolves to the deleted `Task` object.
    */
-  public async findTaskById(id: string, includeCampaign: boolean = true): Promise<Task> {
+  public async findTaskById(
+    id: string, 
+    includeCampaign: boolean = false
+  ): Promise<Task> {
     try {
       const task = await this.prisma.task.findUnique({
         where: { id },
@@ -151,8 +166,8 @@ export class TaskRepository {
         throw new TaskNotFoundException(id);
       }
 
-      // return Prisma.MarketingCampaign type 
-      return this.mapPrismaTaskToDomain(task, includeCampaign) as Task;
+      // return Prisma.Campaign type 
+      return this.mapPrismaTaskToDomainTask(task) as Task;
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to find task by ID: ${id}`);
     }
@@ -160,17 +175,11 @@ export class TaskRepository {
 
   /**
    * This function selectively updates fields of a task based on the `data` object.
-   * 
-   * @param id - The unique identifier of the task to update.
-   * @param data - An object containing the task fields to be updated.
-   * @param includeCampaign - Optional. If true, the related MarketingCampaign will be included in the returned Task object. Defaults to true.
-   * @returns A `Promise` that resolves to the updated `Task` object.
-   * @throws TaskNotFoundException If the task with the specified ID does not exist.
    */
   public async updateTask(
     id: string, 
     data: UpdateTaskData, 
-    includeCampaign: boolean = true
+    includeCampaign: boolean = false
   ): Promise<Task> {
     try {
       // define var of Prisma.TaskUpdateInput type 
@@ -179,15 +188,24 @@ export class TaskRepository {
       // build object for existed atributes
       if (data.status !== undefined) updateData.status = data.status;
       if (data.priority !== undefined) updateData.priority = data.priority;
-      if (data.error !== undefined) updateData.error = data.error;
       if (data.input !== undefined) {
         updateData.input = data.input as unknown as Prisma.JsonObject;
       }
+
+      // Handle explicit null cases
+      if (data.error !== undefined) {
+        updateData.error = data.error === null
+          ? null
+          : updateData.error = data.error;
+      }
+      
       if (data.result !== undefined) {
-        updateData.result = data.result as unknown as Prisma.JsonObject;
+        updateData.result = data.result === null 
+          ? Prisma.JsonNull 
+          : data.result as unknown as Prisma.JsonObject;
       }
 
-      // handle empty update
+      // Handle empty update
       if (Object.keys(updateData).length === 0) {
         console.warn(`Attempted to update task ${id} with empty data. No action taken.`);
         return this.findTaskById(id, includeCampaign);
@@ -199,7 +217,7 @@ export class TaskRepository {
         include: { campaign: includeCampaign }
       });
 
-      return this.mapPrismaTaskToDomain(updatedTask, includeCampaign) as Task;
+      return this.mapPrismaTaskToDomainTask(updatedTask) as Task;
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to update task: ${id}`);
     }
@@ -207,58 +225,72 @@ export class TaskRepository {
 
   /**
    * Deletes a task by its ID.
-   * 
-   * @param id - The ID of the task to delete.
-   * @param includeCampaign - Whether to load the related MarketingCampaign object.
-   * @returns A `Promise` that resolves to the deleted `Task` object.
    */
-  public async deleteTask(id: string, includeCampaign: boolean): Promise<Task> {
+  public async deleteTask(
+    id: string, 
+    includeCampaign: boolean = false
+  ): Promise<Task> {
     try {
       const deletedTask = await this.prisma.task.delete({
         where: { id },
         include: { campaign: includeCampaign }
       });
-
-      return this.mapPrismaTaskToDomain(deletedTask, includeCampaign) as Task;
+      return this.mapPrismaTaskToDomainTask(deletedTask) as Task;
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to delete task: ${id}`);
     }
   }
 
   /**
-   * Retrieves a list of tasks based on flexible filtering
-   * @param options - The options for filtering, sorting, and pagination.
-   * @returns A `Promise` that resolves to an array of `Task` objects.
+   * Retrieves a paginated list of tasks with flexible filtering, sorting, and relations.
    */
-  public async findManyTasksByOptions(options: ListTasksOptions = {}): Promise<Task[]> {
-    const {
-      skip = 0,
-      take = 20,
-      where = {},
-      orderBy = [{ field: "createdAt", direction: "desc" }],
-      includeCampaign = true, // default not load campaign
-    } = options;
-
+  public async findManyTasksByOptions(
+    options: ListTasksOptions = {}
+  ): Promise<PaginatedTasksResponse> {
     try {
-      // build sorting condition
-      const orderByObj = orderBy.map(sort => ({
-        [sort.field]: sort.direction,
-      }));
+      // Extract and validate pagination parameters
+      const skip = Math.max(0, options.skip ?? 0);
+      const take = Math.min(100, Math.max(1, options.take ?? 20));
 
-      const tasks = await this.prisma.task.findMany({
-        where,
-        skip,
-        take,
-        orderBy: orderByObj,
-        include: { campaign: includeCampaign }
-      });
+      // Build where clause
+      const whereClause = this.buildWhereClause(options.where);
+      const orderByOptions = this.buildOrderByClause(options.orderBy);
+      const includeOptions = this.buildIncludeClause(options.include);
 
-      return tasks
-        .map(task => this.mapPrismaTaskToDomain(task, includeCampaign))
-        .filter(Boolean) as Task[];
+      // Execute queries in parallel
+      const [tasks, totalCount] = await Promise.all([
+        this.prisma.task.findMany({
+          skip,
+          take,
+          where: whereClause,
+          include: includeOptions,
+          orderBy: orderByOptions,
+        }),
+        this.prisma.task.count({ where: whereClause }),
+      ]);
+      
+      const mappedTasks = tasks.map(
+        task => this.mapPrismaTaskToDomainTask(task as any)
+      ).filter(Boolean) as Task[];
 
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(totalCount / take);
+      const currentPage = Math.floor(skip / take) + 1;
+      const hasMore = skip + take < totalCount;
+      
+      return {
+        data: mappedTasks,
+        pagination: {
+          total: totalCount,
+          skip,
+          take,
+          hasMore,
+          totalPages,
+          currentPage,
+        },
+      }
     } catch (error) {
-      throw this.prisma.handlePrismaError(error, "Failed to list tasks");
+      throw this.prisma.handlePrismaError(error, "Failed to list tasks with options");
     }
   }
 }
