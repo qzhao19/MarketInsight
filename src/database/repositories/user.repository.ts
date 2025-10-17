@@ -11,7 +11,7 @@ import {
   ListUsersOptions,
   PaginatedUsersResponse,
 } from "../../types/database/user.types"
-import { SafeUser } from '../../types/database/repository.types';
+import { SafeUser } from '../../types/database/entities.types';
 
 // User lookup criteria types
 type UserQueryById = { id: string };
