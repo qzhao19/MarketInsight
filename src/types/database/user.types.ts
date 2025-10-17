@@ -1,6 +1,4 @@
-import { SafeUser } from "./repository.types";
-
-// ==================== Repository Operation Types ====================
+import { SafeUser } from "./entities.types";
 
 // Define more specific types for method inputs to improve clarity and type safety.
 export type CreateUserData = {
