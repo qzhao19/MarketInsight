@@ -70,7 +70,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           if (error.meta?.modelName === "Task") {
             throw new TaskNotFoundException("unknown");
           }
-          if (error.meta?.modelName === "MarketingCampaign") {
+          if (error.meta?.modelName === "Campaign") {
             if (
               typeof context === "string" &&
               context.includes("create campaign") &&
@@ -83,8 +83,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           if (error.meta?.modelName === "User") {
             throw new UserNotFoundException("unknown");
           }
-          // default UserNotFoundException
-          throw new UserNotFoundException("unknown");
+          // Try to derivated error type from context
+          if (typeof context === "string") {
+            if (context.toLowerCase().includes("task")) {
+              throw new TaskNotFoundException("unknown");
+            }
+            if (context.toLowerCase().includes("campaign")) {
+              throw new CampaignNotFoundException("unknown");
+            }
+            if (context.toLowerCase().includes("user")) {
+              throw new UserNotFoundException("unknown");
+            }
+          }
+          // Default throw a common error
+          throw new Error(`Record not found: ${error.message}`);
         case "P2003": // foreign key constraint failure
           if (typeof error.meta?.field_name === "string" && error.meta.field_name.includes("campaignId")) {
             throw new CampaignNotFoundException("unknown (referenced in task)");
