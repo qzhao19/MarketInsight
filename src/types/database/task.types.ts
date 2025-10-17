@@ -3,9 +3,7 @@ import {
   TaskStatus, 
   LLMResult, 
   Task, 
-} from "./repository.types";
-
-//  Repository Operation Types 
+} from "./entities.types";
 
 // Data structure for creating a new task
 export type CreateTaskData = {
