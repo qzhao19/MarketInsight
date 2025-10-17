@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "./prisma/prisma.service";
 import { UserRepository } from "./repositories/user.repository";
-import { MarketingCampaignRepository } from "./repositories/marketing-campaign.repository";
+import { CampaignRepository } from "./repositories/campaign.repository";
 import { TaskRepository } from "./repositories/task.repository";
 
 @Injectable()
@@ -9,7 +9,7 @@ export class DatabaseService {
   constructor(
     private readonly prisma: PrismaService,
     public readonly users: UserRepository,
-    public readonly campaigns: MarketingCampaignRepository,
+    public readonly campaigns: CampaignRepository,
     public readonly tasks: TaskRepository,
   ) {}
 
@@ -31,7 +31,7 @@ export class DatabaseService {
     fn: (
       tx: {
         users: UserRepository;
-        campaigns: MarketingCampaignRepository;
+        campaigns: CampaignRepository;
         tasks: TaskRepository;
       }
     ) => Promise<T>
@@ -40,7 +40,7 @@ export class DatabaseService {
       // Create new repository instances that are bound to the transactional prisma client
       const transactionalRepos = {
         users: new UserRepository(prisma as PrismaService),
-        campaigns: new MarketingCampaignRepository(prisma as PrismaService),
+        campaigns: new CampaignRepository(prisma as PrismaService),
         tasks: new TaskRepository(prisma as PrismaService),
       };
       return fn(transactionalRepos);
