@@ -1,8 +1,6 @@
 // ==================== Enums ====================
 
-/**
- * Defines the possible statuses of a task.
- */
+// Defines the possible statuses of a task.
 export enum TaskStatus {
   PENDING = "PENDING",
   PROCESSING = "PROCESSING",
@@ -10,18 +8,14 @@ export enum TaskStatus {
   FAILED = "FAILED",
 };
 
-/**
- * Defines the possible statuses of a marketing campaign.
- */
+// Defines the possible statuses of a marketing campaign.
 export enum CampaignStatus {
   DRAFT = "DRAFT",
   ACTIVE = "ACTIVE",
   ARCHIVED = "ARCHIVED",
 }
 
-/**
- * Defines valid status transitions for campaigns
- */
+// Defines valid status transitions for campaigns
 export const VALID_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
   DRAFT: [CampaignStatus.ACTIVE, CampaignStatus.ARCHIVED],
   ACTIVE: [CampaignStatus.ARCHIVED],
@@ -30,9 +24,7 @@ export const VALID_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
 
 // ==================== LLM Related Types ====================
 
-/**
- * Defines the structure for the input sent to the LLM.
- */
+// Defines the structure for the input sent to the LLM.
 export interface LLMInput {
   prompt: string;
   context?: Record<string, any>;
@@ -40,9 +32,7 @@ export interface LLMInput {
   modelParameters?: Record<string, any>;
 };
 
-/**
- * Defines the structure for the result received from the LLM.
- */
+// Defines the structure for the result received from the LLM.
 export interface LLMResult {
   rawOutput: string;
   processedOutput?: Record<string, any> | string;
@@ -52,9 +42,7 @@ export interface LLMResult {
 
 // ==================== Entity Interfaces ====================
 
-/**
- * User entity exclude password, mirroring the Prisma model.
- */
+// User entity exclude password, mirroring the Prisma model.
 export interface SafeUser {
   id: string;
   email: string;
@@ -67,9 +55,7 @@ export interface SafeUser {
   // Note: The password hash should never be included in types used for API responses.
 }
 
-/**
- * Task entity, corresponding to the table model in the database.
- */
+// Task entity, corresponding to the table model in the database.
 export interface Task {
   id: string;
   campaignId: string; // Add this foreign key
@@ -83,9 +69,7 @@ export interface Task {
   updatedAt: Date;
 };
 
-/**
- * Marketing Campaign entity for a Marketing Campaign.
- */
+// Marketing Campaign entity for a Marketing Campaign.
 export interface Campaign {
   id: string;
   userId: string;
