@@ -12,6 +12,8 @@ import {
   PaginatedUsersResponse,
 } from "../../types/database/user.types"
 import { SafeUser } from '../../types/database/entities.types';
+import { EntityMapper } from "../mappers/entity.mapper";
+
 
 // User lookup criteria types
 type UserQueryById = { id: string };
@@ -44,23 +46,6 @@ export class UserRepository {
       return `deleted_${id}_${Date.now()}`;
   }
 
-  /**
-   * Removes password field from user object
-   */
-  private excludePassword(user: PrismaUser): SafeUser {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
-  }
-
-
-  /**
-   * Removes password field from array of user objects
-   */
-  private excludePasswordFromUsers(users: PrismaUser[]): SafeUser[] {
-    return users.map(user => this.excludePassword(user));
-  }
-  
   /**
    * Creates a new user
    */
@@ -96,7 +81,7 @@ export class UserRepository {
         data: { ...data, deletedAt: null } 
       });
       //  Remove password before returning
-      return this.excludePassword(user);
+      return EntityMapper.excludePasswordFromUser(user);
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to create user: ${data.email}`);
     }
@@ -132,7 +117,7 @@ export class UserRepository {
       }
 
       // Return user with or without password based on flag
-      return includePassword ? user : this.excludePassword(user);
+      return includePassword ? user : EntityMapper.excludePasswordFromUser(user);
     } catch (error) {
       const identifier = this.extractQueryIdentifier(criteria);
       throw this.prisma.handlePrismaError(
@@ -234,7 +219,7 @@ export class UserRepository {
       });
       
       // Remove password before returning
-      return this.excludePassword(updatedUser);
+      return EntityMapper.excludePasswordFromUser(updatedUser);
     } catch (error) {
       // if the user doesn't exist, Prisma throws P2025
       throw this.prisma.handlePrismaError(error, `Failed to update user: ${id}`);
@@ -254,7 +239,7 @@ export class UserRepository {
           username: this.generateDeletedUsername(id),
         },
       });
-      return this.excludePassword(user);
+      return EntityMapper.excludePasswordFromUser(user);
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to soft delete user: ${id}`);
     }
@@ -266,7 +251,7 @@ export class UserRepository {
   public async hardDeleteUser(id: string): Promise<SafeUser> {
     try {
       const user = await this.prisma.user.delete({ where: { id } });
-      return this.excludePassword(user);
+      return EntityMapper.excludePasswordFromUser(user);
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to hard delete user: ${id}`);
     }
@@ -355,7 +340,7 @@ export class UserRepository {
 
       // Return paginated response
       return {
-        data: this.excludePasswordFromUsers(users),
+        data: EntityMapper.excludePasswordFromUsers(users),
         pagination: {
           total: totalCount,
           skip,
