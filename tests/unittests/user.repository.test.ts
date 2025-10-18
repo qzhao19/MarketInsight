@@ -1,10 +1,10 @@
-import { UserRepository } from "../src/database/repositories/user.repository";
+import { UserRepository } from "../../src/database/repositories/user.repository";
 import {
   UserNotFoundException,
   UserAlreadyExistsException,
-} from "../src/common/exceptions/database.exceptions";
-import { SafeUser as User } from "../src/types/database.types";
-import { PrismaService } from "../src/database/prisma/prisma.service";
+} from "../../src/common/exceptions/database.exceptions";
+import { SafeUser as User } from "../../src/types/database.types";
+import { PrismaService } from "../../src/database/prisma/prisma.service";
 
 describe("UserRepository", () => {
   let userRepository: UserRepository;
@@ -247,8 +247,7 @@ describe("UserRepository", () => {
       const updatedUser = { ...mockUser, username: "updateduser", email: "updateduser@example.com" };
       
       // Mock findUserById (internal call)
-      (mockPrismaService.user.findUnique as jest.Mock)
-        .mockResolvedValueOnce(mockUser);      // findUserById
+      mockPrismaService.user.findUnique.mockResolvedValueOnce(mockUser);      // findUserById
 
       (mockPrismaService.user.findFirst as jest.Mock)
         .mockResolvedValueOnce(null)         // For username check
