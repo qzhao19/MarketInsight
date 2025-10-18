@@ -2,13 +2,15 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { TaskNotFoundException, CampaignNotFoundException } from "../../common/exceptions/database.exceptions";
-import { LLMInput, LLMResult, Task, TaskStatus, CampaignStatus } from "../../types/database/entities.types";
+import { Task } from "../../types/database/entities.types";
 import { 
   CreateTaskData, 
   UpdateTaskData, 
   ListTasksOptions, 
   PaginatedTasksResponse 
 } from "../../types/database/task.types"
+import { EntityMapper } from "../mappers/entity.mapper";
+
 
 @Injectable()
 export class TaskRepository {
@@ -17,36 +19,6 @@ export class TaskRepository {
    * Initializes the service with a PrismaService
    */
   constructor(private prisma: PrismaService) {}
-
-  /**
-   * Maps a Prisma Task object to the domain Task model.
-   */
-  private mapPrismaTaskToDomainTask(
-    prismaTask: Prisma.TaskGetPayload<{ include: { campaign?: boolean } }>,
-  ): Task | null {
-    if (!prismaTask) {
-      return null;
-    }
-    // Destructure to separate the campaign from the rest of the task properties.
-    const { campaign, ...taskWithoutCampaign } = prismaTask;
-
-    // Create the base domain task, casting its own properties to the correct domain types.
-    const domainTask: Task = {
-      ...taskWithoutCampaign,
-      status: taskWithoutCampaign.status as TaskStatus,
-      input: taskWithoutCampaign.input as unknown as LLMInput,
-      result: taskWithoutCampaign.result as unknown as LLMResult | null,
-    };
-
-    // Conditionally map and add the campaign object if requested and available.
-    if (campaign) {
-      domainTask.campaign = {
-        ...campaign,
-        status: campaign.status as CampaignStatus,
-      };
-    }
-    return domainTask;
-  }
 
   // Helper methods for building query clauses
   private buildWhereClause(
@@ -139,7 +111,7 @@ export class TaskRepository {
       });
 
       // use the centralized mapper, passing the include flag
-      return this.mapPrismaTaskToDomainTask(newTask) as Task;
+      return EntityMapper.mapPrismaTaskToDomainTask(newTask) as Task;
 
     } catch (error) {
       throw this.prisma.handlePrismaError(
@@ -167,7 +139,7 @@ export class TaskRepository {
       }
 
       // return Prisma.Campaign type 
-      return this.mapPrismaTaskToDomainTask(task) as Task;
+      return EntityMapper.mapPrismaTaskToDomainTask(task) as Task;
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to find task by ID: ${id}`);
     }
@@ -217,7 +189,7 @@ export class TaskRepository {
         include: { campaign: includeCampaign }
       });
 
-      return this.mapPrismaTaskToDomainTask(updatedTask) as Task;
+      return EntityMapper.mapPrismaTaskToDomainTask(updatedTask) as Task;
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to update task: ${id}`);
     }
@@ -235,7 +207,7 @@ export class TaskRepository {
         where: { id },
         include: { campaign: includeCampaign }
       });
-      return this.mapPrismaTaskToDomainTask(deletedTask) as Task;
+      return EntityMapper.mapPrismaTaskToDomainTask(deletedTask) as Task;
     } catch (error) {
       throw this.prisma.handlePrismaError(error, `Failed to delete task: ${id}`);
     }
@@ -269,9 +241,8 @@ export class TaskRepository {
         this.prisma.task.count({ where: whereClause }),
       ]);
       
-      const mappedTasks = tasks.map(
-        task => this.mapPrismaTaskToDomainTask(task as any)
-      ).filter(Boolean) as Task[];
+      // Create a mapped task list
+      const mappedTasks = EntityMapper.mapPrismaTasksToDomainTasks(tasks as any);
 
       // Calculate pagination metadata
       const totalPages = Math.ceil(totalCount / take);
