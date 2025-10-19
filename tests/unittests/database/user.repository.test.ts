@@ -1,10 +1,10 @@
-import { UserRepository } from "../../src/database/repositories/user.repository";
+import { UserRepository } from "../../../src/database/repositories/user.repository";
 import {
   UserNotFoundException,
   UserAlreadyExistsException,
-} from "../../src/common/exceptions/database.exceptions";
-import { SafeUser as User } from "../../src/types/database.types";
-import { PrismaService } from "../../src/database/prisma/prisma.service";
+} from "../../../src/common/exceptions/database.exceptions";
+import { SafeUser as User } from "../../../src/types/database.types";
+import { PrismaService } from "../../../src/database/prisma/prisma.service";
 
 describe("UserRepository", () => {
   let userRepository: UserRepository;
