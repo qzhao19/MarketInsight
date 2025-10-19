@@ -1,10 +1,10 @@
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import {TaskRepository } from "../../src/database/repositories/task.repository";
+import {TaskRepository } from "../../../src/database/repositories/task.repository";
 import {
   TaskNotFoundException,
   CampaignNotFoundException,
-} from "../../src/common/exceptions/database.exceptions";
-import { PrismaService } from "../../src/database/prisma/prisma.service";
+} from "../../../src/common/exceptions/database.exceptions";
+import { PrismaService } from "../../../src/database/prisma/prisma.service";
 import { 
   Task, 
   TaskStatus, 
@@ -12,12 +12,12 @@ import {
   CampaignStatus,
   LLMInput,
   LLMResult 
-} from "../../src/types/database/entities.types";
+} from "../../../src/types/database/entities.types";
 import { 
   CreateTaskData, 
   UpdateTaskData,
   ListTasksOptions 
-} from "../../src/types/database/task.types";
+} from "../../../src/types/database/task.types";
 
 
 describe("TaskRepository", () => {
