@@ -74,19 +74,19 @@ export class EntityMapper {
    * Maps a Prisma Campaign to domain Campaign model.
    */
   static mapPrismaCampaignToDomainCampaign(
-    campaign: (
+    prismaCampaign: (
       | Prisma.CampaignGetPayload<object>
       | Prisma.CampaignGetPayload<{ include: { tasks: true } }>  // ✅ Campaign + tasks
       | Prisma.CampaignGetPayload<{ include: { user: true } }>  // ✅ Campaign + user
       | Prisma.CampaignGetPayload<{ include: { tasks: true; user: true } }>  // ✅ Campaign + tasks + user
     ) | null
   ): Campaign | null {
-    if (!campaign) {
+    if (!prismaCampaign) {
       return null;
     }
 
     // Destructure to separate the task and user from the rest of the campaign properties.
-    const { tasks, user, ...campaignWithoutTaskUser } = campaign as any;
+    const { tasks, user, ...campaignWithoutTaskUser } = prismaCampaign as any;
 
     // Create the base domain campaign
     const domainCampaign: Campaign = {
@@ -106,5 +106,21 @@ export class EntityMapper {
       domainCampaign.user = EntityMapper.excludePasswordFromUser(user) as SafeUser;
     }
     return domainCampaign;
+  }
+
+  /**
+   * Batch mapping for multiple campaigns.
+   */
+  static mapPrismaCampaignsToDomainCampaigns(
+    prismaCampaigns: (
+      | Prisma.CampaignGetPayload<object>
+      | Prisma.CampaignGetPayload<{ include: { tasks: true } }>  // ✅ Campaign + tasks
+      | Prisma.CampaignGetPayload<{ include: { user: true } }>  // ✅ Campaign + user
+      | Prisma.CampaignGetPayload<{ include: { tasks: true; user: true } }>  // ✅ Campaign + tasks + user
+    )[]
+  ): Campaign[] {
+    return prismaCampaigns
+      .map(campaign => EntityMapper.mapPrismaCampaignToDomainCampaign(campaign))
+      .filter(Boolean) as Campaign[];
   }
 }
