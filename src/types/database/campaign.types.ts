@@ -21,7 +21,7 @@ export type CreateCampaignData = {
 // Data for updating an existing campaign.
 export type UpdateCampaignData = {
   name?: string;
-  description?: string;
+  description?: string | null;
   status?: CampaignStatus;
 };
 
