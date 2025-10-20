@@ -1,4 +1,4 @@
-import { User as PrismaUser } from '@prisma/client';
+import { User as PrismaUser } from "@prisma/client";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { 
@@ -11,7 +11,7 @@ import {
   ListUsersOptions,
   PaginatedUsersResponse,
 } from "../../types/database/user.types"
-import { SafeUser } from '../../types/database/entities.types';
+import { SafeUser } from "../../types/database/entities.types";
 import { EntityMapper } from "../mappers/entity.mapper";
 
 
@@ -105,7 +105,7 @@ export class UserRepository {
     includePassword: boolean = false
   ): Promise<PrismaUser | SafeUser> {
     try {
-      // Prisma's findUnique only accepts unique fields
+      // Prisma"s findUnique only accepts unique fields
       const user: PrismaUser | null = await this.prisma.user.findUnique({ 
         where: criteria 
       });
@@ -186,7 +186,7 @@ export class UserRepository {
           this.prisma.user.findFirst({
             where: { username: data.username, deletedAt: null, id: { not: id } },
             select: { id: true }
-          }).then(user => ({ field: 'username', user, value: data.username }))
+          }).then(user => ({ field: "username", user, value: data.username }))
         );
       }
 
@@ -196,7 +196,7 @@ export class UserRepository {
           this.prisma.user.findFirst({
             where: { email: data.email, deletedAt: null, id: { not: id } },
             select: { id: true }
-          }).then(user => ({ field: 'email', user, value: data.email }))
+          }).then(user => ({ field: "email", user, value: data.email }))
         );
       }
 
@@ -221,7 +221,7 @@ export class UserRepository {
       // Remove password before returning
       return EntityMapper.excludePasswordFromUser(updatedUser);
     } catch (error) {
-      // if the user doesn't exist, Prisma throws P2025
+      // if the user doesn"t exist, Prisma throws P2025
       throw this.prisma.handlePrismaError(error, `Failed to update user: ${id}`);
     }
   }
@@ -292,14 +292,14 @@ export class UserRepository {
       }
 
       // Build orderBy clause
-      const orderByField = options.orderBy?.field ?? 'createdAt';
-      const orderByDirection = options.orderBy?.direction ?? 'desc';
+      const orderByField = options.orderBy?.field ?? "createdAt";
+      const orderByDirection = options.orderBy?.direction ?? "desc";
       const orderBy = { [orderByField]: orderByDirection };
 
       // Build include clause for relations 
       const include: any = {};
       if (options.include?.campaigns) {
-        if (typeof options.include.campaigns === 'boolean') {
+        if (typeof options.include.campaigns === "boolean") {
           include.campaigns = options.include.campaigns;
         } else {
           // campaigns with filters
@@ -315,7 +315,7 @@ export class UserRepository {
 
           include.campaigns = {
             take: Math.min(50, campaignConfig.take ?? 10),
-            orderBy: { [campaignConfig.orderBy ?? 'createdAt']: 'desc' },
+            orderBy: { [campaignConfig.orderBy ?? "createdAt"]: "desc" },
             where: campaignWhere,
           }
         }
@@ -334,8 +334,8 @@ export class UserRepository {
       ]);
 
       // Calculate pagination metadata
-      const totalPages = Math.ceil(totalCount / take);
-      const currentPage = Math.floor(skip / take) + 1;
+      const totalPages = totalCount > 0 ? Math.ceil(totalCount / take) : 0;
+      const currentPage = totalCount > 0 ? Math.floor(skip / take) + 1 : 1;
       const hasMore = skip + take < totalCount;
 
       // Return paginated response
