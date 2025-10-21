@@ -58,7 +58,15 @@ export class AppConfigService {
    * Get environment variable as string
    */
   getString(key: string, defaultValue: string): string {
-    return this.nestConfigService.get<string>(key, defaultValue);
+    const value = this.nestConfigService.get<string>(key, defaultValue);
+
+    if (!value || value.trim().length === 0) {
+      this.logger.warn(
+        `Empty or invalid string for ${key}. Using default: ${defaultValue}`
+      );
+      return defaultValue;
+    }
+    return value.trim(); 
   }
 
   /**
@@ -132,6 +140,45 @@ export class AppConfigService {
   get appVersion(): string {
     return this.getString("APP_VERSION", "1.0.0");
   }
+
+  // ==================== JWT Configuration ====================
+
+  /**
+   * Get JWT secret key for signing and verifying tokens
+   */
+  get jwtSecret(): string {
+    return  this.getString("JWT_SECRET", "");
+  }
+
+   /**
+   * Get JWT access token expiration time
+   */
+  get jwtAccessTokenExpiry(): string {
+    return this.getString("JWT_ACCESS_TOKEN_EXPIRY", "15m");
+  }
+
+  /**
+   * Get JWT refresh token expiration time
+   */
+  get jwtRefreshTokenExpiry(): string {
+    return this.getString("JWT_REFRESH_TOKEN_EXPIRY", "7d");
+  }
+
+  /**
+   * Get JWT algorithm used for signing
+   * default HS256 (HMAC with SHA-256)
+   */
+  get jwtAlgorithm(): string {
+    return this.getString("JWT_ALGORITHM", "HS256");
+  }
+
+  /**
+   * Get JWT SaltOrRounds parameter
+   */
+  get jwtSaltRounds(): number {
+    return this.getNumber("JWT_SALTROUNDS", 10);
+  }
+
 
   // ==================== LLM API Configuration ====================
 
@@ -250,6 +297,4 @@ export class AppConfigService {
   get rateLimitMax(): number {
     return this.getNumber("RATE_LIMIT_MAX", 100);
   }
-
-  
 }
