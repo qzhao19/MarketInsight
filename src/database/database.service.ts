@@ -8,9 +8,9 @@ import { TaskRepository } from "./repositories/task.repository";
 export class DatabaseService {
   constructor(
     private readonly prisma: PrismaService,
-    public readonly users: UserRepository,
-    public readonly campaigns: CampaignRepository,
-    public readonly tasks: TaskRepository,
+    public readonly user: UserRepository,
+    public readonly campaign: CampaignRepository,
+    public readonly task: TaskRepository,
   ) {}
 
   /**
@@ -30,18 +30,18 @@ export class DatabaseService {
   async transaction<T>(
     fn: (
       tx: {
-        users: UserRepository;
-        campaigns: CampaignRepository;
-        tasks: TaskRepository;
+        user: UserRepository;
+        campaign: CampaignRepository;
+        task: TaskRepository;
       }
     ) => Promise<T>
   ): Promise<T> {
     return this.prisma.$transaction(async (prisma) => {
       // Create new repository instances that are bound to the transactional prisma client
       const transactionalRepos = {
-        users: new UserRepository(prisma as PrismaService),
-        campaigns: new CampaignRepository(prisma as PrismaService),
-        tasks: new TaskRepository(prisma as PrismaService),
+        user: new UserRepository(prisma as PrismaService),
+        campaign: new CampaignRepository(prisma as PrismaService),
+        task: new TaskRepository(prisma as PrismaService),
       };
       return fn(transactionalRepos);
     });
