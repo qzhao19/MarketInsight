@@ -1,5 +1,5 @@
 import { Exclude, Expose, Transform } from "class-transformer";
-import { SafeUser } from "../../../types/database/repository.types";
+import { SafeUser } from "../../../types/database/entities.types";
 import { TokenData } from "../../../types/api/dto.types"
 // ==================== User Response DTO ====================
 
@@ -15,7 +15,6 @@ abstract class BaseResponseDto {
   @Transform(({ value }) => value instanceof Date ? value.toISOString() : value)
   updatedAt: string;
 }
-
 
 /**
  * Standard user response DTO for client
@@ -67,8 +66,6 @@ export class ClientUserResponseDto extends BaseResponseDto {
 const TOKEN_TYPE = {
   BEARER: "Bearer",
 } as const;
-
-
 
 /**
  * Response DTO for login
@@ -129,7 +126,7 @@ export interface UserStatsData {
 /**
  * User statistics response DTO
  */
-export class UserStatisticsDto {
+export class UserStatsResponseDto {
   @Expose()
   userId: string;
 
@@ -171,9 +168,9 @@ export class UserStatisticsDto {
   averageCompletionTime: string;
 
   /**
-   * Creates a UserStatisticsDto from user ID and stats data
+   * Creates a UserStatsResponseDto from user ID and stats data
    * 
-   * const statsDto = UserStatisticsDto.fromStats("user-123", {
+   * const statsDto = UserStatsResponseDto.fromStats("user-123", {
    *   totalTasks: 100,
    *   completedTasks: 80,
    *   failedTasks: 15,
@@ -184,8 +181,8 @@ export class UserStatisticsDto {
    *   averageCompletionTimeMs: 5400000 // 1.5 hours
    * });
    */
-  static fromStats(userId: string, stats: UserStatsData): UserStatisticsDto {
-    const dto = new UserStatisticsDto();
+  static fromStats(userId: string, stats: UserStatsData): UserStatsResponseDto {
+    const dto = new UserStatsResponseDto();
     
     dto.userId = userId;
     dto.totalTasks = stats.totalTasks;
