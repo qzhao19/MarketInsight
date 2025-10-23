@@ -179,6 +179,20 @@ export class AppConfigService {
     return this.getNumber("JWT_SALTROUNDS", 10);
   }
 
+  /**
+   * 
+   */
+  get jwtIssuer(): string {
+    return this.getString("JWT_ISSUER", "marketinsight");
+  }
+
+  /**
+   * 
+   */
+  get jwtAudience(): string {
+    return this.getString("JWT_AUDIENCE", "marketinsight-user");
+  }
+
 
   // ==================== LLM API Configuration ====================
 
