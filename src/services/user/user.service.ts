@@ -15,6 +15,8 @@ import { UpdateUserDto } from "../../api/user/dto/update.dto";
 import { 
   ClientUserResponseDto, 
   LoginResponseDto, 
+  UserStatsResponseDto,
+  UserStatsData,
 } from "../../api/user/dto/response.dto";
 import { SafeUser } from "../../types/database/entities.types";
 import { 
@@ -42,15 +44,9 @@ export class UserService {
     const minLength = 8;
     const maxLength = 128;
 
-    if (password.length < minLength) {
+    if (password.length < minLength || password.length > maxLength) {
       throw new BadRequestException(
-        `Password must be at least ${minLength} characters long`
-      );
-    }
-
-    if (password.length > maxLength) {
-      throw new BadRequestException(
-        `Password must be no more than ${maxLength} characters long`
+        `Password must be between ${minLength} and ${maxLength} characters`
       );
     }
 
@@ -102,9 +98,11 @@ export class UserService {
       const options = {
         algorithm: this.configService.jwtAlgorithm,
         expiresIn: this.configService.jwtAccessTokenExpiry,
-      };
+        issuer: this.configService.jwtIssuer,
+        audience: this.configService.jwtAudience,
+      } as jwt.SignOptions;
 
-      return jwt.sign(payload, jwtSecret, options as jwt.SignOptions);
+      return jwt.sign(payload, jwtSecret, options);
 
     } catch (error) {
       this.logger.error("Failed to generate JWT", error);
@@ -112,27 +110,52 @@ export class UserService {
     }
   }
 
-  private generateRefreshToken(): string { 
+  private generateRefreshToken(userId: string): string { 
     try {
       const jwtSecret = this.configService.jwtSecret;
-
-      // 
       const payload: Omit<RefreshTokenPayload, "iat" | "exp"> = {
-        userId: "", // Will be set when used
+        userId: userId,
         tokenVersion: Date.now(),
       };
 
       const options = {
         algorithm: this.configService.jwtAlgorithm,
-        expiresIn: this.configService.jwtAccessTokenExpiry,
-      };
+        expiresIn: this.configService.jwtRefreshTokenExpiry,
+        issuer: this.configService.jwtIssuer,
+        audience: this.configService.jwtAudience,
+      } as jwt.SignOptions;
 
-      return jwt.sign(payload, jwtSecret, options as jwt.SignOptions);
+      return jwt.sign(payload, jwtSecret, options);
 
     } catch (error) {
       this.logger.error("Failed to generate JWT", error);
       throw new BadRequestException("Token generation failed");
     }
+  }
+
+  /**
+   * Parse JWT expiry string to seconds
+   * Supports formats: "15m", "7d", "24h", or direct seconds "900"
+   */
+  private parseExpiryToSeconds(expiry: string): number {
+    const match = expiry.match(/^(\d+)([smhd]?)$/);
+    
+    if (!match) {
+      this.logger.warn(`Invalid expiry format: ${expiry}, defaulting to 900s (15m)`);
+      return 900; // Default to 15 minutes
+    }
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2] || 's'; // Default to seconds if no unit
+
+    const unitMultipliers: Record<string, number> = {
+      's': 1,
+      'm': 60,
+      'h': 3600,
+      'd': 86400,
+    };
+
+    return value * (unitMultipliers[unit] || 1);
   }
 
   // ==================== Authentication ====================
@@ -208,16 +231,21 @@ export class UserService {
         username: user.username,
       });
 
-      const refreshToken = this.generateRefreshToken();
+      const refreshToken = this.generateRefreshToken(user.id);
 
       // Convert to SafeUser (exclude password)
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...safeUser } = user;
+      
+      // Deafault minutes in seconds
+      const expiresIn = this.parseExpiryToSeconds(
+        this.configService.jwtAccessTokenExpiry
+      );
 
       const tokens: TokenData = {
         accessToken,
         refreshToken,
-        expiresIn: parseInt(this.configService.jwtAccessTokenExpiry) * 60, // 15 minutes in seconds
+        expiresIn,
       };
 
       this.logger.log(`User logged in: ${user.id} (${user.username})`);
@@ -242,7 +270,17 @@ export class UserService {
     try {
       // Verify refresh token
       const jwtSecret = this.configService.jwtSecret;
-      const decoded = jwt.verify(refreshToken, jwtSecret) as RefreshTokenPayload;
+      const options = {
+        algorithm: [this.configService.jwtAlgorithm],
+        issuer: this.configService.jwtIssuer,
+        audience: this.configService.jwtAudience,
+      } as jwt.VerifyOptions;
+
+      const decoded = jwt.verify(refreshToken, jwtSecret, options) as RefreshTokenPayload;
+
+      if (!decoded.userId) {
+        throw new UnauthorizedException("Invalid refresh token payload");
+      }
 
       // Get user
       const user = await this.databaseService.user.findUserById(decoded.userId);
@@ -254,12 +292,15 @@ export class UserService {
         username: user.username,
       });
 
-      const newRefreshToken = this.generateRefreshToken();
+      const newRefreshToken = this.generateRefreshToken(user.id);
+      const expiresIn = this.parseExpiryToSeconds(
+        this.configService.jwtAccessTokenExpiry
+      );
 
       const tokens: TokenData = {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
-        expiresIn: 15 * 60, // 15 minutes in seconds
+        expiresIn,
       };
 
       this.logger.log(`Token refreshed for user: ${user.id}`);
@@ -276,7 +317,13 @@ export class UserService {
   public async validateToken(token: string): Promise<TokenPayload> { 
     try {
       const jwtSecret = this.configService.jwtSecret;
-      const payload = jwt.verify(token, jwtSecret) as TokenPayload;
+      const options = {
+        algorithms: [this.configService.jwtAlgorithm],
+        issuer: this.configService.jwtIssuer,
+        audience: this.configService.jwtAudience,
+      } as jwt.VerifyOptions;
+      
+      const payload = jwt.verify(token, jwtSecret, options ) as TokenPayload;
 
       // Verify user still exists and is not deleted
       await this.databaseService.user.findUserById(payload.userId);
@@ -313,8 +360,10 @@ export class UserService {
       const hashedPassword = await this.hashPassword(newPassword);
 
       // Update password in transaction
-      const user = await this.databaseService.user.updateUser(decoded.userId, {
-        password: hashedPassword,
+      const user = await this.databaseService.transaction(async (tx) => {
+        return tx.user.updateUser(decoded.userId, {
+          password: hashedPassword,
+        });
       });
 
       this.logger.log(`Password reset for user: ${user.id}`);
