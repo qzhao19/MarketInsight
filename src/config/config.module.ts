@@ -24,6 +24,7 @@ import * as path from "path";
         path.resolve(process.cwd(), "env/.env.secrets"),
         path.resolve(process.cwd(), "env/.env.base"),   // Base configuration
         path.resolve(process.cwd(), "env/.env.llm"),    // LLM-Model-specific config
+        path.resolve(process.cwd(), "env/.env.db"),    // LLM-Model-specific config
       ],
       // ignoreEnvFile: process.env.NODE_ENV === "production", // Don"t load .env in production
       cache: true, // Cache env variables for better performance
