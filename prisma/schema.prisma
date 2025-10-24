@@ -66,5 +66,5 @@ model Campaign {
     updatedAt   DateTime        @updatedAt
     deletedAt   DateTime?
 
-    @@map("marketing_campaigns")
+    @@map("campaigns")
 }
