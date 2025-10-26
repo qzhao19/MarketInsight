@@ -20,9 +20,9 @@ import { UpdateUserDto } from "./dto/update.dto";
 import { 
   ClientUserResponseDto, 
   LoginResponseDto, 
-  UserStatsResponseDto,
 } from "./dto/response.dto";
 import { AuthGuard } from "../../common/guards/auth.guard";
+import { Public } from "../../common/decorators/auth.decorator";
 import { CurrentUser } from "../../common/decorators/user.decorator";
 import { TokenPayload } from "../../types/service/user.types";
 
@@ -48,6 +48,7 @@ import { TokenPayload } from "../../types/service/user.types";
  * - GET /api/v1/users/:userId/statistics - Get user statistics
  */
 @Controller("users")
+@UseGuards(AuthGuard) // Apply AuthGuard globally, public routes bypass it via @Public().
 export class UserController {
   private readonly logger = new Logger(UserController.name);
 
@@ -65,6 +66,8 @@ export class UserController {
   /**
    * Register a new user
    * POST /api/v1/users/register
+   * 
+   * @Public - No authentication required
    * 
    * @param dto - Registration data (username, email, password)
    * @returns Created user data (without password)
@@ -91,6 +94,7 @@ export class UserController {
    *   }
    * }
    */
+  @Public()
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto): Promise<{
@@ -112,6 +116,8 @@ export class UserController {
   /**
    * User login
    * POST /api/v1/users/login
+   * 
+   * @Public - No authentication required
    * 
    * @param dto - Login credentials (email/username and password)
    * @returns User data and authentication tokens
@@ -143,6 +149,7 @@ export class UserController {
    *   }
    * }
    */
+  @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto): Promise<{
@@ -164,6 +171,8 @@ export class UserController {
   /**
    * Refresh access token
    * POST /api/v1/users/refresh
+   * 
+   * @Public - No authentication required
    * 
    * @param refreshToken - Refresh token from login response
    * @returns New access token and refresh token
@@ -188,6 +197,7 @@ export class UserController {
    *   }
    * }
    */
+  @Public()
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   async refreshToken(@Body("refreshToken") refreshToken: string): Promise<{
@@ -216,6 +226,8 @@ export class UserController {
    * 
    * Note: The reset token should be sent to the user"s email first
    * 
+   * @Public - No authentication required
+   * 
    * @param resetToken - Password reset token (sent via email)
    * @param newPassword - New password
    * @returns Success message
@@ -234,6 +246,7 @@ export class UserController {
    *   "message": "Password reset successfully"
    * }
    */
+  @Public()
   @Post("reset-password")
   @HttpCode(HttpStatus.OK)
   async resetPassword(
