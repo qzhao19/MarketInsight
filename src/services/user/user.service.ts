@@ -15,8 +15,6 @@ import { UpdateUserDto } from "../../api/user/dto/update.dto";
 import { 
   ClientUserResponseDto, 
   LoginResponseDto, 
-  UserStatsResponseDto,
-  UserStatsData,
 } from "../../api/user/dto/response.dto";
 import { SafeUser } from "../../types/database/entities.types";
 import { 
@@ -91,7 +89,7 @@ export class UserService {
   /**
    * Generate JWT Access Token
    */
-  private generateJWT(payload: any): string {
+  private generateAccessToken(payload: any): string {
     try {
       const jwtSecret = this.configService.jwtSecret;
 
@@ -225,7 +223,7 @@ export class UserService {
       }
 
       // Generate tokens
-      const accessToken = this.generateJWT({
+      const accessToken = this.generateAccessToken({
         userId: user.id,
         email: user.email,
         username: user.username,
@@ -286,7 +284,7 @@ export class UserService {
       const user = await this.databaseService.user.findUserById(decoded.userId);
 
       // Generate new tokens
-      const newAccessToken = this.generateJWT({
+      const newAccessToken = this.generateAccessToken({
         userId: user.id,
         email: user.email,
         username: user.username,
