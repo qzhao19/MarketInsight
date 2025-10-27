@@ -11,4 +11,4 @@ import { AppConfigModule } from '../../config/config.module';
   providers: [UserService],
   exports: [UserService],
 })
-export class UsersModule {}
+export class UserModule {}
