@@ -1,12 +1,18 @@
 import { 
   IsString, 
+  IsOptional,
   IsNotEmpty, 
   MinLength, 
   MaxLength, 
   Matches,
 } from "class-validator";
 
+/**
+ * Data Transfer Object for updating user information
+ * All fields are optional - only provided fields will be updated
+ */
 export class UpdateUserDto {
+  @IsOptional()
   @IsString({ message: "Username must be a string" })
   @IsNotEmpty({ message: "Username cannot be empty" })
   @MinLength(3, { message: "Username must be at least 3 characters" })
@@ -19,6 +25,7 @@ export class UpdateUserDto {
   )
   username?: string;
 
+  @IsOptional()
   @IsString({ message: "Password must be a string" })
   @IsNotEmpty({ message: "Password cannot be empty" })
   @MinLength(8, { message: "Password must be at least 8 characters" })
