@@ -26,16 +26,14 @@ import { TokenData } from "../../types/api/dto.types"
 
 @Injectable()
 export class UserService {
-  private readonly logger;
+  private readonly logger = new Logger(UserService.name);;
   private readonly MAX_LOGIN_ATTEMPTS = 5;
   private readonly LOCKOUT_TIME_MS = 30 * 60 * 1000; // 30 minutes
 
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly configService: AppConfigService,
-  ) {
-    this.logger = new Logger(UserService.name);
-  }
+  ) {}
 
    // ==================== Helper Methods ====================
   private validatePasswordStrength(password: string): void { 
@@ -65,10 +63,23 @@ export class UserService {
    */
   private async hashPassword(password: string): Promise<string> { 
     try {
-      return await bcrypt.hash(password, this.configService.jwtSaltRounds);
+      // Use salt rounds
+      const saltRounds = this.configService.jwtSaltRounds;
+      
+      this.logger.debug(`Hashing password with ${saltRounds} rounds`);
+      
+      // Generate salt value
+      const salt = await bcrypt.genSalt(saltRounds);
+      
+      // Generate hash password
+      const hashedPassword = await bcrypt.hash(password, salt);
+      
+      this.logger.debug('Password hashed successfully');
+      
+      return hashedPassword;
     } catch (error) {
-      this.logger.error("Failed to hash password", error);
-      throw new BadRequestException("Password processing failed");
+      this.logger.error('Failed to hash password:', error);
+      throw new BadRequestException('Password processing failed');
     }
   }
 
@@ -76,22 +87,34 @@ export class UserService {
    * Compares a plain text password with a hashed password
    */
   private async comparePasswords(
-    password: string, hash: string
-  ): Promise<boolean> { 
+    plainPassword: string,
+    hashedPassword: string
+  ): Promise<boolean> {
     try {
-      return await bcrypt.compare(password, hash);
+      this.logger.debug('Comparing passwords');
+      
+      const isMatch = await bcrypt.compare(plainPassword, hashedPassword);
+      
+      this.logger.debug(`Password comparison result: ${isMatch}`);
+      
+      return isMatch;
     } catch (error) {
-      this.logger.error("Failed to compare passwords", error);
-      return false;
+      this.logger.error('Failed to compare passwords:', error);
+      throw new BadRequestException('Password verification failed');
     }
   }
 
   /**
-   * Generate JWT Access Token
+   * Generate JWT access token
    */
   private generateAccessToken(payload: any): string {
     try {
       const jwtSecret = this.configService.jwtSecret;
+
+      if (!jwtSecret) {
+        this.logger.error('JWT secret is not configured');
+        throw new Error('JWT secret is missing');
+      }
 
       const options = {
         algorithm: this.configService.jwtAlgorithm,
@@ -100,8 +123,9 @@ export class UserService {
         audience: this.configService.jwtAudience,
       } as jwt.SignOptions;
 
+      this.logger.debug('JWT token generated successfully');
       return jwt.sign(payload, jwtSecret, options);
-
+      
     } catch (error) {
       this.logger.error("Failed to generate JWT", error);
       throw new BadRequestException("Token generation failed");
@@ -111,6 +135,11 @@ export class UserService {
   private generateRefreshToken(userId: string): string { 
     try {
       const jwtSecret = this.configService.jwtSecret;
+      if (!jwtSecret) {
+        this.logger.error('JWT secret is not configured');
+        throw new Error('JWT secret is missing');
+      }
+
       const payload: Omit<RefreshTokenPayload, "iat" | "exp"> = {
         userId: userId,
         tokenVersion: Date.now(),
