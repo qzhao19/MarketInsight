@@ -73,7 +73,23 @@ export class AppConfigService {
    * Get environment variable as number
    */
   getNumber(key: string, defaultValue: number): number {
-    return this.nestConfigService.get<number>(key, defaultValue);
+    const value = this.nestConfigService.get<string>(key);
+    
+    if (value === undefined || value === null || value === '') {
+      this.logger.debug(`Using default value for ${key}: ${defaultValue}`);
+      return defaultValue;
+    }
+
+    const parsed = parseInt(value, 10);
+    
+    if (isNaN(parsed)) {
+      this.logger.warn(
+        `Invalid number for ${key}: "${value}". Using default: ${defaultValue}`
+      );
+      return defaultValue;
+    }
+
+    return parsed;
   }
 
   /**
@@ -176,18 +192,18 @@ export class AppConfigService {
    * Get JWT SaltOrRounds parameter
    */
   get jwtSaltRounds(): number {
-    return this.getNumber("JWT_SALTROUNDS", 10);
+    return this.getNumber("JWT_SALT_ROUNDS", 10);
   }
 
   /**
-   * 
+   * Get JWT issuer parameter
    */
   get jwtIssuer(): string {
     return this.getString("JWT_ISSUER", "marketinsight");
   }
 
   /**
-   * 
+   * Get JWT audience parameter
    */
   get jwtAudience(): string {
     return this.getString("JWT_AUDIENCE", "marketinsight-user");
