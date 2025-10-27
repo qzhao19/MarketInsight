@@ -9,6 +9,7 @@ import { DatabaseService } from "./database.service";
 @Module({
   imports: [PrismaModule],  
   providers: [
+    DatabaseService,
     CampaignRepository,
     UserRepository,
     TaskRepository,
