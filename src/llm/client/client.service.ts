@@ -7,13 +7,13 @@ import {
 import { HttpException, HttpStatus, Logger, Injectable } from "@nestjs/common";
 import { z } from "zod";
 
-import { ChatOpenAIToolType, LLMChatModelType } from "../../../types/llm/client.types"
+import { ChatOpenAIToolType, LLMChatModelType } from "../../types/llm/client.types"
 import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
 import { RateLimiterGuard } from "./guards/rate-limiter.guard";
 import { RequestQueueGuard } from "./guards/request-queue.guard";
 import { RetryGuard } from "./guards/retry.guard";
 
-export class ModelClient {
+export class LLModelClient {
   private readonly model: LLMChatModelType;
   private readonly logger: Logger;
   private readonly instanceId: string;
@@ -25,12 +25,12 @@ export class ModelClient {
     private readonly requestQueue: RequestQueueGuard,
     private readonly retry: RetryGuard,
   ) {
-    this.logger = new Logger(ModelClient.name);
+    this.logger = new Logger(LLModelClient.name);
     this.model = model
     this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     if (!this.model) {
-      const msg = "ModelClient requires a 'model' instance in its configuration.";
+      const msg = "LLModelClient requires a 'model' instance in its configuration.";
       this.logger.error(msg);
       throw new Error(msg);
     } 
@@ -50,7 +50,7 @@ export class ModelClient {
   public bindTools(
     tools: ChatOpenAIToolType[], 
     options?: ChatOpenAICallOptions
-  ): ModelClient {
+  ): LLModelClient {
 
     try {
       // Check if model supports bindTools
@@ -64,7 +64,7 @@ export class ModelClient {
       const modelWithTools = (this.model as any).bindTools(tools, options);
 
       // Use new model to create client service
-      return new ModelClient(
+      return new LLModelClient(
         modelWithTools,
         this.circuitBreaker,
         this.rateLimiter,
@@ -82,7 +82,7 @@ export class ModelClient {
   public withStructuredOutput<T extends z.ZodObject<any>>(
     schema: T,
     options?: StructuredOutputMethodOptions
-  ): ModelClient {
+  ): LLModelClient {
 
     try {
       // Check if model supports withStructuredOutput
@@ -95,7 +95,7 @@ export class ModelClient {
       // Create the new structured model from the current model
       const structuredModel = (this.model as any).withStructuredOutput(schema, options);
 
-      return new ModelClient(
+      return new LLModelClient(
         structuredModel,
         this.circuitBreaker,
         this.rateLimiter,
@@ -158,7 +158,7 @@ export class ModelClient {
 };
 
 @Injectable()
-export class ModelClientService {
+export class LLModelClientService {
   constructor(
     private circuitBreaker: CircuitBreakerGuard,
     private rateLimiter: RateLimiterGuard,
@@ -168,10 +168,10 @@ export class ModelClientService {
 
   public createClient(model: LLMChatModelType) {
     if (!model) {
-      throw new Error("ModelClient requires a valid model instance");
+      throw new Error("LLModelClient requires a valid model instance");
     }
 
-    return new ModelClient(
+    return new LLModelClient(
       model,
       this.circuitBreaker,
       this.rateLimiter,
