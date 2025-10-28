@@ -2,10 +2,10 @@ import { Injectable, Logger, OnModuleInit, Inject, forwardRef } from "@nestjs/co
 import { ChatDeepSeek } from "@langchain/deepseek";
 import { ChatOpenAIFields } from "@langchain/openai";
 
-import { ModelClient, ModelClientService } from "./client/client.service";
-import { AppConfigService } from "../../config/config.service";
-import { LLMModelConfig } from "../../types/llm/model.types";
-import { toOpenAIConfig } from "../../utils/llm.utils"
+import { LLModelClient, LLModelClientService } from "./client/client.service";
+import { AppConfigService } from "../config/config.service";
+import { LLMModelConfig } from "../types/llm/model.types";
+import { toOpenAIConfig } from "../utils/llm.utils"
 
 /**
  * Generate a unique key for caching model configurations
@@ -17,9 +17,9 @@ function generateModelKey(config: ChatOpenAIFields): string {
 }
 
 @Injectable()
-export class ModelService implements OnModuleInit {
+export class LLModelService implements OnModuleInit {
   private readonly logger: Logger;
-  private models: Map<string, ModelClient> = new Map();
+  private models: Map<string, LLModelClient> = new Map();
   private rawModels: Map<string, ChatDeepSeek> = new Map();
 
   // API credentials (not stored in .env.llm for security)
@@ -27,11 +27,11 @@ export class ModelService implements OnModuleInit {
   private baseURL: string;
 
   constructor(
-    @Inject(forwardRef(() => ModelClientService))
-    private readonly modelClientService: ModelClientService,
+    @Inject(forwardRef(() => LLModelClientService))
+    private readonly modelClientService: LLModelClientService,
     private readonly configService: AppConfigService,
   ) {
-    this.logger = new Logger(ModelService.name);
+    this.logger = new Logger(LLModelService.name);
 
     // Fetch API credentials from environment variables
     this.apiKey = this.configService.llmApiKey;
@@ -43,12 +43,12 @@ export class ModelService implements OnModuleInit {
   }
 
   onModuleInit() {
-    this.logger.debug("ModelService initializing...");
+    this.logger.debug("LLModelService initializing...");
     this.logger.debug(`ConfigService injected: ${!!this.configService}`);
     
     if (!this.modelClientService) {
-      this.logger.error("ModelClientService not injected properly!");
-      throw new Error("ModelClientService not injected");
+      this.logger.error("LLModelClientService not injected properly!");
+      throw new Error("LLModelClientService not injected");
     }
 
     if (!this.configService) {
@@ -57,7 +57,7 @@ export class ModelService implements OnModuleInit {
     }
 
     this.initializeDefaultModels();
-    this.logger.log("ModelService initialized successfully");
+    this.logger.log("LLModelService initialized successfully");
   }
 
   /**
@@ -125,7 +125,7 @@ export class ModelService implements OnModuleInit {
    */
   public async getDeepSeekGuardModel(
     modelConfigOverrides: Partial<LLMModelConfig>
-  ): Promise<ModelClient | undefined> {
+  ): Promise<LLModelClient | undefined> {
     try {
       // Start with default config from config service
       const defaultConfig = this.getDefaultDeepSeekConfig();
