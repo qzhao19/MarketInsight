@@ -3,9 +3,9 @@ import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
 import { RateLimiterGuard } from "./guards/rate-limiter.guard";
 import { RequestQueueGuard } from "./guards/request-queue.guard";
 import { RetryGuard } from "./guards/retry.guard";
-import { ModelClientService } from "./client.service";
-import { AppConfigModule } from "../../../config/config.module";
-import { AppConfigService } from "../../../config/config.service";
+import { LLModelClientService } from "./client.service";
+import { AppConfigModule } from "../../config/config.module";
+import { AppConfigService } from "../../config/config.service";
 
 @Module({
   imports: [
@@ -58,10 +58,10 @@ import { AppConfigService } from "../../../config/config.service";
     },
 
     // ==================== Model Client Service ====================
-    ModelClientService,
+    LLModelClientService,
   ],
   exports: [
-    ModelClientService,
+    LLModelClientService,
   ],
 })
-export class ModelClientModule {}
+export class LLModelClientModule {}
