@@ -21,7 +21,7 @@ import {
   ClientUserResponseDto, 
   LoginResponseDto, 
 } from "./dto/response.dto";
-import { AuthGuard } from "../../common/guards/auth.guard";
+import { AuthGuard } from "../../common/guards/api/auth.guard";
 import { Public } from "../../common/decorators/auth.decorator";
 import { CurrentUser } from "../../common/decorators/user.decorator";
 import { TokenPayload } from "../../types/service/user.types";
