@@ -6,8 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserService } from '../../services/user/user.service';
-import { IS_PUBLIC_KEY } from '../../common/decorators/auth.decorator';
+import { UserService } from '../../../services/user/user.service';
+import { IS_PUBLIC_KEY } from '../../../common/decorators/auth.decorator';
 
 
 @Injectable()
