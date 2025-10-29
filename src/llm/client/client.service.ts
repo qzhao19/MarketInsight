@@ -8,10 +8,10 @@ import { HttpException, HttpStatus, Logger, Injectable } from "@nestjs/common";
 import { z } from "zod";
 
 import { ChatOpenAIToolType, LLMChatModelType } from "../../types/llm/client.types"
-import { CircuitBreakerGuard } from "./guards/circuit-breaker.guard";
-import { RateLimiterGuard } from "./guards/rate-limiter.guard";
-import { RequestQueueGuard } from "./guards/request-queue.guard";
-import { RetryGuard } from "./guards/retry.guard";
+import { CircuitBreakerGuard } from "../../common/guards/llm/circuit-breaker.guard";
+import { RateLimiterGuard } from "../../common/guards/llm/rate-limiter.guard";
+import { RequestQueueGuard } from "../../common/guards/llm/request-queue.guard";
+import { RetryGuard } from "../../common/guards/llm/retry.guard";
 
 export class LLModelClient {
   private readonly model: LLMChatModelType;
