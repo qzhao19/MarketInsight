@@ -34,5 +34,4 @@ export interface MarketingTaskPlan {
     current?: string;
     forecast?: string;
   };
-  expectedOutputFormat?: Record<string, string>;
 };
