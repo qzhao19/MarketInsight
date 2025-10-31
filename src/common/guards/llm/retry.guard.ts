@@ -44,9 +44,9 @@ export class RetryGuard {
       } catch (error) {
         // If this was the last attempt, throw the error
         if (attempt === totalAttempts) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
           this.logger.error(
-            `All retry attempts exhausted (${totalAttempts} attempts).`,
-            error instanceof Error ? error.stack : error,
+            `All retry attempts exhausted (${totalAttempts} attempts): ${errorMsg}`
           );
           throw error;
         }
@@ -57,9 +57,9 @@ export class RetryGuard {
           const shouldRetry = this.defaultConfig.retryableErrors.some((pattern) => pattern.test(errorStr));
           
           if (!shouldRetry) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
             this.logger.warn(
-              `Error is not in the retryable list. Throwing immediately.`,
-              error instanceof Error ? error.stack : error,
+              `Error "${errorMsg}" is not retryable. Throwing immediately.`
             );
             throw error;
           }
