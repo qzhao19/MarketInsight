@@ -35,3 +35,21 @@ export interface MarketingTaskPlan {
     forecast?: string;
   };
 };
+
+/**
+ * Task execution batch - tasks that can be executed in parallel
+ */
+export interface TaskExecutionBatch {
+  batchNumber: number;
+  taskIds: string[];
+  description: string;
+}
+
+/**
+ * Task execution schedule - complete execution plan
+ */
+export interface TaskExecutionSchedule {
+  executionBatches: TaskExecutionBatch[];
+  taskOrder: string[];  // Topologically sorted task IDs
+  totalBatches: number;
+}
