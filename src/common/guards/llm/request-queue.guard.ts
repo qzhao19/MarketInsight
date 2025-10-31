@@ -20,8 +20,8 @@ export class RequestQueueGuard {
     this.maxConcurrent = this.defaultConfig.maxConcurrent;
     this.logger = new Logger(RequestQueueGuard.name);
     this.logger.log(
-      `Queue initialized with config:\n ` + 
-      `  maxConcurrency=${this.maxConcurrent}`
+      `Queue initialized with config:\n` + 
+      `  maxConcurrent=${this.maxConcurrent}`
     );
   }
 
@@ -53,7 +53,6 @@ export class RequestQueueGuard {
           // A slot has been freed, so try to process the next item in the queue.
           setImmediate(() => this.processQueue());
         })
-
     }
   }
 
