@@ -26,6 +26,8 @@ export interface CircuitBreakerConfig {
  */
 export interface RateLimiterConfig {
   maxRequestsPerMinute: number;
+  maxQueueSize: number;
+  requestTimeout: number;
 }
 
 /**
