@@ -313,6 +313,32 @@ export class ClientConfigService {
     );
   }
 
+  /**
+   * Get default rate limiter max queue size
+   * Valid range: 1 - 10000, default 1000
+   */
+  get defaultRateLimiterMaxQueueSize(): number {
+    return this.getNumber(
+      "DEFAULT_RATE_LIMITER_MAX_QUEUE_SIZE",
+      1000,
+      1,
+      10000
+    );
+  }
+
+  /**
+   * Get default rate limiter request timeout
+   * Valid range: 1minutes - 5minutes, default 2minutes
+   */
+  get defaultRateLimiterRequestTimeout(): number {
+    return this.getNumber(
+      "DEFAULT_RATE_LIMITER_REQUEST_TIMEOUT",
+      120000,
+      60000,
+      300000
+    );
+  }
+
   // ==================== Request Queue ====================
 
   /**
@@ -414,6 +440,8 @@ export class ClientConfigService {
   get rateLimiterConfig(): RateLimiterConfig {
     return {
       maxRequestsPerMinute: this.defaultRateLimiterMaxRequestsPerMinute,
+      maxQueueSize: this.defaultRateLimiterMaxQueueSize,
+      requestTimeout: this.defaultRateLimiterRequestTimeout
     };
   }
 
