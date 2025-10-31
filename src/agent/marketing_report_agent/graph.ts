@@ -3,11 +3,18 @@ import { Logger } from "@nestjs/common";
 import { MarketingResearchState } from "./state";
 import { createReportPlanningPrompt, createTaskPlanPrompt } from "./prompt"
 import { ReportFrameworkSchema, TaskPlanSchema } from "./schema";
-import { validateTaskDependencies } from "../../utils/agent.utils"
+import { 
+  validateTaskDependencies, 
+  topologicalSort,
+  groupIntoBatches, 
+  sortByPriority,
+} from "../../utils/agent.utils"
 import { 
   MarketingTaskPlan,
   MarketingTaskMetadata, 
-  MarketingReportFramework 
+  MarketingReportFramework, 
+  TaskExecutionBatch,
+  TaskExecutionSchedule,
 } from "../../types/agent/agent.types"
 
 // Instantiate logger at the top of the file.
@@ -33,8 +40,10 @@ async function reportPlanningNode(
     );
 
     const rawReportFramework = await structuredPlanModel.invoke(prompt);
-    if (!rawReportFramework || !Array.isArray(rawReportFramework.tasks)) {
-      throw new Error("LLM returned invalid report framework (missing tasks array)");
+    if (!rawReportFramework || !rawReportFramework.tasks || rawReportFramework.tasks.length === 0) {
+      const errorMsg = "LLM returned invalid report framework (missing tasks array).";
+      logger.error(errorMsg);
+      throw new Error(errorMsg);
     }
     logger.log(`LLM generated ${rawReportFramework.tasks.length} tasks.`);
 
@@ -58,16 +67,16 @@ async function reportPlanningNode(
     );
     
     // Build final report framework
-    const enrichedReportFramework: MarketingReportFramework = {
+    const reportFrameworkWithTaskId: MarketingReportFramework = {
       reportTitle: rawReportFramework.reportTitle,
       reportObjective: rawReportFramework.reportObjective,
       tasks: taskWithIdList,
     };
 
-    logger.log(`Stage1: Report planning completed successfully`);
+    logger.log(`Report planning completed successfully`);
 
     return { 
-      reportFramework: enrichedReportFramework 
+      reportFramework: reportFrameworkWithTaskId 
     };
 
   } catch (error) {
@@ -113,13 +122,7 @@ async function taskPlanGenerationNode(
 
   logger.log("Starting task plan generation...");
 
-  if (!reportFramework) {
-    const errorMsg = "No tasks available in reportFramework. Cannot generate task plans.";
-    logger.error(errorMsg);
-    throw new Error(errorMsg);
-  }
-
-  const tasks = reportFramework.tasks;
+  const tasks = reportFramework!.tasks;
   const taskPlans = new Map<string, MarketingTaskPlan>();
 
   for (let i = 0; i < tasks.length; i++) {
@@ -127,7 +130,7 @@ async function taskPlanGenerationNode(
     try {
       const completePlan = await generateSingleTaskPlan(
         task,
-        reportFramework,
+        reportFramework!,
         userContext,
         model
       );
@@ -143,3 +146,64 @@ async function taskPlanGenerationNode(
   return { taskPlans }
 }
 
+async function taskSchedulingNode(
+  state: typeof MarketingResearchState.State,
+  config: any
+): Promise<Partial<typeof MarketingResearchState.State>> {
+  logger.log("Starting task scheduling...");
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const model = config.configurable.model;
+  const { reportFramework } = state;
+  const tasks = reportFramework!.tasks;
+
+  try {
+    // Perform topological sort
+    const sortedTaskIds = topologicalSort(tasks);
+
+    // Group tasks into execution batches
+    const batchGroups = groupIntoBatches(tasks, sortedTaskIds);
+
+    // Sort tasks within each batch by priority
+    const taskMap = new Map<string, MarketingTaskMetadata>();
+    tasks.forEach(task => taskMap.set(task.taskId, task));
+
+    const executionBatches: TaskExecutionBatch[] = batchGroups.map((batchTaskIds, index) => {
+      // Sort by priority within batch
+      const sortedBatchIds = sortByPriority(batchTaskIds, taskMap);
+
+      // Get task names for description
+      const taskNames = sortedBatchIds
+        .map(id => taskMap.get(id)?.taskName)
+        .filter((name): name is string => name !== undefined);
+
+      // Count priorities
+      const priorities = sortedBatchIds.map(id => taskMap.get(id)?.priority);
+      const highCount = priorities.filter(p => p === "high").length;
+      const mediumCount = priorities.filter(p => p === "medium").length;
+      const lowCount = priorities.filter(p => p === "low").length;
+
+      const batch: TaskExecutionBatch = {
+        batchNumber: index + 1,
+        taskIds: sortedBatchIds,
+        description: `Batch ${index + 1}: ${taskNames.join(", ")} (${highCount}H/${mediumCount}M/${lowCount}L)`,
+      };
+      return batch;
+    });
+    
+    // Build final schedule
+    const taskSchedule: TaskExecutionSchedule = {
+      executionBatches,
+      taskOrder: sortedTaskIds,
+      totalBatches: executionBatches.length,
+    };
+    
+    return {
+      taskSchedule,
+    };
+  } catch (error) {
+    const errorMsg = `Task scheduling failed: ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+}
