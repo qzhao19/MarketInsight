@@ -30,9 +30,9 @@ export class LLModelClient {
     this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     if (!this.model) {
-      const msg = "LLModelClient requires a 'model' instance in its configuration.";
-      this.logger.error(msg);
-      throw new Error(msg);
+      const errorMsg = "LLModelClient requires a 'model' instance in its configuration.";
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
     } 
   }
 
