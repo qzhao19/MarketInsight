@@ -5,6 +5,7 @@ import { RateLimiterConfig } from "../../../types/llm/client.types"
 type WaitingResolver = {
   resolve: () => void;
   reject: (error: Error) => void;
+  timestamp: number;
 };
 
 @Injectable()
@@ -13,6 +14,8 @@ export class RateLimiterGuard {
   private readonly maxTokens: number;
   private readonly refillRatePerSecond: number;
   private readonly defaultConfig: RateLimiterConfig;
+  private readonly maxQueueSize: number;
+  private readonly requestTimeout: number;
   private waitingQueue: WaitingResolver[] = [];
   private lastRefillTimestamp: number;
   private tokenBucket: number;
@@ -24,10 +27,14 @@ export class RateLimiterGuard {
     this.refillRatePerSecond = this.defaultConfig.maxRequestsPerMinute / 60;
     this.tokenBucket = this.maxTokens;
     this.lastRefillTimestamp = Date.now();
+    this.maxQueueSize = this.defaultConfig.maxQueueSize;
+    this.requestTimeout = this.defaultConfig.requestTimeout;
     this.logger = new Logger(RateLimiterGuard.name);
     this.logger.log(
-      `Rate limiter initializedwith config:\n ` + 
-      `  maxRequestsPerMinute=${this.defaultConfig.maxRequestsPerMinute} requests/minute`,
+      `Rate limiter initialized with config:\n` +
+      `  maxRequestsPerMinute=${this.defaultConfig.maxRequestsPerMinute} requests/minute\n` + 
+      `  maxQueueSize=${this.maxQueueSize}\n` +
+      `  requestTimeout=${this.requestTimeout}ms`,
     );
   }
 
@@ -42,10 +49,44 @@ export class RateLimiterGuard {
     if (tokensToAdd > 0) {
       this.tokenBucket = Math.min(
         this.maxTokens,
-        this.tokenBucket + tokensToAdd,
+        Math.max(0, this.tokenBucket) + tokensToAdd,
       );
       this.lastRefillTimestamp = now;
       this.logger.debug(`Refilled tokens. Current: ${this.tokenBucket.toFixed(2)}`);
+    }
+  }
+
+  /**
+   * Clean up expired requests from the queue
+   */
+  private cleanupExpiredRequests(): void {
+    const now = Date.now();
+    const expiredRequests: WaitingResolver[] = [];
+
+    // Identify all timeout requests
+    while (this.waitingQueue.length > 0) {
+      const first = this.waitingQueue[0];
+      if (now - first.timestamp > this.requestTimeout) {
+        const expired = this.waitingQueue.shift();
+        if (expired) {
+          expiredRequests.push(expired);
+        }
+      } else {
+        break;
+      }
+    }
+
+    // Reject all timeout requests
+    expiredRequests.forEach(req => {
+      try {
+        req.reject(new Error(`Request timeout after ${this.requestTimeout}ms`));
+      } catch (error) {
+        this.logger.error(`Error rejecting expired request: ${error}`);
+      }
+    });
+
+    if (expiredRequests.length > 0) {
+      this.logger.warn(`Cleaned up ${expiredRequests.length} expired requests`);
     }
   }
 
@@ -61,18 +102,24 @@ export class RateLimiterGuard {
 
     try {
       while (this.waitingQueue.length > 0) {
+        // Clean up expired requests first
+        this.cleanupExpiredRequests();
+        if (this.waitingQueue.length === 0) {
+          break;
+        }
         this.refillTokens();
 
         if (this.tokenBucket >= 1) {
-          this.tokenBucket -= 1;
+          this.tokenBucket = Math.max(0, this.tokenBucket - 1);;
           const next = this.waitingQueue.shift();
           next?.resolve(); // Resolve the promise of the waiting request
         } else {
           // Not enough tokens, calculate wait time and pause
-          const deficit = 1 - this.tokenBucket;
+          const deficit = 1 - Math.max(0, this.tokenBucket);
           const waitTimeMs = Math.ceil((deficit / this.refillRatePerSecond) * 1000);
-          this.logger.debug(`No tokens. Waiting for ${waitTimeMs}ms.`);
-          await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+          const safeWaitTime = Math.min(waitTimeMs, 10000); 
+          this.logger.debug(`No tokens. Waiting for ${safeWaitTime}ms.`);
+          await new Promise(resolve => setTimeout(resolve, safeWaitTime));
         }
       }
     } catch (error) {
@@ -94,8 +141,19 @@ export class RateLimiterGuard {
    * @returns A promise that resolves when a token has been acquired.
    */
   public async acquire(): Promise<void> {
+    // Check queue length
+    if (this.waitingQueue.length >= this.maxQueueSize) {
+      const errorMsg = `Rate limiter queue is full (${this.maxQueueSize} requests)`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
     const acquirePromise = new Promise<void>((resolve, reject) => {
-      this.waitingQueue.push({ resolve, reject });
+      this.waitingQueue.push({ 
+        resolve, 
+        reject,
+        timestamp: Date.now() 
+      });
       this.logger.debug(
         `Request queued. Queue length: ${this.waitingQueue.length}, ` +
         `Available tokens: ${this.tokenBucket.toFixed(2)}`
@@ -103,11 +161,11 @@ export class RateLimiterGuard {
     });
 
     // Use setTimeout to ensure this is asyn
-    setTimeout(() => {
+    setImmediate(() => {
       this.processQueue().catch(error => {
         this.logger.error(`Queue processing error: ${error}`);
       });
-    }, 0);
+    });
 
     return acquirePromise;
   }
