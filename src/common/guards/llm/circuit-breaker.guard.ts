@@ -41,32 +41,100 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
     func: BreakerAction<T, R>,
     fallbackFunc?: (...args: any[]) => any,
   ): CircuitBreaker {
+    if (!name || name.trim().length === 0) {
+      throw new Error("Circuit breaker name cannot be empty");
+    }
+
     // Check if a breaker with this name already exists
     const existingBreaker = this.breakers.get(name);
     if (existingBreaker) {
-      this.logger.debug(
-        `Reusing existing circuit breaker "${name}". ` +
-        `Note: Any new func/fallback/options will be ignored.`
-      );
+      if (fallbackFunc) {
+        this.logger.warn(
+          `Circuit breaker "${name}" already exists. ` +
+          `New fallback function will be ignored. ` +
+          `Consider using a different name if you need different behavior.`
+        );
+      }
+      this.logger.debug(`Reusing existing circuit breaker "${name}".`);
       return existingBreaker;
     }
 
-    // If not, create a new breaker
-    const opossumOptions = toOpossumOptions(this.defaultConfig);
-    const breaker = new CircuitBreaker(func, opossumOptions);
+    try {
+      // If not, create a new breaker
+      const opossumOptions = toOpossumOptions(this.defaultConfig);
+      const breaker = new CircuitBreaker(func, opossumOptions);
 
-    // Set fallback function only one time
-    if (fallbackFunc) {
-      breaker.fallback(fallbackFunc);
+      // Set fallback function only one time
+      if (fallbackFunc) {
+        breaker.fallback(fallbackFunc);
+        this.logger.debug(`Fallback function registered for circuit breaker "${name}".`);
+      }
+
+      // Add event listeners for logging
+      this.setupEventListeners(breaker, name);
+
+      // Store the new breaker
+      this.breakers.set(name, breaker);
+      this.logger.log(`New circuit breaker created: ${name}`);
+      
+      return breaker;
+    } catch (error) {
+      const errorMsg = `Failed to create circuit breaker "${name}": ${ error instanceof Error ? error.message : String(error) }`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
     }
+  }
 
-    // Add event listeners for logging
-    this.setupEventListeners(breaker, name);
+  public getBreaker(name: string): CircuitBreaker | undefined {
+    return this.breakers.get(name);
+  }
 
-    // Store the new breaker
-    this.breakers.set(name, breaker);
-    this.logger.log(`New circuit breaker created: ${name}`);
-    return breaker;
+  /**
+   * Check if a circuit breaker exists
+   */
+  public hasBreaker(name: string): boolean {
+    return this.breakers.has(name);
+  }
+
+  /**
+   * Get all circuit breaker names
+   */
+  public getAllBreakerNames(): string[] {
+    return Array.from(this.breakers.keys());
+  }
+
+  /**
+   * Get circuit breaker statistics
+   */
+  public getBreakerStats(name: string): CircuitBreaker.Stats | undefined {
+    const breaker = this.breakers.get(name);
+    return breaker?.stats;
+  }
+
+  /**
+   * Manually open a circuit breaker
+   */
+  public openBreaker(name: string): void {
+    const breaker = this.breakers.get(name);
+    if (breaker) {
+      breaker.open();
+      this.logger.log(`Circuit breaker "${name}" manually opened.`);
+    } else {
+      this.logger.warn(`Cannot open circuit breaker "${name}": not found.`);
+    }
+  }
+
+  /**
+   * Manually close a circuit breaker
+   */
+  public closeBreaker(name: string): void {
+    const breaker = this.breakers.get(name);
+    if (breaker) {
+      breaker.close();
+      this.logger.log(`Circuit breaker "${name}" manually closed.`);
+    } else {
+      this.logger.warn(`Cannot close circuit breaker "${name}": not found.`);
+    }
   }
 
   /**
@@ -78,6 +146,9 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
     breaker.on("close", () => this.logger.log(`Circuit Breaker "${name}" has closed.`));
     breaker.on("fallback", (data) => this.logger.warn(`Circuit Breaker "${name}" fallback executed.`, data));
     breaker.on("failure", (error) => this.logger.error(`Circuit Breaker "${name}" recorded a failure.`, error.stack));
+    breaker.on("success", () => this.logger.debug(`Circuit Breaker "${name}" successful call.`));
+    breaker.on("timeout", () => this.logger.warn(`Circuit Breaker "${name}" call timed out.`));
+    breaker.on("reject", () => this.logger.warn(`Circuit Breaker "${name}" rejected call (circuit is open).`));
   }
 
   /**
@@ -91,5 +162,8 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
         this.logger.log(`Circuit breaker "${name}" has been shut down.`);
       }
     });
+
+    // Clear the map
+    this.breakers.clear();
   }
 }
