@@ -119,3 +119,25 @@ export const TaskPlanSchema = z.object({
 .strict()
 .describe("Detailed research plan for a marketing task");
 
+/**
+ * Schema for optimized query output
+ */
+export const OptimizedQuerySchema = z.object({
+  originalQuery: z.string().describe("The original search query"),
+  optimizedQuery: z.string().describe("The enhanced search query"),
+  reasoning: z.string().optional().describe("Brief explanation of optimization"),
+})
+.strict()
+.describe("Optimized search query with reasoning");
+
+/**
+ * Schema for query optimization output (batch)
+ */
+export const OptimizedQueriesSchema = z.object({
+  optimizedQueries: z.array(OptimizedQuerySchema)
+    .min(1)
+    .describe("List of optimized search queries"),
+})
+.strict()
+.describe("Batch query optimization output");
+
