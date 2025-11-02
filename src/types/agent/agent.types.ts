@@ -53,3 +53,47 @@ export interface TaskExecutionSchedule {
   taskOrder: string[];  // Topologically sorted task IDs
   totalBatches: number;
 }
+
+/**
+ * Optimized search query
+ */
+export interface OptimizedQuery {
+  originalQuery: string;
+  optimizedQuery: string;
+}
+
+/**
+ * Search result items
+ */
+export interface SearchResultItem {
+  query: string;
+  result: string;
+};
+
+/**
+ * Intermediate results of task execution
+ */
+export interface TaskExecutionResult {
+  taskId: string;
+  taskName: string;
+  status: "success" | "failed";
+  optimizedQueries: OptimizedQuery[];
+  totalSearchResults: number;
+  structuredContent: {
+    summary: string;
+    keyFindings: string[];
+    dataPoints: Record<string, any>;
+    sources: string[];
+  };
+  error?: string;
+}
+
+/**
+ * Task execution configuration
+ */
+export interface TaskExecutionConfig {
+  maxQueriesPerTask: number; // Maximum number of queries to optimize per task
+  searchTimeout: number; // ms, single search timeout duration
+  maxRetries: number; // Number of retries for failed searches
+  parallelSearches: boolean; // Whether to execute searches in parallel
+}
