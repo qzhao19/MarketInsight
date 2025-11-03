@@ -1,5 +1,9 @@
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { MarketingTaskMetadata, MarketingReportFramework } from "../../types/agent/agent.types"
+import { 
+  MarketingTaskPlan, 
+  MarketingTaskMetadata, 
+  MarketingReportFramework 
+} from "../../types/agent/agent.types"
 
 /**
  * Create prompt for dynamic report planning
@@ -398,4 +402,108 @@ CRITICAL RULE:
 ====================
 Do NOT include any markdown, code blocks, explanations, or any text outside of the single, valid JSON object.`;
 }
+
+/**
+ * Generate query optimization prompts, leveraging information from 
+ * the taskPlan to optimize search queries and enhance result quality
+ */
+export function createQueryOptimizationPrompt(
+  taskPlan: MarketingTaskPlan
+): string {
+  const currentYear = new Date('2025-11-03T14:17:15Z').getUTCFullYear();
+
+  return `You are a search query optimization specialist. Your role is to enhance search queries to find the most relevant and authoritative information.
+
+====================
+TASK CONTEXT
+====================
+**Task ID:** ${taskPlan.taskId}
+**Research Goal:** ${taskPlan.researchGoal}
+**Key Elements to Extract:** ${taskPlan.keyElements.join(", ")}
+
+**Search Directions:**
+${taskPlan.searchDirections.map((d, i) => `${i + 1}. ${d}`).join("\n")}
+
+**Time Frame:**
+${taskPlan.timeFrame ? `
+- Historical: ${taskPlan.timeFrame.historical || "Not specified"}
+- Current: ${taskPlan.timeFrame.current || currentYear}
+- Forecast: ${taskPlan.timeFrame.forecast || "Not specified"}
+` : "Not specified"}
+
+${taskPlan.specialFocus ? `
+**Special Focus Areas:**
+${taskPlan.specialFocus.map((f, i) => `${i + 1}. ${f}`).join("\n")}
+` : ""}
+
+====================
+ORIGINAL SEARCH QUERIES
+====================
+${taskPlan.searchQueries.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+
+====================
+YOUR RESPONSIBILITIES
+====================
+For each original search query, provide an optimized version that:
+
+1. **Adds Specificity:**
+   - Include specific metrics or data types (e.g., "USD billion", "CAGR %")
+   - Add relevant time periods from the context
+   - Include industry-specific terminology
+
+2. **Improves Search Accuracy:**
+   - Make queries more targeted and less ambiguous
+   - Include qualifying terms that narrow down results
+   - Reference the search directions where applicable
+
+3. **Maintains Searchability:**
+   - Keep queries reasonable length (3-15 words)
+   - Use common search terms that search engines can match
+   - Avoid overly complex boolean operators
+
+4. **Explains the Optimization:**
+   - Brief reasoning for why the optimization improves search quality
+
+====================
+EXAMPLES
+====================
+
+Example 1:
+Original Query: "EV market size"
+Optimized Query: "global electric vehicle market size 2024 USD billion"
+Reasoning: "Added year (2024) and currency (USD billion) to find specific market valuation data"
+
+Example 2:
+Original Query: "market growth"
+Optimized Query: "electric vehicle market CAGR growth rate 2020-2024"
+Reasoning: "Specified metric (CAGR), time period, and industry (EV) for more precise results"
+
+Example 3:
+Original Query: "competitive landscape"
+Optimized Query: "Tesla BYD Volkswagen electric vehicle market share competition 2024"
+Reasoning: "Added specific competitors and year to find relevant competitive analysis"
+
+====================
+OUTPUT REQUIREMENTS
+====================
+
+Output ONLY a valid JSON array with this exact structure:
+
+[
+  {
+    "originalQuery": "string",
+    "optimizedQuery": "string",
+    "reasoning": "string"
+  },
+  ...
+]
+
+**CRITICAL RULES:**
+- Output ONLY valid JSON (no markdown, no explanations)
+- Each optimized query must be 3-15 words
+- All strings must be trimmed (no leading/trailing whitespace)
+- Do not include empty fields
+- Preserve the order of original queries`;
+}
+
 
