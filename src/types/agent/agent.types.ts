@@ -60,6 +60,7 @@ export interface TaskExecutionSchedule {
 export interface OptimizedQuery {
   originalQuery: string;
   optimizedQuery: string;
+  reasoning?: string;
 }
 
 /**
