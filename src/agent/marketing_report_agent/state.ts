@@ -2,7 +2,8 @@ import { Annotation } from "@langchain/langgraph";
 import { 
   MarketingTaskPlan,
   MarketingReportFramework,
-  TaskExecutionSchedule,
+  TaskExecutionSchedule, 
+  TaskExecutionResult,
 } from "../../types/agent/agent.types"
 
 /**
@@ -81,5 +82,18 @@ export const MarketingResearchState = Annotation.Root({
     default: () => null,
   }),
 
+  /**
+   * Task execution results, storing the execution results for each task
+   */
+  taskExecutionResults: Annotation<Map<string, TaskExecutionResult>>({
+    reducer: (x, y) => {
+      const merged = new Map(x);
+      if (y) {
+        y.forEach((value, key) => merged.set(key, value));
+      }
+      return merged;
+    },
+    default: () => new Map(),
+  }),
 });
 
