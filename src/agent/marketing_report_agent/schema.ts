@@ -123,9 +123,17 @@ export const TaskPlanSchema = z.object({
  * Schema for optimized query output
  */
 export const OptimizedQuerySchema = z.object({
-  originalQuery: z.string().describe("The original search query"),
-  optimizedQuery: z.string().describe("The enhanced search query"),
-  reasoning: z.string().optional().describe("Brief explanation of optimization"),
+  originalQuery: z.string()
+    .min(1, "Original query cannot be empty")
+    .describe("The original search query"),
+    
+  optimizedQuery: z.string()
+    .min(5, "Optimized query must be at least 5 characters")
+    .describe("The enhanced search query with additional context, time periods, and specificity"),
+  
+  reasoning: z.string()
+    .optional()
+    .describe("Brief explanation of optimization strategy"),
 })
 .strict()
 .describe("Optimized search query with reasoning");
