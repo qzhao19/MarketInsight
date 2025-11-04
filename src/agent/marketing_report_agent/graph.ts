@@ -1,8 +1,16 @@
 import { SerpAPI } from "@langchain/community/tools/serpapi";
 import { Logger } from "@nestjs/common"; 
 import { MarketingResearchState } from "./state";
-import { createReportPlanningPrompt, createTaskPlanPrompt } from "./prompt"
-import { ReportFrameworkSchema, TaskPlanSchema } from "./schema";
+import { 
+  createReportPlanningPrompt, 
+  createTaskPlanPrompt,
+  createQueryOptimizationPrompt 
+} from "./prompt"
+import { 
+  ReportFrameworkSchema, 
+  TaskPlanSchema, 
+  OptimizedQueriesSchema 
+} from "./schema";
 import { 
   validateTaskDependencies, 
   topologicalSort,
@@ -13,8 +21,12 @@ import {
   MarketingTaskPlan,
   MarketingTaskMetadata, 
   MarketingReportFramework, 
+  OptimizedQuery,
   TaskExecutionBatch,
+  TaskExecutionConfig,
+  TaskExecutionResult,
   TaskExecutionSchedule,
+  SearchResultItem,
 } from "../../types/agent/agent.types"
 
 // Instantiate logger at the top of the file.
@@ -206,4 +218,87 @@ async function taskSchedulingNode(
     logger.error(errorMsg);
     throw new Error(errorMsg);
   }
+}
+
+async function optimizeQueries(
+  taskPlan: MarketingTaskPlan,
+  model: any
+): Promise<OptimizedQuery[]> {
+  const prompt = createQueryOptimizationPrompt(taskPlan);
+  const structuredModel = model.withStructuredOutput(OptimizedQueriesSchema, {
+      name: `QueryOptimization_${taskPlan.taskId}`,
+    });
+
+  const result = await structuredModel.invoke(prompt);
+  
+  return result;
+}
+
+async function executeSearchWithRetry(
+  query: string,
+  serpApi: SerpAPI,
+  config: TaskExecutionConfig
+): Promise<SearchResultItem[]> {
+
+  let errorMsg: Error | null = null;
+  for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
+    const results: SearchResultItem[] = [];
+    try {
+      // Create timeout promise
+      const searchPromise = serpApi.invoke(query);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Search timeout")), config.searchTimeout)
+      );
+      const rawResult = await Promise.race([searchPromise, timeoutPromise]);
+
+      if (rawResult && typeof rawResult ===  "string") {
+        results.push({
+          query: query,
+          result: rawResult,
+        });
+      }
+
+      return results;
+
+    } catch (error) {
+      errorMsg = error instanceof Error ? error : new Error(String(error));
+      logger.warn(`Attempt ${attempt} failed: ${errorMsg.message}`);
+
+      if (attempt < config.maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s...
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw errorMsg || new Error("Search failed after all retries");
+}
+
+/**
+ * Execute a single task (main orchestrator)
+ */
+async function executeSingleTask(
+  taskPlan: MarketingTaskPlan,
+  userContext: Record<string, any> | undefined,
+  model: any,
+  serpApi: SerpAPI,
+  config: TaskExecutionConfig
+): Promise<TaskExecutionResult> {
+
+  try {
+    // Optimize queries
+    const optimizedQueries = await optimizeQueries(taskPlan, model);
+    
+    // Execute searches
+    const searchPromises = optimizedQueries.map((oq) =>
+      executeSearchWithRetry(oq.optimizedQuery, serpApi, config).catch((error) => {
+        logger.error(`Search failed for "${oq.optimizedQuery}": ${error}`);
+        return [] as SearchResultItem[];
+      })
+    );
+
+  } catch (error) {
+
+  }
+
 }
