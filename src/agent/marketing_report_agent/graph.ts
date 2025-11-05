@@ -297,8 +297,39 @@ async function executeSingleTask(
       })
     );
 
-  } catch (error) {
+    const searchResultsArray = config.parallelSearches
+      ? await Promise.all(searchPromises)
+      : await searchPromises.reduce(
+          async (acc, promise) => [...(await acc), await promise],
+          Promise.resolve([] as SearchResultItem[][])
+        );
+    
+    // Flatten and deduplicate results
+    const allResults = searchResultsArray.flat();
+    
+    return {
+      taskId: taskPlan.taskId,
+      taskName: taskPlan.taskId,
+      status: "success",
+      optimizedQueries,
+      totalSearchResults: allResults.length,
+      structuredContent,
+    };
 
+  } catch (error) {
+    return {
+      taskId: taskPlan.taskId,
+      taskName: taskPlan.taskId,
+      status: "failed",
+      optimizedQueries: [],
+      totalSearchResults: 0,
+      structuredContent: {
+        summary: "",
+        keyFindings: [],
+        dataPoints: {},
+        sources: [],
+      }
+    };
   }
 
 }
