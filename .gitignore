@@ -137,3 +137,13 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+
+# Environment files with secrets
+env/.env.secrets
+env/.env.base
+env/.env.llm
+
+# Keep example files
+!env/.env.*.example
+
