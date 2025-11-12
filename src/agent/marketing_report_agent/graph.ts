@@ -333,3 +333,60 @@ async function executeSingleTask(
   }
 }
 
+async function taskExecutionNode(
+  state: typeof MarketingResearchState.State,
+  config: any
+): Promise<Partial<typeof MarketingResearchState.State>> {
+  
+  const model = config.configurable.model;
+  const { taskSchedule, taskPlans, userContext } = state;
+
+  if (!taskSchedule?.executionBatches) {
+    throw new Error("Task schedule is missing");
+  }
+
+  // Initialize SerpAPI
+  const serpApiKey = process.env.SERPAPI_API_KEY;
+  if (!serpApiKey) {
+    throw new Error("SERPAPI_API_KEY environment variable not set");
+  }
+  const serpApi = new SerpAPI(serpApiKey);
+
+  // Get execution config
+  const executionConfig: TaskExecutionConfig = {
+    ...config.configurable.executionConfig,
+  };
+
+  const taskExecutionResults = new Map<string, TaskExecutionResult>();
+
+  // Execute tasks batch by batch
+  for (const batch of taskSchedule.executionBatches) {
+
+    // Execute all tasks in current batch (parallel)
+    const batchPromises = batch.taskIds.map(async (taskId) => {
+      const taskPlan = taskPlans.get(taskId);
+
+      if (!taskPlan) {
+        logger.error(`Task plan not found: ${taskId}`);
+        return;
+      }
+
+      const result = await executeSingleTask(taskPlan, userContext, model, serpApi, executionConfig);
+
+      taskExecutionResults.set(taskId, result);
+    });
+
+    await Promise.all(batchPromises);
+  }
+
+  // Summary statistics
+  const totalTasks = taskExecutionResults.size;
+  const successfulTasks = Array.from(taskExecutionResults.values()).filter(
+    (r) => r.status === "success"
+  ).length;
+  const failedTasks = totalTasks - successfulTasks;
+
+  return {
+    taskExecutionResults,
+  };
+}
