@@ -279,11 +279,14 @@ async function executeSingleTask(
     const structuredModel = model.withStructuredOutput(OptimizedQueriesSchema, {
         name: `QueryOptimization_${taskPlan.taskId}`,
       });
-
-    let optimizedQueries = await structuredModel.invoke(prompt);
+    const optimizationResult = await structuredModel.invoke(prompt);
     
-    if (!optimizedQueries || !Array.isArray(optimizedQueries) || optimizedQueries.length === 0) {
-      // Fallback to original queries
+
+    let optimizedQueries: OptimizedQuery[] = []
+    if (optimizationResult && Array.isArray(optimizationResult.optimizedQueries)) {
+      optimizedQueries = optimizationResult.optimizedQueries;
+    } else {
+      logger.warn(`Query optimization failed for ${taskPlan.taskId}, using original queries`);
       optimizedQueries = taskPlan.searchQueries.map(q => ({
         originalQuery: q,
         optimizedQuery: q,
@@ -294,7 +297,7 @@ async function executeSingleTask(
     // Limit queries
     const queriesToExecute = optimizedQueries.slice(0, config.maxQueriesPerTask);
 
-    // Execute searches
+    // Execute searches: parallel or sequential
     const searchPromises = queriesToExecute.map((oq: OptimizedQuery) =>
       executeSearchWithRetry(oq.optimizedQuery, serpApi, config).catch((error) => {
         logger.error(`Search failed for "${oq.optimizedQuery}": ${error}`);
