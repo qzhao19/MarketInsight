@@ -98,3 +98,43 @@ export interface TaskExecutionConfig {
   maxRetries: number; // Number of retries for failed searches
   parallelSearches: boolean; // Whether to execute searches in parallel
 }
+
+/**
+ * Report section
+ */
+export interface ReportSection {
+  sectionTitle: string;
+  content: string;
+  keyFindings: string[];
+  dataPoints: Record<string, any>;
+  relatedTaskIds: string[];
+}
+
+/**
+ * 
+ */
+export interface FinalMarketingReport {
+  reportTitle: string;
+  reportObjective: string;
+  
+  // Executive summary
+  executiveSummary: {
+    overview: string;
+    keyHighlights: string[];
+    recommendations: string[];
+  };
+
+  // Main sections
+  sections: ReportSection[];
+
+  // Conclusion
+  conclusion: {
+    summary: string;
+    limitations: string[];
+  };
+
+  // Metadata
+  generatedAt: string;
+  totalTasks: number;
+  successfulTasks: number;
+}
