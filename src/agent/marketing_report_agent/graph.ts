@@ -220,20 +220,6 @@ async function taskSchedulingNode(
   }
 }
 
-async function optimizeQueries(
-  taskPlan: MarketingTaskPlan,
-  model: any
-): Promise<OptimizedQuery[]> {
-  const prompt = createQueryOptimizationPrompt(taskPlan);
-  const structuredModel = model.withStructuredOutput(OptimizedQueriesSchema, {
-      name: `QueryOptimization_${taskPlan.taskId}`,
-    });
-
-  const result = await structuredModel.invoke(prompt);
-  
-  return result;
-}
-
 async function executeSearchWithRetry(
   query: string,
   serpApi: SerpAPI,
@@ -257,9 +243,11 @@ async function executeSearchWithRetry(
           result: rawResult,
         });
       }
-
-      return results;
-
+      
+      if (results.length > 0) {
+        return results;
+      }
+      
     } catch (error) {
       errorMsg = error instanceof Error ? error : new Error(String(error));
       logger.warn(`Attempt ${attempt} failed: ${errorMsg.message}`);
@@ -275,7 +263,7 @@ async function executeSearchWithRetry(
 }
 
 /**
- * Execute a single task (main orchestrator)
+ * Execute a single task
  */
 async function executeSingleTask(
   taskPlan: MarketingTaskPlan,
@@ -287,10 +275,27 @@ async function executeSingleTask(
 
   try {
     // Optimize queries
-    const optimizedQueries = await optimizeQueries(taskPlan, model);
+    const prompt = createQueryOptimizationPrompt(taskPlan);
+    const structuredModel = model.withStructuredOutput(OptimizedQueriesSchema, {
+        name: `QueryOptimization_${taskPlan.taskId}`,
+      });
+
+    let optimizedQueries = await structuredModel.invoke(prompt);
     
+    if (!optimizedQueries || !Array.isArray(optimizedQueries) || optimizedQueries.length === 0) {
+      // Fallback to original queries
+      optimizedQueries = taskPlan.searchQueries.map(q => ({
+        originalQuery: q,
+        optimizedQuery: q,
+        reasoning: "Using original query (optimization failed)",
+      }));
+    }
+
+    // Limit queries
+    const queriesToExecute = optimizedQueries.slice(0, config.maxQueriesPerTask);
+
     // Execute searches
-    const searchPromises = optimizedQueries.map((oq) =>
+    const searchPromises = queriesToExecute.map((oq: OptimizedQuery) =>
       executeSearchWithRetry(oq.optimizedQuery, serpApi, config).catch((error) => {
         logger.error(`Search failed for "${oq.optimizedQuery}": ${error}`);
         return [] as SearchResultItem[];
@@ -300,7 +305,10 @@ async function executeSingleTask(
     const searchResultsArray = config.parallelSearches
       ? await Promise.all(searchPromises)
       : await searchPromises.reduce(
-          async (acc, promise) => [...(await acc), await promise],
+          async (
+            acc: Promise<SearchResultItem[][]>, 
+            promise: Promise<SearchResultItem[]>
+          ) => [...(await acc), await promise],
           Promise.resolve([] as SearchResultItem[][])
         );
     
@@ -333,60 +341,3 @@ async function executeSingleTask(
   }
 }
 
-async function taskExecutionNode(
-  state: typeof MarketingResearchState.State,
-  config: any
-): Promise<Partial<typeof MarketingResearchState.State>> {
-  
-  const model = config.configurable.model;
-  const { taskSchedule, taskPlans, userContext } = state;
-
-  if (!taskSchedule?.executionBatches) {
-    throw new Error("Task schedule is missing");
-  }
-
-  // Initialize SerpAPI
-  const serpApiKey = process.env.SERPAPI_API_KEY;
-  if (!serpApiKey) {
-    throw new Error("SERPAPI_API_KEY environment variable not set");
-  }
-  const serpApi = new SerpAPI(serpApiKey);
-
-  // Get execution config
-  const executionConfig: TaskExecutionConfig = {
-    ...config.configurable.executionConfig,
-  };
-
-  const taskExecutionResults = new Map<string, TaskExecutionResult>();
-
-  // Execute tasks batch by batch
-  for (const batch of taskSchedule.executionBatches) {
-
-    // Execute all tasks in current batch (parallel)
-    const batchPromises = batch.taskIds.map(async (taskId) => {
-      const taskPlan = taskPlans.get(taskId);
-
-      if (!taskPlan) {
-        logger.error(`Task plan not found: ${taskId}`);
-        return;
-      }
-
-      const result = await executeSingleTask(taskPlan, userContext, model, serpApi, executionConfig);
-
-      taskExecutionResults.set(taskId, result);
-    });
-
-    await Promise.all(batchPromises);
-  }
-
-  // Summary statistics
-  const totalTasks = taskExecutionResults.size;
-  const successfulTasks = Array.from(taskExecutionResults.values()).filter(
-    (r) => r.status === "success"
-  ).length;
-  const failedTasks = totalTasks - successfulTasks;
-
-  return {
-    taskExecutionResults,
-  };
-}
