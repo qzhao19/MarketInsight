@@ -2,7 +2,8 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { 
   MarketingTaskPlan, 
   MarketingTaskMetadata, 
-  MarketingReportFramework 
+  MarketingReportFramework, 
+  TaskExecutionResult
 } from "../../types/agent/agent.types"
 
 /**
@@ -506,4 +507,312 @@ Output ONLY a valid JSON array with this exact structure:
 - Preserve the order of original queries`;
 }
 
+
+/**
+ * Generate structured content from searched results
+ */
+export function createStructuredContentPrompt(
+  taskPlan: MarketingTaskPlan,
+  searchSnippets: string[],
+  userContext?: Record<string, any>
+): string {
+  return `You are a Senior Market Research Analyst specializing in data synthesis and structured reporting.
+
+Your task is to analyze search results and produce a comprehensive, structured research output for a specific market research task.
+
+====================
+TASK CONTEXT
+====================
+**Task ID:** ${taskPlan.taskId}
+**Research Goal:** ${taskPlan.researchGoal}
+
+**Search Directions:**
+${taskPlan.searchDirections.map((d, i) => `${i + 1}. ${d}`).join("\n")}
+
+**Key Elements to Focus On:**
+${taskPlan.keyElements.map((e, i) => `${i + 1}. ${e}`).join("\n")}
+
+${taskPlan.specialFocus && taskPlan.specialFocus.length > 0 ? `
+**Special Focus Areas:**
+${taskPlan.specialFocus.map((f, i) => `${i + 1}. ${f}`).join("\n")}
+` : ""}
+
+${taskPlan.timeFrame ? `
+**Time Frame:**
+- Historical: ${taskPlan.timeFrame.historical || "Not specified"}
+- Current: ${taskPlan.timeFrame.current || "Not specified"}
+- Forecast: ${taskPlan.timeFrame.forecast || "Not specified"}
+` : ""}
+
+${userContext ? `
+**User Context:**
+${JSON.stringify(userContext, null, 2)}
+` : ""}
+
+====================
+SEARCH RESULTS (${searchSnippets.length} snippets)
+====================
+${searchSnippets.length === 0 
+  ? "NO SEARCH RESULTS AVAILABLE - Please note the lack of data in your summary"
+  : searchSnippets.map((snippet, i) => `
+[Snippet ${i + 1}]
+${snippet.substring(0, 800)}${snippet.length > 800 ? "..." : ""}
+`).join("\n")
+}
+
+====================
+YOUR RESPONSIBILITIES
+====================
+
+Analyze the search snippets above and produce a structured research output with:
+
+1. **SUMMARY** (100-500 words):
+   - Synthesize key findings from the search results
+   - Address the research goal directly
+   - Reference specific data points when available
+   - If data is limited or missing, explicitly state this
+   - Connect findings to the key elements listed above
+   - Use professional, objective language
+
+2. **KEY FINDINGS** (3-10 bullet points):
+   - Extract the most important insights from the snippets
+   - Format: "<Insight>: <Supporting evidence/data>"
+   - Prioritize findings related to key elements
+   - Be specific - include numbers, percentages, dates when available
+   - If certain key elements lack data, mention this as a finding
+
+3. **DATA POINTS** (structured key-value pairs):
+   - Extract quantifiable metrics and structured data
+   - Use clear, descriptive keys (camelCase format)
+   - Include units in key names (e.g., "marketSize2024Billions")
+   - Examples:
+     * "marketSize2024USD": 384.7
+     * "cagr20202024Percent": 18.5
+     * "topCompetitor": "Tesla"
+   - Only include data actually found in snippets (no fabrication)
+
+4. **SOURCES** (array of source identifiers):
+   - List which snippets were used (e.g., ["snippet-1", "snippet-3", "snippet-5"])
+   - Include all snippets that contributed to your findings
+
+====================
+CRITICAL RULES
+====================
+
+✓ **Use ONLY information from the provided snippets**
+   - Do not fabricate data or make unsupported claims
+   - If a key element has no data, acknowledge this in your summary
+
+✓ **Be specific and quantitative**
+   - Prefer numbers over vague descriptions
+   - Include time periods, units, and geographic specificity
+   - Example: "Market grew 18.5% CAGR from 2020-2024" vs "Market grew significantly"
+
+✓ **Acknowledge data limitations**
+   - If snippets are incomplete, say so
+   - If conflicting data exists, note this
+   - If certain key elements are not covered, mention it
+
+✓ **Maintain objectivity**
+   - Present findings without bias
+   - Distinguish facts from projections
+   - Cite specific snippets for controversial claims
+
+✗ **DO NOT:**
+   - Invent statistics or data points
+   - Make predictions beyond what snippets suggest
+   - Include information not in the snippets
+   - Use vague language when specific data is available
+
+====================
+OUTPUT FORMAT
+====================
+
+Return ONLY a valid JSON object (no markdown, no code blocks, no explanations):
+
+{
+  "summary": "string (100-500 words)",
+  "keyFindings": [
+    "string (1-2 sentences each)",
+    ...
+  ],
+  "dataPoints": {
+    "descriptiveKey": value,
+    ...
+  },
+  "sources": ["snippet-1", "snippet-2", ...]
+}
+
+**Validation Requirements:**
+- summary: minimum 100 characters, maximum 2000 characters
+- keyFindings: 3-10 items, each a complete sentence
+- dataPoints: at least 1 key-value pair if data is available
+- sources: array of snippet identifiers that were actually used
+
+====================
+EXAMPLE OUTPUT
+====================
+
+{
+  "summary": "The global electric vehicle market reached $384.7 billion in 2024, demonstrating robust growth with an 18.5% CAGR from 2020-2024. China dominates with 40% market share, followed by Europe (30%) and North America (20%). Key growth drivers include government incentives, improving battery technology (average capacity now 75 kWh), and rising environmental awareness. Tesla maintains market leadership but faces increasing competition from BYD and traditional OEMs. Supply chain challenges, particularly lithium availability, present near-term risks. Market is projected to exceed $800 billion by 2030, driven by regulatory mandates and cost parity with ICE vehicles.",
+  
+  "keyFindings": [
+    "Market size: Global EV market valued at $384.7B in 2024, up 25% year-over-year",
+    "Growth trajectory: Strong 18.5% CAGR from 2020-2024 indicates sustained momentum in electrification",
+    "Regional distribution: China leads with 40% share, Europe 30%, North America 20%, rest of world 10%",
+    "Technology advancement: Average battery capacity increased to 75 kWh, up from 60 kWh in 2020",
+    "Competition dynamics: Tesla holds 15% global share but declining from 20% in 2020 due to new entrants"
+  ],
+  
+  "dataPoints": {
+    "marketSize2024Billions": 384.7,
+    "cagr20202024Percent": 18.5,
+    "chinaMarketSharePercent": 40,
+    "europeMarketSharePercent": 30,
+    "northAmericaMarketSharePercent": 20,
+    "avgBatteryCapacityKwh": 75,
+    "teslaMarketSharePercent": 15,
+    "projectedSize2030Billions": 800
+  },
+  
+  "sources": ["snippet-1", "snippet-2", "snippet-4", "snippet-6"]
+}
+
+Now, analyze the search snippets provided and generate the structured content.`;
+}
+
+
+export function createReportSynthesisPrompt(
+  reportFramework: MarketingReportFramework,
+  taskResults: Map<string, TaskExecutionResult>,
+  userContext?: Record<string, any>
+): string {
+  
+  // Prepare task summaries
+  const allResults = Array.from(taskResults.values());
+  const successfulTasks = allResults.filter(r => r.status === "success");
+  const failedTasks = allResults.filter(r => r.status === "failed");
+
+  const taskSummaries = successfulTasks.map(result => {
+    const task = reportFramework.tasks.find(t => t.taskId === result.taskId);
+    return `
+### Task: ${result.taskId}
+Name: ${task?.taskName || "Unknown"}
+Summary: ${result.structuredContent.summary}
+Key Findings: ${result.structuredContent.keyFindings.map((f, i) => `${i + 1}. ${f}`).join("; ")}
+Data Points: ${Object.entries(result.structuredContent.dataPoints).slice(0, 10).map(([k, v]) => `${k}: ${v}`).join("; ")}
+`;
+  }).join("\n" + "=".repeat(40) + "\n");
+
+  return `You are a Senior Market Research Analyst tasked with synthesizing multiple research task results into a cohesive, professional marketing report.
+
+====================
+REPORT CONTEXT
+====================
+**Title:** ${reportFramework.reportTitle}
+**Objective:** ${reportFramework.reportObjective}
+
+${userContext ? `**User Context:** ${JSON.stringify(userContext, null, 2)}` : ""}
+
+====================
+EXECUTION SUMMARY
+====================
+- Total tasks: ${taskResults.size}
+- Successful: ${successfulTasks.length}
+- Failed: ${failedTasks.length}
+
+${failedTasks.length > 0 ? `
+**Failed Tasks:**
+${failedTasks.map(t => `- ${t.taskId}: ${t.error || "Unknown"}`).join("\n")}
+` : ""}
+
+====================
+TASK RESULTS
+====================
+${taskSummaries}
+
+====================
+YOUR TASK
+====================
+
+Synthesize the above task results into a complete marketing report with:
+
+### 1. EXECUTIVE SUMMARY
+- **overview** (200-1000 words): High-level synthesis of all findings
+- **keyHighlights** (3-7 items): Most important discoveries
+- **recommendations** (2-5 items): Strategic actions based on findings
+
+### 2. SECTIONS
+Create 3-7 logical sections organizing the task results. Each section:
+- **sectionTitle**: Clear title
+- **content** (100+ words): Narrative combining related task findings
+- **keyFindings**: Extract key insights
+- **dataPoints**: Include relevant metrics
+- **relatedTaskIds**: Source task IDs
+
+Suggested structure:
+- Market Overview
+- Size & Growth Analysis
+- Competitive Landscape
+- Key Trends
+- Regional/Segment Analysis (if applicable)
+- Future Outlook
+
+### 3. CONCLUSION
+- **summary** (100-500 words): Recap and implications
+- **limitations**: Acknowledge data gaps from failed tasks
+
+====================
+CRITICAL RULES
+====================
+
+✓ **Data Integrity**
+  - Use ONLY data from task results
+  - If tasks conflict, note both values (e.g., "Task 1: $100B, Task 2: $110B")
+  - Don't fabricate missing data
+
+✓ **Coherent Narrative**
+  - Connect sections logically
+  - Build from overview → details → conclusion
+  - Use professional language
+
+✓ **Acknowledge Limitations**
+  - Note failed tasks in limitations
+  - Mention data gaps explicitly
+  - Don't hide uncertainties
+
+✗ **AVOID**
+  - Fabricating data
+  - Hiding conflicts
+  - Overly promotional tone
+
+====================
+OUTPUT
+====================
+
+Return ONLY valid JSON (no markdown):
+
+{
+  "reportTitle": "string",
+  "reportObjective": "string",
+  "executiveSummary": {
+    "overview": "string",
+    "keyHighlights": ["string", ...],
+    "recommendations": ["string", ...]
+  },
+  "sections": [
+    {
+      "sectionTitle": "string",
+      "content": "string",
+      "keyFindings": ["string", ...],
+      "dataPoints": { "key": value },
+      "relatedTaskIds": ["task-1", ...]
+    }
+  ],
+  "conclusion": {
+    "summary": "string",
+    "limitations": ["string", ...]
+  }
+}`;
+}
 
