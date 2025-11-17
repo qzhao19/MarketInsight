@@ -149,3 +149,73 @@ export const OptimizedQueriesSchema = z.object({
 .strict()
 .describe("Batch query optimization output");
 
+
+/**
+ * Schema for structured content output (simplified, direct generation)
+ */
+export const StructuredContentSchema = z.object({
+  summary: z.string()
+    .min(100, "Summary must be at least 100 characters")
+    .max(2000, "Summary cannot exceed 2000 characters")
+    .describe("Comprehensive narrative summary of research findings"),
+  
+  keyFindings: z.array(z.string())
+    .min(3, "Must have at least 3 key findings")
+    .max(10, "Cannot have more than 10 key findings")
+    .describe("List of key insights and findings with supporting data"),
+  
+  dataPoints: z.record(z.string(), z.any())
+    .describe("Structured data points extracted from research (key-value pairs)"),
+  
+  sources: z.array(z.string())
+    .min(1, "Must cite at least 1 source snippet")
+    .describe("List of snippet identifiers used (e.g., snippet-1, snippet-2)"),
+})
+.strict()
+.describe("Structured content for task research output");
+
+
+const ReportSectionSchema = z.object({
+  sectionTitle: z.string()
+    .min(3)
+    .describe("Section title"),
+  
+  content: z.string()
+    .min(100)
+    .describe("Main content (100+ words)"),
+  
+  keyFindings: z.array(z.string())
+    .min(1)
+    .describe("Key findings"),
+  
+  dataPoints: z.record(z.string(), z.any())
+    .describe("Relevant data points"),
+  
+  relatedTaskIds: z.array(z.string())
+    .describe("Source task IDs"),
+})
+.strict()
+.describe("Report section for final report");
+
+
+export const FinalMarketingReportSchema = z.object({
+  reportTitle: z.string(),
+  reportObjective: z.string(),
+  
+  executiveSummary: z.object({
+    overview: z.string().min(200),
+    keyHighlights: z.array(z.string()).min(3).max(7),
+    recommendations: z.array(z.string()).min(2).max(5),
+  }),
+  
+  sections: z.array(ReportSectionSchema).min(1),
+  
+  conclusion: z.object({
+    summary: z.string().min(100),
+    limitations: z.array(z.string()),
+  }),
+})
+.strict()
+.describe("Final marketing report schema");
+
+
