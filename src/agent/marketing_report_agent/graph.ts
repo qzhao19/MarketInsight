@@ -4,12 +4,14 @@ import { MarketingResearchState } from "./state";
 import { 
   createReportPlanningPrompt, 
   createTaskPlanPrompt,
-  createQueryOptimizationPrompt 
+  createQueryOptimizationPrompt,
+  createStructuredContentPrompt,
 } from "./prompt"
 import { 
   ReportFrameworkSchema, 
   TaskPlanSchema, 
-  OptimizedQueriesSchema 
+  OptimizedQueriesSchema,
+  StructuredContentSchema,
 } from "./schema";
 import { 
   validateTaskDependencies, 
@@ -262,9 +264,7 @@ async function executeSearchWithRetry(
   throw errorMsg || new Error("Search failed after all retries");
 }
 
-/**
- * Execute a single task
- */
+
 async function executeSingleTask(
   taskPlan: MarketingTaskPlan,
   userContext: Record<string, any> | undefined,
@@ -275,16 +275,16 @@ async function executeSingleTask(
 
   try {
     // Optimize queries
-    const prompt = createQueryOptimizationPrompt(taskPlan);
+    const optimizedQueriesPrompt = createQueryOptimizationPrompt(taskPlan);
     const structuredModel = model.withStructuredOutput(OptimizedQueriesSchema, {
         name: `QueryOptimization_${taskPlan.taskId}`,
       });
-    const optimizationResult = await structuredModel.invoke(prompt);
+    const optimizedQueriesResult = await structuredModel.invoke(optimizedQueriesPrompt);
     
 
     let optimizedQueries: OptimizedQuery[] = []
-    if (optimizationResult && Array.isArray(optimizationResult.optimizedQueries)) {
-      optimizedQueries = optimizationResult.optimizedQueries;
+    if (optimizedQueriesResult && Array.isArray(optimizedQueriesResult.optimizedQueries)) {
+      optimizedQueries = optimizedQueriesResult.optimizedQueries;
     } else {
       logger.warn(`Query optimization failed for ${taskPlan.taskId}, using original queries`);
       optimizedQueries = taskPlan.searchQueries.map(q => ({
@@ -315,9 +315,23 @@ async function executeSingleTask(
           Promise.resolve([] as SearchResultItem[][])
         );
     
-    // Flatten and deduplicate results
-    const allResults = searchResultsArray.flat();
+    // Flatten and deduplicate results, and extract the text snippets for the prompt
+    const allResults: SearchResultItem[] = searchResultsArray.flat();
+    const searchSnippets: string[] = allResults.map(item => item.result);
     
+    // Generate structured content
+    const contentPrompt = createStructuredContentPrompt(
+      taskPlan,
+      searchSnippets,
+      userContext
+    );
+
+    const contentGenerationModel = model.withStructuredOutput(StructuredContentSchema, {
+      name: `StructuredContent_${taskPlan.taskId}`,
+    });
+
+    const structuredContent = await contentGenerationModel.invoke(contentPrompt);
+
     return {
       taskId: taskPlan.taskId,
       taskName: taskPlan.taskId,
@@ -328,6 +342,7 @@ async function executeSingleTask(
     };
 
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     return {
       taskId: taskPlan.taskId,
       taskName: taskPlan.taskId,
@@ -339,8 +354,58 @@ async function executeSingleTask(
         keyFindings: [],
         dataPoints: {},
         sources: [],
-      }
+      },
+      error: errorMsg,
     };
   }
 }
+
+
+async function taskExecutionNode(
+  state: typeof MarketingResearchState.State,
+  config: any
+): Promise<Partial<typeof MarketingResearchState.State>> {
+
+  logger.log("Starting task execution...");
+
+  const model = config.configurable.model;
+  const serpApiKey = config.configurable.serpApiKey;
+  const executionConfig = config.configurable.executionConfig;
+  const { taskSchedule, taskPlans, userContext } = state;
+
+  // Initialize SerpAPI
+  const serpApi = new SerpAPI(serpApiKey);
+
+  const taskExecutionResults = new Map<string, TaskExecutionResult>();
+
+  for (const batch of taskSchedule!.executionBatches) {
+    const batchPromises = batch.taskIds.map(async (taskId) => {
+      const taskPlan = taskPlans.get(taskId);
+
+      if (!taskPlan) {
+        logger.error(`Task plan not found for taskId: ${taskId}`);
+        return;
+      }
+
+      const result = await executeSingleTask(
+        taskPlan,
+        userContext,
+        model,
+        serpApi,
+        executionConfig
+      );
+
+      taskExecutionResults.set(taskId, result);
+    });
+
+    await Promise.all(batchPromises);
+
+    logger.log(`Batch ${batch.batchNumber} completed\n`);
+  }
+
+  return {
+    taskExecutionResults,
+  };
+}
+
 
