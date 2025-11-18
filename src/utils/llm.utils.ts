@@ -3,7 +3,7 @@ import { ChatOpenAIFields } from "@langchain/openai";
 
 import { SearchResultItem } from "../types/llm/agent.types"
 import { CircuitBreakerConfig } from "../types/llm/client.types"
-import { LLMModelConfig } from "../types/llm/model.types"
+import { LLModelConfig } from "../types/llm/model.types"
 
 /**
  * Convert our config to opossum's Options format
@@ -63,7 +63,7 @@ export function formatSearchResults(
 }
 
 export function toOpenAIConfig(
-  modelConfig: LLMModelConfig
+  modelConfig: LLModelConfig
 ): Partial<ChatOpenAIFields> {
   return {
     model: modelConfig.model,
