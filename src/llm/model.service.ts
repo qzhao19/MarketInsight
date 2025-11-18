@@ -4,7 +4,7 @@ import { ChatOpenAIFields } from "@langchain/openai";
 
 import { LLModelClient, LLModelClientService } from "./client/client.service";
 import { AppConfigService } from "../config/config.service";
-import { LLMModelConfig } from "../types/llm/model.types";
+import { LLModelConfig } from "../types/llm/model.types";
 import { toOpenAIConfig } from "../utils/llm.utils"
 
 /**
@@ -66,7 +66,7 @@ export class LLModelService implements OnModuleInit {
    */
   private getDefaultDeepSeekConfig(): ChatOpenAIFields {
     // Get default model configuration from ModelConfigService
-    const defaultConfig = this.configService.LLMModelConfig.defaultModelConfig;
+    const defaultConfig = this.configService.LLModelConfig.defaultModelConfig;
 
     // Create basic config: 
     const modelConfig: ChatOpenAIFields = {
@@ -80,7 +80,7 @@ export class LLModelService implements OnModuleInit {
     };
 
     // Valid configs
-    const validation = this.configService.LLMModelConfig.validateModelConfig(modelConfig);
+    const validation = this.configService.LLModelConfig.validateModelConfig(modelConfig);
     if (!validation.isValid) {
       this.logger.warn(`Invalid model configuration: ${validation.errors.join(", ")}`);
     }
@@ -124,7 +124,7 @@ export class LLModelService implements OnModuleInit {
    * @returns Guarded model client
    */
   public async getDeepSeekGuardModel(
-    modelConfigOverrides: Partial<LLMModelConfig>
+    modelConfigOverrides: Partial<LLModelConfig>
   ): Promise<LLModelClient | undefined> {
     try {
       // Start with default config from config service
@@ -132,7 +132,7 @@ export class LLModelService implements OnModuleInit {
 
       // Convert modelConfigOverrides to ChatOpenAIFields format if provided
       const convertedOverrides = modelConfigOverrides && Object.keys(modelConfigOverrides).length > 0 
-        ? toOpenAIConfig(modelConfigOverrides as LLMModelConfig)
+        ? toOpenAIConfig(modelConfigOverrides as LLModelConfig)
         : {};
 
       // Create a merged config with overrides
@@ -148,7 +148,7 @@ export class LLModelService implements OnModuleInit {
       };
 
       // Validate the merged configuration
-      const validation = this.configService.LLMModelConfig.validateModelConfig(modelConfig);
+      const validation = this.configService.LLModelConfig.validateModelConfig(modelConfig);
       if (!validation.isValid) {
         this.logger.warn(`Invalid model configuration: ${validation.errors.join(", ")}`);
       }
@@ -181,7 +181,7 @@ export class LLModelService implements OnModuleInit {
    * @returns ChatDeepSeek instance
    */
   public async getDeepSeekRawModel(
-    modelNameOrConfig?: string | Partial<LLMModelConfig>
+    modelNameOrConfig?: string | Partial<LLModelConfig>
   ): Promise<ChatDeepSeek | undefined> {
     try {
       // Get default config from config service
@@ -204,7 +204,7 @@ export class LLModelService implements OnModuleInit {
         // Use default config
         modelConfig = defaultConfig;
       } else if (typeof modelNameOrConfig === "object") {
-        const convertedOverrides = toOpenAIConfig(modelNameOrConfig as LLMModelConfig);
+        const convertedOverrides = toOpenAIConfig(modelNameOrConfig as LLModelConfig);
         modelConfig = { 
           ...defaultConfig,
           ...convertedOverrides,
@@ -241,7 +241,7 @@ export class LLModelService implements OnModuleInit {
    * @returns Current default model configuration statistics
    */
   public getModelConfigStats() {
-    return this.configService.LLMModelConfig.getConfigStats();
+    return this.configService.LLModelConfig.getConfigStats();
   }
   
   /**
