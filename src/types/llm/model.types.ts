@@ -1,5 +1,5 @@
 /**
- * LLMModelConfig defines the configuration options for a Large Language Model (LLM).
+ * LLModelConfig defines the configuration options for a Large Language Model (LLM).
  * 
  * Properties:
  * - model: The model name or identifier (required).
@@ -14,7 +14,7 @@
  * - streaming: Whether to enable streaming responses (1 for true, 0 for false).
  * - verbose: Whether to enable verbose logging (1 for true, 0 for false).
  */
-export interface LLMModelConfig {
+export interface LLModelConfig {
     model?: string,
     temperature?: number,
     topP?: number,
