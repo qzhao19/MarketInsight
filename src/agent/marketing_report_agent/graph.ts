@@ -1,3 +1,4 @@
+import { END, START, StateGraph } from "@langchain/langgraph";
 import { SerpAPI } from "@langchain/community/tools/serpapi";
 import { Logger } from "@nestjs/common"; 
 import { MarketingResearchState } from "./state";
@@ -6,12 +7,14 @@ import {
   createTaskPlanPrompt,
   createQueryOptimizationPrompt,
   createStructuredContentPrompt,
+  createReportSynthesisPrompt,
 } from "./prompt"
 import { 
   ReportFrameworkSchema, 
   TaskPlanSchema, 
   OptimizedQueriesSchema,
   StructuredContentSchema,
+  FinalMarketingReportSchema,
 } from "./schema";
 import { 
   validateTaskDependencies, 
@@ -20,6 +23,7 @@ import {
   sortByPriority,
 } from "../../utils/agent.utils"
 import { 
+  FinalMarketingReport,
   MarketingTaskPlan,
   MarketingTaskMetadata, 
   MarketingReportFramework, 
@@ -48,10 +52,9 @@ async function reportPlanningNode(
     const prompt = createReportPlanningPrompt(userInput, userContext);
 
     // Call LLM using schema for structured output
-    const structuredPlanModel = model.withStructuredOutput(
-      ReportFrameworkSchema, 
-      { name: "ReportFrameworkGeneration"}
-    );
+    const structuredPlanModel = model.withStructuredOutput(ReportFrameworkSchema, { 
+      name: "ReportFrameworkGeneration"
+    });
 
     const rawReportFramework = await structuredPlanModel.invoke(prompt);
     if (!rawReportFramework || !rawReportFramework.tasks || rawReportFramework.tasks.length === 0) {
@@ -59,7 +62,6 @@ async function reportPlanningNode(
       logger.error(errorMsg);
       throw new Error(errorMsg);
     }
-    logger.log(`LLM generated ${rawReportFramework.tasks.length} tasks.`);
 
     // Validate task dependencies
     const dependencyValidation = validateTaskDependencies(rawReportFramework.tasks);
@@ -88,7 +90,6 @@ async function reportPlanningNode(
     };
 
     logger.log(`Report planning completed successfully`);
-
     return { 
       reportFramework: reportFrameworkWithTaskId 
     };
@@ -111,10 +112,9 @@ async function generateSingleTaskPlan(
   const prompt = createTaskPlanPrompt(task, reportFramework, userContext);
   
   // Invoke the LLM with structured output based on the Zod schema
-  const structuredPlanModel = model.withStructuredOutput(
-    TaskPlanSchema, 
-    { name: `TaskPlan_${task.taskId}`}
-  ); 
+  const structuredPlanModel = model.withStructuredOutput(TaskPlanSchema, { 
+    name: `TaskPlan_${task.taskId}`
+  }); 
   const taskPlanOutput = await structuredPlanModel.invoke(prompt)
 
   // Combine the LLM output with the original taskId
@@ -134,29 +134,33 @@ async function taskPlanGenerationNode(
   const model = config.configurable.model;
   const { reportFramework, userContext } = state;
 
+  if (!reportFramework) {
+    const errorMsg = "Report framework is missing. Cannot generate task plans.";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
   logger.log("Starting task plan generation...");
 
   const tasks = reportFramework!.tasks;
   const taskPlans = new Map<string, MarketingTaskPlan>();
 
-  for (let i = 0; i < tasks.length; i++) {
-    const task = tasks[i];
+  for (const task of tasks) {
     try {
       const completePlan = await generateSingleTaskPlan(
-        task,
-        reportFramework!,
-        userContext,
-        model
+        task, reportFramework, userContext, model
       );
       taskPlans.set(task.taskId, completePlan);
     } catch (error) {
-      const errorMsg = `Failed to generate plan for task: ${error instanceof Error ? error.message : String(error)}`;
+      const errorMsg = `Failed to generate plan for task: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
       logger.error(errorMsg);
       throw new Error(errorMsg)
     }
   }
-  logger.log(`Stage 2 completed: Task plan generation finished.`);
 
+  logger.log(`Task plan generation finished.`);
   return { taskPlans }
 }
 
@@ -164,12 +168,19 @@ async function taskSchedulingNode(
   state: typeof MarketingResearchState.State,
   config: any
 ): Promise<Partial<typeof MarketingResearchState.State>> {
-  logger.log("Starting task scheduling...");
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const model = config.configurable.model;
   const { reportFramework } = state;
-  const tasks = reportFramework!.tasks;
+  
+  logger.log("Starting task scheduling...");
+
+  if (!reportFramework) {
+    const errorMsg = "Report framework is missing. Cannot generate task plans.";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  const tasks = reportFramework.tasks;
 
   try {
     // Perform topological sort
@@ -180,12 +191,11 @@ async function taskSchedulingNode(
 
     // Sort tasks within each batch by priority
     const taskMap = new Map<string, MarketingTaskMetadata>();
-    tasks.forEach(task => taskMap.set(task.taskId, task));
+    tasks.forEach((task) => taskMap.set(task.taskId, task));
 
     const executionBatches: TaskExecutionBatch[] = batchGroups.map((batchTaskIds, index) => {
       // Sort by priority within batch
       const sortedBatchIds = sortByPriority(batchTaskIds, taskMap);
-
       // Get task names for description
       const taskNames = sortedBatchIds
         .map(id => taskMap.get(id)?.taskName)
@@ -212,9 +222,8 @@ async function taskSchedulingNode(
       totalBatches: executionBatches.length,
     };
     
-    return {
-      taskSchedule,
-    };
+    logger.log(`Task scheduling completed successfully`);
+    return { taskSchedule };
   } catch (error) {
     const errorMsg = `Task scheduling failed: ${error instanceof Error ? error.message : String(error)}`;
     logger.error(errorMsg);
@@ -230,7 +239,6 @@ async function executeSearchWithRetry(
 
   let errorMsg: Error | null = null;
   for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
-    const results: SearchResultItem[] = [];
     try {
       // Create timeout promise
       const searchPromise = serpApi.invoke(query);
@@ -239,17 +247,11 @@ async function executeSearchWithRetry(
       );
       const rawResult = await Promise.race([searchPromise, timeoutPromise]);
 
-      if (rawResult && typeof rawResult ===  "string") {
-        results.push({
-          query: query,
-          result: rawResult,
-        });
+      if (rawResult && typeof rawResult === "string") {
+        return [{ query, result: rawResult }];
       }
       
-      if (results.length > 0) {
-        return results;
-      }
-      
+      return [];
     } catch (error) {
       errorMsg = error instanceof Error ? error : new Error(String(error));
       logger.warn(`Attempt ${attempt} failed: ${errorMsg.message}`);
@@ -281,7 +283,6 @@ async function executeSingleTask(
       });
     const optimizedQueriesResult = await structuredModel.invoke(optimizedQueriesPrompt);
     
-
     let optimizedQueries: OptimizedQuery[] = []
     if (optimizedQueriesResult && Array.isArray(optimizedQueriesResult.optimizedQueries)) {
       optimizedQueries = optimizedQueriesResult.optimizedQueries;
@@ -294,10 +295,8 @@ async function executeSingleTask(
       }));
     }
 
-    // Limit queries
+    // Limit queries and execute searches: parallel or sequential
     const queriesToExecute = optimizedQueries.slice(0, config.maxQueriesPerTask);
-
-    // Execute searches: parallel or sequential
     const searchPromises = queriesToExecute.map((oq: OptimizedQuery) =>
       executeSearchWithRetry(oq.optimizedQuery, serpApi, config).catch((error) => {
         logger.error(`Search failed for "${oq.optimizedQuery}": ${error}`);
@@ -308,10 +307,11 @@ async function executeSingleTask(
     const searchResultsArray = config.parallelSearches
       ? await Promise.all(searchPromises)
       : await searchPromises.reduce(
-          async (
-            acc: Promise<SearchResultItem[][]>, 
-            promise: Promise<SearchResultItem[]>
-          ) => [...(await acc), await promise],
+          async (accPromise: Promise<SearchResultItem[][]>, nextPromise: Promise<SearchResultItem[]>) => {
+            const acc = await accPromise;
+            const next = await nextPromise;
+            return [...acc, next];
+          },
           Promise.resolve([] as SearchResultItem[][])
         );
     
@@ -320,12 +320,7 @@ async function executeSingleTask(
     const searchSnippets: string[] = allResults.map(item => item.result);
     
     // Generate structured content
-    const contentPrompt = createStructuredContentPrompt(
-      taskPlan,
-      searchSnippets,
-      userContext
-    );
-
+    const contentPrompt = createStructuredContentPrompt(taskPlan, searchSnippets, userContext);
     const contentGenerationModel = model.withStructuredOutput(StructuredContentSchema, {
       name: `StructuredContent_${taskPlan.taskId}`,
     });
@@ -334,7 +329,7 @@ async function executeSingleTask(
 
     return {
       taskId: taskPlan.taskId,
-      taskName: taskPlan.taskId,
+      taskName: taskPlan.researchGoal.slice(0, 100) || taskPlan.taskId,
       status: "success",
       optimizedQueries,
       totalSearchResults: allResults.length,
@@ -345,7 +340,7 @@ async function executeSingleTask(
     const errorMsg = error instanceof Error ? error.message : String(error);
     return {
       taskId: taskPlan.taskId,
-      taskName: taskPlan.taskId,
+      taskName: taskPlan.researchGoal.slice(0, 100) || taskPlan.taskId,
       status: "failed",
       optimizedQueries: [],
       totalSearchResults: 0,
@@ -360,7 +355,6 @@ async function executeSingleTask(
   }
 }
 
-
 async function taskExecutionNode(
   state: typeof MarketingResearchState.State,
   config: any
@@ -368,44 +362,116 @@ async function taskExecutionNode(
 
   logger.log("Starting task execution...");
 
-  const model = config.configurable.model;
-  const serpApiKey = config.configurable.serpApiKey;
-  const executionConfig = config.configurable.executionConfig;
+  const { model, serpApiKey, executionConfig } = config.configurable;
   const { taskSchedule, taskPlans, userContext } = state;
+  
+  if (!taskSchedule) {
+    const errorMsg = "Task schedule is missing. Cannot execute task.";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  if (!taskPlans || taskPlans.size === 0) {
+    const errorMsg = "Task plans is missing. Cannot execute task.";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
 
   // Initialize SerpAPI
   const serpApi = new SerpAPI(serpApiKey);
-
   const taskExecutionResults = new Map<string, TaskExecutionResult>();
 
   for (const batch of taskSchedule!.executionBatches) {
     const batchPromises = batch.taskIds.map(async (taskId) => {
       const taskPlan = taskPlans.get(taskId);
-
       if (!taskPlan) {
         logger.error(`Task plan not found for taskId: ${taskId}`);
         return;
       }
 
-      const result = await executeSingleTask(
-        taskPlan,
-        userContext,
-        model,
-        serpApi,
-        executionConfig
-      );
-
+      const result = await executeSingleTask(taskPlan, userContext, model, serpApi, executionConfig);
       taskExecutionResults.set(taskId, result);
     });
 
     await Promise.all(batchPromises);
-
     logger.log(`Batch ${batch.batchNumber} completed\n`);
   }
 
-  return {
-    taskExecutionResults,
-  };
+  logger.log(`Task execution completed successfully`);
+  return { taskExecutionResults };
 }
 
+async function reportSynthesisNode(
+  state: typeof MarketingResearchState.State,
+  config: any
+): Promise<Partial<typeof MarketingResearchState.State>> {
+  logger.log("Starting Final Report Synthesis...");
 
+  const model = config.configurable.model;
+  const { reportFramework, taskExecutionResults, userContext } = state;
+
+  if (!reportFramework) {
+    const errorMsg = "Report framework is missing. Cannot execute tasks.";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  if (!taskExecutionResults || taskExecutionResults.size === 0) {
+    const errorMsg = "Task execution results are missing. Cannot execute tasks.";
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  try {
+    const successfulTasks = Array.from(taskExecutionResults.values())
+      .filter(r => r.status === "success").length;
+
+    // Generate synthesis prompt
+    const prompt = createReportSynthesisPrompt(
+      reportFramework, taskExecutionResults, userContext
+    );
+
+    // Single LLM call to generate complete report
+    const structuredModel = model.withStructuredOutput(FinalMarketingReportSchema, { 
+      name: "FinalReportSynthesis" 
+    });
+
+    const synthesizedReport = await structuredModel.invoke(prompt);
+
+    if (!synthesizedReport) {
+      throw new Error("Failed to generate report");
+    }
+
+    // Add metadata
+    const finalReport: FinalMarketingReport = {
+      ...synthesizedReport,
+      totalTasks: taskExecutionResults.size,
+      successfulTasks,
+    };
+
+    logger.log(`Report synthesis completed successfully`);
+    return { finalReport };
+
+  } catch (error) {
+    const errorMsg = `Report synthesis failed: ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+}
+
+// Build graph
+const MarketingResearchGraph = new StateGraph(MarketingResearchState)
+  .addNode("reportPlanning", reportPlanningNode)
+  .addNode("taskPlanGeneration", taskPlanGenerationNode)
+  .addNode("taskScheduling", taskSchedulingNode)
+  .addNode("taskExecution", taskExecutionNode)
+  .addNode("reportSynthesis", reportSynthesisNode)
+
+MarketingResearchGraph.addEdge(START, "reportPlanning")
+MarketingResearchGraph.addEdge("reportPlanning", "taskPlanGeneration")
+MarketingResearchGraph.addEdge("taskPlanGeneration", "taskScheduling")
+MarketingResearchGraph.addEdge("taskScheduling", "taskExecution")
+MarketingResearchGraph.addEdge("taskExecution", "reportSynthesis")
+MarketingResearchGraph.addEdge("reportSynthesis", END)
+
+export { MarketingResearchGraph };
