@@ -205,13 +205,22 @@ export const FinalMarketingReportSchema = z.object({
   executiveSummary: z.object({
     overview: z.string().min(200),
     keyHighlights: z.array(z.string()).min(3).max(7),
+    criticalInsights: z.array(z.string()).min(2).max(5),
     recommendations: z.array(z.string()).min(2).max(5),
   }),
   
   sections: z.array(ReportSectionSchema).min(1),
+
+  consolidatedData: z.object({
+    allDataPoints: z.record(z.string(), z.any()),
+    keyMetrics: z.record(z.string(), z.any()),
+    dataSources: z.array(z.string()),
+  }),
   
   conclusion: z.object({
     summary: z.string().min(100),
+    strategicRecommendations: z.array(z.string()).min(2).max(5),
+    futureOutlook: z.string().min(50),
     limitations: z.array(z.string()),
   }),
 })
