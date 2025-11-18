@@ -1,5 +1,6 @@
 import { Annotation } from "@langchain/langgraph";
 import { 
+  FinalMarketingReport,
   MarketingTaskPlan,
   MarketingReportFramework,
   TaskExecutionSchedule, 
@@ -95,5 +96,14 @@ export const MarketingResearchState = Annotation.Root({
     },
     default: () => new Map(),
   }),
+
+  /**
+   * Final synthesized report
+   */
+  finalReport: Annotation<FinalMarketingReport | null>({
+    reducer: (x, y) => y ?? x,
+    default: () => null,
+  }),
+
 });
 
