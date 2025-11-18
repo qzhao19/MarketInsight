@@ -732,85 +732,170 @@ TASK RESULTS
 ${taskSummaries}
 
 ====================
-YOUR TASK
+YOUR RESPONSIBILITIES
 ====================
 
-Synthesize the above task results into a complete marketing report with:
+You must produce a complete, professional marketing research report with the following components:
 
 ### 1. EXECUTIVE SUMMARY
-- **overview** (200-1000 words): High-level synthesis of all findings
-- **keyHighlights** (3-7 items): Most important discoveries
-- **recommendations** (2-5 items): Strategic actions based on findings
+- **Overview** (200-1500 words):
+  * Synthesize the most important findings from all successful tasks
+  * Provide market context and research scope
+  * Highlight key trends and patterns identified
+  * Use objective, professional language
+  
+- **Key Highlights** (3-7 bullet points):
+  * Most significant findings that stakeholders need to know
+  * Include quantifiable results (market size, growth rates, market shares)
+  * Highlight market opportunities or threats
+  
+- **Critical Insights** (2-5 bullet points):
+  * Strategic insights requiring immediate attention
+  * Unexpected findings or deviations from expectations
+  * Competitive advantages or disadvantages identified
+  
+- **Recommendations** (2-5 bullet points):
+  * Action-oriented recommendations based on findings
+  * Prioritized by impact and urgency
+  * Evidence-based and specific
 
-### 2. SECTIONS
-Create 3-7 logical sections organizing the task results. Each section:
-- **sectionTitle**: Clear title
-- **content** (100+ words): Narrative combining related task findings
-- **keyFindings**: Extract key insights
-- **dataPoints**: Include relevant metrics
-- **relatedTaskIds**: Source task IDs
+### 2. MAIN CONTENT SECTIONS
+Create logical sections that organize the findings coherently. Suggested structure:
 
-Suggested structure:
-- Market Overview
-- Size & Growth Analysis
-- Competitive Landscape
-- Key Trends
-- Regional/Segment Analysis (if applicable)
-- Future Outlook
+**For each section:**
+- **sectionId**: Use format "section-{number}" (e.g., "section-1", "section-2")
+- **sectionTitle**: Clear, descriptive title
+- **content** (100-3000 words): Narrative that tells a story
+  * Start with context
+  * Present findings logically
+  * Connect to other sections where relevant
+  * Use professional language
+  * Reference specific data points
+- **keyFindings**: Extract 1-10 key insights from this section
+- **dataPoints**: Include relevant metrics from task results
+- **sources**: List snippet identifiers used
+- **relatedTaskIds**: List task IDs that contributed to this section
 
-### 3. CONCLUSION
-- **summary** (100-500 words): Recap and implications
-- **limitations**: Acknowledge data gaps from failed tasks
+**Suggested section structure** (adapt based on content):
+1. Market Overview and Landscape
+2. Market Size and Growth Analysis
+3. Competitive Landscape
+4. Key Trends and Drivers
+5. Regional/Segment Analysis (if applicable)
+6. Future Outlook and Forecasts
+
+### 3. CONSOLIDATED DATA
+- **allDataPoints**: Merge all data points from successful tasks
+  * Use consistent naming conventions (camelCase)
+  * When conflicts exist, use format: \`{key}_task1: value1, {key}_task2: value2\`
+  * Example: \`marketSize2024_task1: 384.7, marketSize2024_task2: 390.2\`
+  
+- **keyMetrics**: Highlight 5-15 most important metrics
+  * Market size, growth rates, market shares, etc.
+  * Choose metrics that best answer the research objective
+  
+- **dataSources**: List all unique sources from all tasks
+
+### 4. CONCLUSION
+- **summary** (100-800 words):
+  * Recap key findings and their implications
+  * Answer the original research objective
+  * Synthesize cross-task insights
+  
+- **strategicRecommendations** (2-5 items):
+  * Specific, actionable recommendations for stakeholders
+  * Based on evidence from the research
+  * Prioritized by importance
+  
+- **futureOutlook** (50-500 words):
+  * Trends to watch
+  * Potential opportunities or challenges ahead
+  * Market evolution expectations
+  
+- **limitations** (0-5 items):
+  * Acknowledge data gaps from failed tasks
+  * Note areas requiring further research
+  * Specify any assumptions made
+  * Mention data conflicts if unresolved
 
 ====================
-CRITICAL RULES
+CRITICAL GUIDELINES
 ====================
+**Maintain Objectivity:**
+  - Base all statements on evidence from task results
+  - Distinguish between facts and inferences
+  - Use phrases like "data suggests" or "findings indicate" for inferences
+  - Avoid promotional or biased language
 
-✓ **Data Integrity**
-  - Use ONLY data from task results
-  - If tasks conflict, note both values (e.g., "Task 1: $100B, Task 2: $110B")
-  - Don't fabricate missing data
+**Handle Data Conflicts:**
+  - If tasks provide conflicting data, present both values
+  - Example: "Market size estimates vary: Task 1 reports $384.7B, Task 2 reports $390.2B"
+  - Explain potential reasons for discrepancies (different sources, methodologies, time periods)
+  - Do NOT arbitrarily choose one value
 
-✓ **Coherent Narrative**
-  - Connect sections logically
-  - Build from overview → details → conclusion
-  - Use professional language
+**Address Data Gaps:**
+  - Clearly note missing information in limitations section
+  - If a failed task was critical, acknowledge the impact
+  - Do NOT fabricate data to fill gaps
+  - Be transparent about uncertainty
 
-✓ **Acknowledge Limitations**
-  - Note failed tasks in limitations
-  - Mention data gaps explicitly
-  - Don't hide uncertainties
+**Build Coherent Narrative:**
+  - Connect sections logically with transitions
+  - Tell a story from market overview to future outlook
+  - Reference earlier sections when building on previous points
+  - Maintain consistent terminology throughout
 
-✗ **AVOID**
-  - Fabricating data
-  - Hiding conflicts
-  - Overly promotional tone
+**Professional Quality:**
+  - Use industry-appropriate terminology
+  - Write clearly and concisely
+  - Avoid jargon unless necessary
+  - Proofread for coherence
+
+**DO NOT:**
+  - Fabricate data or statistics not in task results
+  - Make unsupported claims
+  - Ignore failed tasks (acknowledge them)
+  - Create overly promotional content
+  - Exceed word count limits
+  - Use vague language when data is available
 
 ====================
 OUTPUT
 ====================
-
-Return ONLY valid JSON (no markdown):
+Return ONLY a valid JSON object (no markdown, no code blocks, no explanations):
 
 {
   "reportTitle": "string",
   "reportObjective": "string",
+  
   "executiveSummary": {
-    "overview": "string",
+    "overview": "string (200-1500 words)",
     "keyHighlights": ["string", ...],
+    "criticalInsights": ["string", ...],
     "recommendations": ["string", ...]
   },
+  
   "sections": [
     {
       "sectionTitle": "string",
-      "content": "string",
+      "content": "string (100-3000 words)",
       "keyFindings": ["string", ...],
-      "dataPoints": { "key": value },
-      "relatedTaskIds": ["task-1", ...]
-    }
+      "dataPoints": { "key": value, ... },
+      "relatedTaskIds": ["task-id", ...]
+    },
+    ...
   ],
+  
+  "consolidatedData": {
+    "allDataPoints": { "key": value, ... },
+    "keyMetrics": { "key": value, ... },
+    "dataSources": ["source", ...]
+  },
+  
   "conclusion": {
-    "summary": "string",
+    "summary": "string (100-800 words)",
+    "strategicRecommendations": ["string", ...],
+    "futureOutlook": "string (50-500 words)",
     "limitations": ["string", ...]
   }
 }`;
