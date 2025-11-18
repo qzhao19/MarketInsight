@@ -1,3 +1,4 @@
+import { LLModelConfig } from "../llm/model.types";
 
 /**
  * Task metadata - LLM dynamically generated individual tasks
@@ -121,20 +122,39 @@ export interface FinalMarketingReport {
   executiveSummary: {
     overview: string;
     keyHighlights: string[];
+    criticalInsights: string[];
     recommendations: string[];
   };
 
   // Main sections
   sections: ReportSection[];
 
+  consolidatedData: {
+    allDataPoints: Record<string, any>;
+    keyMetrics: Record<string, any>;
+    dataSources: string[];
+  };
+
   // Conclusion
   conclusion: {
     summary: string;
+    strategicRecommendations: string[];
+    futureOutlook: string;
     limitations: string[];
   };
 
   // Metadata
-  generatedAt: string;
   totalTasks: number;
   successfulTasks: number;
+}
+
+/**
+ * Options for invoking market research agent
+ */
+export interface AgentInvokeOptions {
+  userContext?: Record<string, any>;
+    
+  modelConfig?: LLModelConfig;
+
+  taskExecutionConfig?: TaskExecutionConfig;
 }
