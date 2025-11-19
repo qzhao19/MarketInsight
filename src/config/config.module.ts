@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule as NestConfigModule } from "@nestjs/config";
 import { AppConfigService } from "./config.service";
+import { AgentConfigService } from './agent/agent.config';
 import { ClientConfigService } from "./llm/client.config";
 import { ModelConfigService } from "./llm/model.config";
 import * as path from "path";
@@ -32,10 +33,12 @@ import * as path from "path";
     }),
   ],
   providers: [
+    // Agent Configuration Service
+    AgentConfigService,
     // LLM Configuration Services
     ClientConfigService,
     ModelConfigService,
-    // Main Application Config Service (Facade)
+    // Main Application Config Service
     AppConfigService,
   ],
   exports: [
