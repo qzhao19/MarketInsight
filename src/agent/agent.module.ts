@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AgentService } from './agent.service';
 import { AppConfigModule } from '../config/config.module';
-import { LLModelService } from "../llm/model.service";
+import { LLModelModule } from "../llm/model.module";
 
 
 @Module({
   imports: [
     AppConfigModule,
-    LLModelService,
+    LLModelModule,
   ],
   providers: [
     AgentService
