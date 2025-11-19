@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService as NestConfigService } from "@nestjs/config";
+import { AgentConfigService } from "./agent/agent.config";
 import { ClientConfigService } from "./llm/client.config";
 import { ModelConfigService } from "./llm/model.config";
 
@@ -16,6 +17,8 @@ export class AppConfigService {
     private readonly nestConfigService: NestConfigService,
     private readonly clientConfig: ClientConfigService,
     private readonly modelConfig: ModelConfigService,
+    private readonly agentConfig: AgentConfigService,
+
   ) {
     this.logger.log("AppConfigService initialized");
   }
@@ -38,6 +41,15 @@ export class AppConfigService {
    */
   get LLModelConfig(): ModelConfigService {
     return this.modelConfig;
+  }
+
+  // ==================== Agent Configuration Access ====================
+
+  /**
+   * Get agent configuration service
+   */
+  get AgentConfig(): AgentConfigService {
+    return this.agentConfig;
   }
 
   // ==================== Environment Variables Access ====================
