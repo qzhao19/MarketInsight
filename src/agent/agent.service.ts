@@ -74,13 +74,8 @@ export class AgentService implements OnModuleInit {
         throw new Error("Failed to initialize LLM model");
       }
 
-      // Setup default configs for task execution
-      const defaultExecutionConfig: TaskExecutionConfig = {
-        maxQueriesPerTask: 8,
-        searchTimeout: 15000,
-        maxRetries: 3,
-        parallelSearches: true,
-      };
+      // Use default configs for task execution
+      const defaultExecutionConfig = this.configService.AgentConfig.defaultExecutionConfig;
 
       const finalExecutionConfig: TaskExecutionConfig = {
         ...defaultExecutionConfig,
