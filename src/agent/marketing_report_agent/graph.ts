@@ -36,7 +36,7 @@ import {
 } from "../../types/agent/agent.types"
 
 // Instantiate logger at the top of the file.
-const logger = new Logger('MarketResearchNodes');
+const logger = new Logger('MarketingResearchAgent');
 
 async function reportPlanningNode(
   state: typeof MarketingResearchState.State,
@@ -239,27 +239,41 @@ async function executeSearchWithRetry(
 
   let errorMsg: Error | null = null;
   for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
+    // create AbortController
+    const controller = new AbortController();
+
+    // Set a timeout timer; if the timeout occurs, trigger an abort.
+    const timeoutId = setTimeout(
+      () => { controller.abort() }, config.searchTimeout
+    );
+
     try {
-      // Create timeout promise
-      const searchPromise = serpApi.invoke(query);
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Search timeout")), config.searchTimeout)
-      );
-      const rawResult = await Promise.race([searchPromise, timeoutPromise]);
+      // Pass the signal to the invoke method
+      const rawResult = await serpApi.invoke(query, {
+        signal: controller.signal
+      });
+
+      // Clear the timer immediately upon success.
+      clearTimeout(timeoutId);
 
       if (rawResult && typeof rawResult === "string") {
         return [{ query, result: rawResult }];
       }
       
-      return [];
+      return []
     } catch (error) {
-      errorMsg = error instanceof Error ? error : new Error(String(error));
-      logger.warn(`Attempt ${attempt} failed: ${errorMsg.message}`);
+      // Clear the timer regardless of success or failure.
+      clearTimeout(timeoutId);
+
+      const isTimeout = (error instanceof Error && error.name === 'AbortError') || controller.signal.aborted;
+      const currentError = isTimeout ? new Error("Search timeout") : (error instanceof Error ? error : new Error(String(error)));
+      
+      errorMsg = currentError;
+      logger.warn(`Attempt ${attempt} failed: ${currentError.message}`);
 
       if (attempt < config.maxRetries) {
-        // Exponential backoff: 1s, 2s, 4s...
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));  
       }
     }
   }
@@ -385,15 +399,33 @@ async function taskExecutionNode(
     const batchPromises = batch.taskIds.map(async (taskId) => {
       const taskPlan = taskPlans.get(taskId);
       if (!taskPlan) {
-        logger.error(`Task plan not found for taskId: ${taskId}`);
+        logger.error(`Task plan not found for taskId: ${taskId}, skipping...`);
         return;
       }
 
-      const result = await executeSingleTask(taskPlan, userContext, model, serpApi, executionConfig);
-      taskExecutionResults.set(taskId, result);
+      try {
+        const result = await executeSingleTask(taskPlan, userContext, model, serpApi, executionConfig);
+        taskExecutionResults.set(taskId, result);
+      } catch (error) {
+        // Even if a single task fails, the failure result is recorded.
+        taskExecutionResults.set(taskId, {
+          taskId,
+          taskName: taskPlan.researchGoal.slice(0, 100) || taskId,
+          status: "failed",
+          optimizedQueries: [],
+          totalSearchResults: 0,
+          structuredContent: { 
+            summary: "", 
+            keyFindings: [], 
+            dataPoints: {}, 
+            sources: [] 
+          },
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     });
 
-    await Promise.all(batchPromises);
+    await Promise.allSettled(batchPromises);
     logger.log(`Batch ${batch.batchNumber} completed\n`);
   }
 
