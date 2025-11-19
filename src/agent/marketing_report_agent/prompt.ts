@@ -411,7 +411,7 @@ Do NOT include any markdown, code blocks, explanations, or any text outside of t
 export function createQueryOptimizationPrompt(
   taskPlan: MarketingTaskPlan
 ): string {
-  const currentYear = Date.now();
+  const currentYear = new Date().getFullYear();
 
   return `You are a search query optimization specialist. Your role is to enhance search queries to find the most relevant and authoritative information.
 
