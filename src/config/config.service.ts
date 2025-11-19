@@ -36,7 +36,7 @@ export class AppConfigService {
    * Get model configuration service
    * Provides access to LLM model parameters and settings
    */
-  get LLMModelConfig(): ModelConfigService {
+  get LLModelConfig(): ModelConfigService {
     return this.modelConfig;
   }
 
@@ -231,8 +231,8 @@ export class AppConfigService {
   /**
    * Get SERPER API key
    */
-  get serperApiKey(): string {
-    return this.getString("SERPER_API_KEY", "");
+  get serpApiKey(): string {
+    return this.getString("SERP_API_KEY", "");
   }
 
   // ==================== API Configuration ====================
