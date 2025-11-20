@@ -1,4 +1,3 @@
-import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { 
   MarketingTaskPlan, 
   MarketingTaskMetadata, 
@@ -12,7 +11,7 @@ import {
 export function createReportPlanningPrompt(
   userInput: string,
   userContext: Record<string, any>
-): ChatPromptTemplate {
+): string {
   const contextDescription = Object.keys(userContext).length > 0
     ? `\n\nAdditional Context:\n${JSON.stringify(userContext, null, 2)}`
     : "";
@@ -185,10 +184,12 @@ Consider:
 
 Generate a complete report framework with dynamic tasks.`;
 
-  return ChatPromptTemplate.fromMessages([
-      ["system", systemMessage],
-      ["human", userMessage],
-    ]);
+  // return ChatPromptTemplate.fromMessages([
+  //     ["system", systemMessage],
+  //     ["human", userMessage],
+  //   ]);
+  return `${systemMessage}\n\n${userMessage}`;
+
 }
 
 export function createTaskPlanPrompt(
