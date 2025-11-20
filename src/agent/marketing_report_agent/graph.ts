@@ -439,7 +439,7 @@ async function reportSynthesisNode(
 ): Promise<Partial<typeof MarketingResearchState.State>> {
   logger.log("Starting Final Report Synthesis...");
 
-  const model = config.configurable.model;
+  const { model, executionConfig } = config.configurable;
   const { reportFramework, taskExecutionResults, userContext } = state;
 
   if (!reportFramework) {
@@ -454,41 +454,65 @@ async function reportSynthesisNode(
     throw new Error(errorMsg);
   }
 
-  try {
-    const successfulTasks = Array.from(taskExecutionResults.values())
-      .filter(r => r.status === "success").length;
+  let lastError: Error | null = null;
+  const maxRetries = executionConfig.maxRetries || 3;
 
-    // Generate synthesis prompt
-    const prompt = createReportSynthesisPrompt(
-      reportFramework, taskExecutionResults, userContext
-    );
+  for(let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 1) {
+        logger.log(`Retry attempt ${attempt}/${maxRetries} for report synthesis...`);
+      }
 
-    // Single LLM call to generate complete report
-    const structuredModel = model.withStructuredOutput(FinalMarketingReportSchema, { 
-      name: "FinalReportSynthesis" 
-    });
+      const successfulTasks = Array.from(taskExecutionResults.values())
+        .filter(r => r.status === "success").length;
+      
+      // Generate synthesis prompt
+      const prompt = createReportSynthesisPrompt(
+        reportFramework, taskExecutionResults, userContext
+      );
 
-    const synthesizedReport = await structuredModel.invoke(prompt);
+      // Single LLM call to generate complete report
+      const structuredModel = model.withStructuredOutput(FinalMarketingReportSchema, { 
+        name: "FinalReportSynthesis" 
+      });
 
-    if (!synthesizedReport) {
-      throw new Error("Failed to generate report");
+      const synthesizedReport = await structuredModel.invoke(prompt);
+
+      if (!synthesizedReport) {
+        throw new Error("LLM returned null/undefined for report synthesis");
+      }
+
+      // Add metadata
+      const finalReport: FinalMarketingReport = {
+        ...synthesizedReport,
+        totalTasks: taskExecutionResults.size,
+        successfulTasks,
+      };
+
+      logger.log(`Report synthesis completed successfully`);
+      return { finalReport };
+
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const errorMsg = lastError.message;
+
+      const isJsonError = errorMsg.includes("JSON") || errorMsg.includes("Unterminated string") || errorMsg.includes("parse");
+      
+      if (isJsonError) {
+        logger.warn(`Report synthesis failed due to JSON error: ${errorMsg}. Retrying...`);
+      } else {
+        logger.warn(`Report synthesis failed: ${errorMsg}. Retrying...`);
+      }
+      
+      if (attempt === config.maxRetries) {
+        logger.error(`Report synthesis failed after ${config.maxRetries} attempts.`);
+        throw new Error(`Report synthesis failed: ${errorMsg}`);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
-
-    // Add metadata
-    const finalReport: FinalMarketingReport = {
-      ...synthesizedReport,
-      totalTasks: taskExecutionResults.size,
-      successfulTasks,
-    };
-
-    logger.log(`Report synthesis completed successfully`);
-    return { finalReport };
-
-  } catch (error) {
-    const errorMsg = `Report synthesis failed: ${error instanceof Error ? error.message : String(error)}`;
-    logger.error(errorMsg);
-    throw new Error(errorMsg);
   }
+  throw lastError || new Error("Report synthesis failed unknown error");
 }
 
 // Build graph
