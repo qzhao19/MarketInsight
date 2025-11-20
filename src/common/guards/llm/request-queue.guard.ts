@@ -44,7 +44,7 @@ export class RequestQueueGuard {
         })
         .catch((error) => {
           const duration = Date.now() - startTime;
-          this.logger.error(`Task failed after ${duration}ms: ${error.message}`);
+          this.logger.error(`Task failed after ${duration}ms`);
           item.reject(error);
         })
         .finally(() => {
