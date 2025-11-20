@@ -13,7 +13,7 @@ import { toOpenAIConfig } from "../utils/llm.utils"
 function generateModelKey(config: ChatOpenAIFields): string {
   // extract keys instead of entire object
   const { model, temperature, topP } = config;
-  return `${model || "default"}-${temperature || 0}-${topP || 1}`;
+  return `${model || "eepseek-chat"}-${temperature || 0}-${topP || 1}`;
 }
 
 @Injectable()
@@ -68,9 +68,13 @@ export class LLModelService implements OnModuleInit {
     // Get default model configuration from ModelConfigService
     const defaultConfig = this.configService.LLModelConfig.defaultModelConfig;
 
+    // Get model name
+    const defaultModelName = this.configService.LLModelConfig.defaultModelName || "deepseek-chat";
+
     // Create basic config: 
     const modelConfig: ChatOpenAIFields = {
       ...defaultConfig,
+      model: defaultModelName,
       apiKey: this.apiKey,
       // Add client connection-related configuration
       configuration: {
@@ -95,19 +99,22 @@ export class LLModelService implements OnModuleInit {
     try {
       // Get default model configuration from ModelConfigService
       const defaultConfig = this.getDefaultDeepSeekConfig();
-      
+      const modelName = defaultConfig.model;
       const rawModel = new ChatDeepSeek(defaultConfig);
       
+      // Ensure model is set in config
+      const finalConfig = { ...defaultConfig, model: modelName };
+
       // Cache raw model
-      const configKey = generateModelKey(defaultConfig);
+      const configKey = generateModelKey(finalConfig);
       this.rawModels.set(configKey, rawModel);
       
       // Create and cache guarded model
-      const guardedModel = this.modelClientService.createClient(rawModel);
+      const guardedModel = this.modelClientService.createClient(rawModel, modelName);
       this.models.set(configKey, guardedModel);
 
       this.logger.log(
-        `Default LLM model initialized: ${defaultConfig.model}`
+        `Default LLM model initialized: ${modelName}`
       );
 
     } catch (error) {
@@ -147,6 +154,11 @@ export class LLModelService implements OnModuleInit {
         }
       };
 
+      // If convertedOverrides has model: undefined, it might have overwritten defaultConfig.model
+      if (!modelConfig.model) {
+        modelConfig.model = defaultConfig.model || "deepseek-chat";
+      }
+
       // Validate the merged configuration
       const validation = this.configService.LLModelConfig.validateModelConfig(modelConfig);
       if (!validation.isValid) {
@@ -160,10 +172,12 @@ export class LLModelService implements OnModuleInit {
       }
 
       const rawModel = new ChatDeepSeek(modelConfig);
-      const newModel = this.modelClientService.createClient(rawModel);
+      const newModel = this.modelClientService.createClient(rawModel, modelConfig.model);
       
       // Cache
       this.models.set(configKey, newModel);
+      this.logger.debug(`New model created and cached: ${modelConfig.model}`);
+
       return newModel;
 
     } catch (error) {
