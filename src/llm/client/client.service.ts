@@ -17,6 +17,7 @@ export class LLModelClient {
   private readonly model: LLMChatModelType;
   private readonly logger: Logger;
   private readonly instanceId: string;
+  private readonly originalModelName: string;
 
   constructor(
     model: LLMChatModelType, 
@@ -24,6 +25,7 @@ export class LLModelClient {
     private readonly rateLimiter: RateLimiterGuard,
     private readonly requestQueue: RequestQueueGuard,
     private readonly retry: RetryGuard,
+    modelName?: string,
   ) {
     this.logger = new Logger(LLModelClient.name);
     this.model = model
@@ -33,14 +35,22 @@ export class LLModelClient {
       const errorMsg = "LLModelClient requires a 'model' instance in its configuration.";
       this.logger.error(errorMsg);
       throw new Error(errorMsg);
-    } 
+    }
+
+    // Use default modelName
+    this.originalModelName = (
+      modelName || 
+      (this.model as any)?.model ||
+      (this.model as any)?.modelName ||
+      (this.model as any)?.name ||
+      "unknown-model"
+    ).toString();
+    this.logger.debug(`LLModelClient created with model: ${this.originalModelName}`);
+
   }
 
   private getModelName(): string {
-    return ((this.model as any)?.model || 
-           (this.model as any)?.modelName || 
-           (this.model as any)?.name ||
-           "unknown-model").toString();
+    return this.originalModelName;
   }
 
   public getUnderlyingModel(): LLMChatModelType {
@@ -69,7 +79,8 @@ export class LLModelClient {
         this.circuitBreaker,
         this.rateLimiter,
         this.requestQueue,
-        this.retry
+        this.retry,
+        this.originalModelName,
       );
 
     } catch (error) {
@@ -100,7 +111,8 @@ export class LLModelClient {
         this.circuitBreaker,
         this.rateLimiter,
         this.requestQueue,
-        this.retry
+        this.retry,
+        this.originalModelName,
       );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -137,9 +149,9 @@ export class LLModelClient {
     const breaker = this.circuitBreaker.getOrCreateBreaker(
       uniqueBreakerName,
       invokeWrapper,
-      (error) => {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        const msg = `Model service "${baseModelName}" (${uniqueBreakerName}) is temporarily unavailable. Reason: ${errorMsg}`;
+      () => {
+        // const errorMsg = error instanceof Error ? error.message : String(error);
+        const msg = `Model service "${baseModelName}" (${uniqueBreakerName}) is temporarily unavailable.`;
         this.logger.error(msg);
         throw new HttpException(msg, HttpStatus.SERVICE_UNAVAILABLE);
       },
@@ -166,7 +178,7 @@ export class LLModelClientService {
     private retry: RetryGuard,
   ) {};
 
-  public createClient(model: LLMChatModelType) {
+  public createClient(model: LLMChatModelType, modelName?: string) {
     if (!model) {
       throw new Error("LLModelClient requires a valid model instance");
     }
@@ -177,6 +189,7 @@ export class LLModelClientService {
       this.rateLimiter,
       this.requestQueue,
       this.retry,
+      modelName,
     );
   }
 }
