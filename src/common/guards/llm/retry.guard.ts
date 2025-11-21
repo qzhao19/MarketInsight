@@ -15,12 +15,17 @@ export class RetryGuard {
     this.defaultConfig = defaultConfig;
     this.logger = new Logger(RetryGuard.name);
     this.logger.log(
-      `Retry guard initialized with config:\n` +
-      `  maxRetries=${this.defaultConfig.maxRetries},\n` +
-      `  initialDelay=${this.defaultConfig.initialDelayMs}ms,\n` +
-      `  maxDelay=${this.defaultConfig.maxDelayMs}ms,\n` +
-      `  factor=${this.defaultConfig.factor},\n` +
-      `  jitter=${this.defaultConfig.jitter}`
+      `\n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `                    Retry Guard Configuration                   \n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `  Max Retries:          ${this.defaultConfig.maxRetries}\n` +
+      `  Initial Delay:        ${this.defaultConfig.initialDelayMs}ms\n` +
+      `  Max Delay:            ${this.defaultConfig.maxDelayMs}ms\n` +
+      `  Backoff Factor:       ${this.defaultConfig.factor}\n` +
+      `  Jitter Enabled:       ${this.defaultConfig.jitter}\n` +
+      `  Retryable Errors:     ${this.defaultConfig.retryableErrors?.length || 0} patterns\n` +
+      `════════════════════════════════════════════════════════════════\n`
     );
   }
 
