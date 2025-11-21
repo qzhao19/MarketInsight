@@ -20,8 +20,14 @@ export class RequestQueueGuard {
     this.maxConcurrent = this.defaultConfig.maxConcurrent;
     this.logger = new Logger(RequestQueueGuard.name);
     this.logger.log(
-      `Queue initialized with config:\n` + 
-      `  maxConcurrent=${this.maxConcurrent}`
+      `\n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `                Request Queue Configuration                     \n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `  Max Concurrent:       ${this.maxConcurrent}\n` +
+      `  Initial Queue Size:   0\n` +
+      `  Initial Active:       0\n` +
+      `════════════════════════════════════════════════════════════════\n`
     );
   }
 
