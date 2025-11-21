@@ -17,14 +17,18 @@ export class CircuitBreakerGuard implements OnApplicationShutdown {
     this.defaultConfig = defaultConfig;
     this.logger = new Logger(CircuitBreakerGuard.name);
     this.logger.log(
-      `Circuit breaker guard initialized with config:\n` +
-      `  resetTimeout=${this.defaultConfig.resetTimeout},\n` +
-      `  timeout=${this.defaultConfig.timeout},\n` +
-      `  errorThresholdPercentage=${this.defaultConfig.errorThresholdPercentage},\n` +
-      `  rollingCountTimeout=${this.defaultConfig.rollingCountTimeout},\n` +
-      `  volumeThreshold=${this.defaultConfig.volumeThreshold},\n` +
-      `  capacity=${this.defaultConfig.capacity},\n` +
-      `  name=${this.defaultConfig.name}`
+      `\n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `                Circuit Breaker Configuration                   \n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `  Name:                 ${this.defaultConfig.name}\n` +
+      `  Timeout:              ${this.defaultConfig.timeout}ms\n` +
+      `  Reset Timeout:        ${this.defaultConfig.resetTimeout}ms\n` +
+      `  Error Threshold:      ${this.defaultConfig.errorThresholdPercentage}%\n` +
+      `  Rolling Count:        ${this.defaultConfig.rollingCountTimeout}ms\n` +
+      `  Volume Threshold:     ${this.defaultConfig.volumeThreshold}\n` +
+      `  Capacity:             ${this.defaultConfig.capacity}\n` +
+      `════════════════════════════════════════════════════════════════\n`
     );
   }
 
