@@ -31,10 +31,16 @@ export class RateLimiterGuard {
     this.requestTimeout = this.defaultConfig.requestTimeout;
     this.logger = new Logger(RateLimiterGuard.name);
     this.logger.log(
-      `Rate limiter initialized with config:\n` +
-      `  maxRequestsPerMinute=${this.defaultConfig.maxRequestsPerMinute} requests/minute\n` + 
-      `  maxQueueSize=${this.maxQueueSize}\n` +
-      `  requestTimeout=${this.requestTimeout}ms`,
+      `\n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `                  Rate Limiter Configuration                    \n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `  Max Requests/Min:     ${this.defaultConfig.maxRequestsPerMinute}\n` +
+      `  Refill Rate/Sec:      ${this.refillRatePerSecond.toFixed(2)}\n` +
+      `  Max Queue Size:       ${this.maxQueueSize}\n` +
+      `  Request Timeout:      ${this.requestTimeout}ms\n` +
+      `  Initial Tokens:       ${this.maxTokens}\n` +
+      `════════════════════════════════════════════════════════════════\n`
     );
   }
 
