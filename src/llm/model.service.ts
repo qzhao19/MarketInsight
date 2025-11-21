@@ -13,7 +13,7 @@ import { toOpenAIConfig } from "../utils/llm.utils"
 function generateModelKey(config: ChatOpenAIFields): string {
   // extract keys instead of entire object
   const { model, temperature, topP } = config;
-  return `${model || "eepseek-chat"}-${temperature || 0}-${topP || 1}`;
+  return `${model || "deepseek-chat"}-${temperature || 0}-${topP || 1}`;
 }
 
 @Injectable()
@@ -40,6 +40,8 @@ export class LLModelService implements OnModuleInit {
     if (!this.apiKey) {
       this.logger.warn("LLM API key not found in environment variables!");
     }
+
+    this.logModelConfig();
   }
 
   onModuleInit() {
@@ -58,6 +60,29 @@ export class LLModelService implements OnModuleInit {
 
     this.initializeDefaultModels();
     this.logger.log("LLModelService initialized successfully");
+  }
+
+  private logModelConfig(): void {
+    const stats = this.configService.LLModelConfig.getConfigStats();
+    
+    this.logger.log(
+      `\n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `                    LLM Model Configuration                     \n` +
+      `════════════════════════════════════════════════════════════════\n` +
+      `  Model Name:           ${stats.modelName}\n` +
+      `  Max Tokens:           ${stats.maxTokens}\n` +
+      `  Temperature:          ${stats.temperature}\n` +
+      `  Top P:                ${stats.topP}\n` +
+      `  Frequency Penalty:    ${stats.frequencyPenalty}\n` +
+      `  Presence Penalty:     ${stats.presencePenalty}\n` +
+      `  Max Concurrency:      ${stats.maxConcurrency}\n` +
+      `  Max Retries:          ${stats.maxRetries}\n` +
+      `  Timeout:              ${stats.timeout}ms\n` +
+      `  Streaming:            ${stats.streaming}\n` +
+      `  Verbose:              ${stats.verbose}\n` +
+      `════════════════════════════════════════════════════════════════\n`
+    );
   }
 
   /**
