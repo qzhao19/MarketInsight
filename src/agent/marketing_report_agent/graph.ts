@@ -63,6 +63,13 @@ async function reportPlanningNode(
       throw new Error(errorMsg);
     }
 
+    logger.log(
+      `  Report Framework Generated:\n` +
+      `  - Title: ${rawReportFramework.reportTitle}\n` +
+      `  - Objective: ${rawReportFramework.reportObjective.substring(0, 100)}...\n` +
+      `  - Total Tasks: ${rawReportFramework.tasks.length}`
+    );
+
     // Validate task dependencies
     const dependencyValidation = validateTaskDependencies(rawReportFramework.tasks);
     if (!dependencyValidation.valid) {
@@ -70,6 +77,8 @@ async function reportPlanningNode(
       logger.error(errorMsg);
       throw new Error(errorMsg);
     }
+
+    logger.debug(`Task dependencies validated successfully`);
 
     // Add taskId to each task
     const taskWithIdList: MarketingTaskMetadata[] = rawReportFramework.tasks.map(
@@ -122,6 +131,14 @@ async function generateSingleTaskPlan(
     taskId: task.taskId,
     ...taskPlanOutput,
   };
+
+  logger.debug(
+    `    Plan generated:\n` +
+    `    - Research Goal: ${completeTaskPlan.researchGoal.substring(0, 80)}...\n` +
+    `    - Search Directions: ${completeTaskPlan.searchDirections.length}\n` +
+    `    - Search Queries: ${completeTaskPlan.searchQueries.length}\n` +
+    `    - Key Elements: ${completeTaskPlan.keyElements.length}`
+  );
 
   return completeTaskPlan;
 }
@@ -184,9 +201,11 @@ async function taskSchedulingNode(
 
   try {
     // Perform topological sort
+    logger.debug(`Performing topological sort...`);
     const sortedTaskIds = topologicalSort(tasks);
 
     // Group tasks into execution batches
+    logger.debug(`Grouping tasks into execution batches...`);
     const batchGroups = groupIntoBatches(tasks, sortedTaskIds);
 
     // Sort tasks within each batch by priority
@@ -222,6 +241,14 @@ async function taskSchedulingNode(
       totalBatches: executionBatches.length,
     };
     
+    logger.log(`\nExecution Schedule Created:`);
+    executionBatches.forEach((batch, index) => {
+      logger.log(
+        `\n  Batch ${index + 1}/${executionBatches.length}:\n` +
+        `    Tasks: ${batch.taskIds.join(', ')}\n` +
+        `    Description: ${batch.description}`
+      );
+    });
     logger.log(`Task scheduling completed successfully`);
     return { taskSchedule };
   } catch (error) {
@@ -243,11 +270,13 @@ async function executeSearchWithRetry(
     const controller = new AbortController();
 
     // Set a timeout timer; if the timeout occurs, trigger an abort.
-    const timeoutId = setTimeout(
-      () => { controller.abort() }, config.searchTimeout
-    );
+    const timeoutId = setTimeout(() => { controller.abort() }, config.searchTimeout);
 
     try {
+      if (attempt > 1) {
+        logger.debug(`Retry attempt ${attempt}/${config.maxRetries} for: "${query.substring(0, 60)}..."`);
+      }
+
       // Pass the signal to the invoke method
       const rawResult = await serpApi.invoke(query, {
         signal: controller.signal
@@ -280,7 +309,6 @@ async function executeSearchWithRetry(
   throw errorMsg || new Error("Search failed after all retries");
 }
 
-
 async function executeSingleTask(
   taskPlan: MarketingTaskPlan,
   userContext: Record<string, any> | undefined,
@@ -288,6 +316,7 @@ async function executeSingleTask(
   serpApi: SerpAPI,
   config: TaskExecutionConfig
 ): Promise<TaskExecutionResult> {
+  logger.log(`Executing: [${taskPlan.taskId}] ${taskPlan.researchGoal.substring(0, 60)}...`);
 
   try {
     // Optimize queries
@@ -311,6 +340,7 @@ async function executeSingleTask(
 
     // Limit queries and execute searches: parallel or sequential
     const queriesToExecute = optimizedQueries.slice(0, config.maxQueriesPerTask);
+    logger.debug(`Executing ${queriesToExecute.length} searches (${config.parallelSearches ? 'parallel' : 'sequential'})...`);
     const searchPromises = queriesToExecute.map((oq: OptimizedQuery) =>
       executeSearchWithRetry(oq.optimizedQuery, serpApi, config).catch((error) => {
         logger.error(`Search failed for "${oq.optimizedQuery}": ${error}`);
@@ -430,6 +460,12 @@ async function taskExecutionNode(
   }
 
   logger.log(`Task execution completed successfully`);
+  logger.debug(
+    `Execution results summary:\n` +
+    `  - Total tasks: ${taskExecutionResults.size}\n` +
+    `  - Success: ${Array.from(taskExecutionResults.values()).filter(r => r.status === "success").length}\n` +
+    `  - Failed: ${Array.from(taskExecutionResults.values()).filter(r => r.status === "failed").length}`
+  );
   return { taskExecutionResults };
 }
 
@@ -454,6 +490,14 @@ async function reportSynthesisNode(
     throw new Error(errorMsg);
   }
 
+  logger.debug(
+    `Report synthesis input summary:\n` +
+    `  - Report title: ${reportFramework.reportTitle}\n` +
+    `  - Successful tasks: ${Array.from(taskExecutionResults.values()).filter(r => r.status === "success").length}\n` +
+    `  - Failed tasks: ${Array.from(taskExecutionResults.values()).filter(r => r.status === "failed").length}\n` +
+    `  - Model: ${model.getUnderlyingModel ? model.getUnderlyingModel()?.modelName ?? "unknown" : "unknown"}`
+  );
+
   let lastError: Error | null = null;
   const maxRetries = executionConfig.maxRetries || 3;
 
@@ -467,9 +511,7 @@ async function reportSynthesisNode(
         .filter(r => r.status === "success").length;
       
       // Generate synthesis prompt
-      const prompt = createReportSynthesisPrompt(
-        reportFramework, taskExecutionResults, userContext
-      );
+      const prompt = createReportSynthesisPrompt(reportFramework, taskExecutionResults, userContext);
 
       // Single LLM call to generate complete report
       const structuredModel = model.withStructuredOutput(FinalMarketingReportSchema, { 
@@ -489,6 +531,12 @@ async function reportSynthesisNode(
         successfulTasks,
       };
 
+      logger.log(
+        `Final report summary:\n` +
+        `  - Title: ${finalReport.reportTitle}\n` +
+        `  - Sections: ${finalReport.sections.length}\n` +
+        `  - Sources: ${finalReport.consolidatedData.dataSources.length}`
+      );
       logger.log(`Report synthesis completed successfully`);
       return { finalReport };
 
