@@ -231,6 +231,25 @@ export const ExecutiveSummaryOnlySchema = z.object({
 .describe("xecutive summary with strict length limits");
 
 /**
+ * Schema for section topics generation
+ */
+export const SectionTopicsSchema = z.object({
+  topics: z.array(
+    z.object({
+      topicName: z.string().min(5).max(100)
+        .describe("The name of the topic, must be concise and meaningful"),
+      description: z.string().min(20).max(300)
+        .describe("A brief explanation of what this topic covers"),
+      relevantTaskIds: z.array(z.string()).min(1).max(10)
+        .describe("List of task IDs that are related to this topic"),
+    })
+  ).min(3).max(8)
+    .describe("Array of topics extracted from task results, must contain 3-8 items"),
+})
+.strict()
+.describe("Report section topics based on task results");
+
+/**
  * Single section (generated one by one)
  */
 export const SingleSectionSchema = z.object({
