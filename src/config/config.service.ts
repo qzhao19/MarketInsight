@@ -339,4 +339,82 @@ export class AppConfigService {
   get rateLimitMax(): number {
     return this.getNumber("RATE_LIMIT_MAX", 100);
   }
+
+  // ==================== Redis Configuration ====================
+
+  /**
+   * Get Redis host
+   */
+  get redisHost(): string {
+    return this.getString("REDIS_HOST", "localhost");
+  }
+
+  /**
+   * Get Redis port
+   */
+  get redisPort(): number {
+    return this.getNumber("REDIS_PORT", 6379);
+  }
+
+  /**
+   * Get Redis password (optional)
+   */
+  get redisPassword(): string | undefined {
+    const password = this.get<string>("REDIS_PASSWORD");
+    return password && password.trim().length > 0 ? password : undefined;
+  }
+
+  /**
+   * Get Redis database index
+   */
+  get redisDb(): number {
+    return this.getNumber("REDIS_DB", 0);
+  }
+
+// ==================== Queue Configuration ====================
+
+  /**
+   * Get campaign queue name
+   */
+  get campaignQueueName(): string {
+    return this.getString("QUEUE_CAMPAIGN_NAME", "campaign-processing");
+  }
+
+  /**
+   * Get queue job retry attempts
+   */
+  get queueJobRetryAttempts(): number {
+    return this.getNumber("QUEUE_JOB_RETRY_ATTEMPTS", 3);
+  }
+
+  /**
+   * Get queue job retry backoff type
+   */
+  get queueJobRetryBackoffType(): 'fixed' | 'exponential' {
+    const type = this.getString("QUEUE_JOB_RETRY_BACKOFF_TYPE", "exponential");
+    return type as 'fixed' | 'exponential';
+  }
+
+  /**
+   * Get queue job retry backoff delay (ms)
+   */
+  get queueJobRetryBackoffDelay(): number {
+    return this.getNumber("QUEUE_JOB_RETRY_BACKOFF_DELAY", 2000);
+  }
+
+  /**
+   * Get number of completed jobs to keep
+   */
+  get queueKeepCompletedJobs(): number {
+    return this.getNumber("QUEUE_KEEP_COMPLETED_JOBS", 100);
+  }
+
+ /**
+   * Get number of failed jobs to keep
+   */
+  get queueKeepFailedJobs(): number {
+    return this.getNumber("QUEUE_KEEP_FAILED_JOBS", 500);
+  }
+
+
 }
