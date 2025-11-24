@@ -508,7 +508,6 @@ Output ONLY a valid JSON array with this exact structure:
 - Preserve the order of original queries`;
 }
 
-
 /**
  * Generate structured content from searched results
  */
@@ -682,226 +681,6 @@ EXAMPLE OUTPUT
 Now, analyze the search snippets provided and generate the structured content.`;
 }
 
-
-export function createReportSynthesisPrompt(
-  reportFramework: MarketingReportFramework,
-  taskResults: Map<string, TaskExecutionResult>,
-  userContext?: Record<string, any>
-): string {
-  
-  // Prepare task summaries
-  const allResults = Array.from(taskResults.values());
-  const successfulTasks = allResults.filter(r => r.status === "success");
-  const failedTasks = allResults.filter(r => r.status === "failed");
-
-  const taskSummaries = successfulTasks.map(result => {
-    const task = reportFramework.tasks.find(t => t.taskId === result.taskId);
-    return `
-### Task: ${result.taskId}
-Name: ${task?.taskName || "Unknown"}
-Summary: ${result.structuredContent.summary}
-Key Findings: ${result.structuredContent.keyFindings.map((f, i) => `${i + 1}. ${f}`).join("; ")}
-Data Points: ${Object.entries(result.structuredContent.dataPoints).slice(0, 10).map(([k, v]) => `${k}: ${v}`).join("; ")}
-`;
-  }).join("\n" + "=".repeat(40) + "\n");
-
-  return `You are a Senior Market Research Analyst tasked with synthesizing multiple research task results into a cohesive, professional marketing report.
-
-====================
-REPORT CONTEXT
-====================
-**Title:** ${reportFramework.reportTitle}
-**Objective:** ${reportFramework.reportObjective}
-
-${userContext ? `**User Context:** ${JSON.stringify(userContext, null, 2)}` : ""}
-
-====================
-EXECUTION SUMMARY
-====================
-- Total tasks: ${taskResults.size}
-- Successful: ${successfulTasks.length}
-- Failed: ${failedTasks.length}
-
-${failedTasks.length > 0 ? `
-**Failed Tasks:**
-${failedTasks.map(t => `- ${t.taskId}: ${t.error || "Unknown"}`).join("\n")}
-` : ""}
-
-====================
-TASK RESULTS
-====================
-${taskSummaries}
-
-====================
-YOUR RESPONSIBILITIES
-====================
-
-You must produce a complete, professional marketing research report with the following components:
-
-### 1. EXECUTIVE SUMMARY
-- **Overview** (200-1500 words):
-  * Synthesize the most important findings from all successful tasks
-  * Provide market context and research scope
-  * Highlight key trends and patterns identified
-  * Use objective, professional language
-  
-- **Key Highlights** (3-7 bullet points):
-  * Most significant findings that stakeholders need to know
-  * Include quantifiable results (market size, growth rates, market shares)
-  * Highlight market opportunities or threats
-  
-- **Critical Insights** (2-5 bullet points):
-  * Strategic insights requiring immediate attention
-  * Unexpected findings or deviations from expectations
-  * Competitive advantages or disadvantages identified
-  
-- **Recommendations** (2-5 bullet points):
-  * Action-oriented recommendations based on findings
-  * Prioritized by impact and urgency
-  * Evidence-based and specific
-
-### 2. MAIN CONTENT SECTIONS
-Create logical sections that organize the findings coherently. Suggested structure:
-
-**For each section:**
-- **sectionId**: Use format "section-{number}" (e.g., "section-1", "section-2")
-- **sectionTitle**: Clear, descriptive title
-- **content** (100-3000 words): Narrative that tells a story
-  * Start with context
-  * Present findings logically
-  * Connect to other sections where relevant
-  * Use professional language
-  * Reference specific data points
-- **keyFindings**: Extract 1-10 key insights from this section
-- **dataPoints**: Include relevant metrics from task results
-- **sources**: List snippet identifiers used
-- **relatedTaskIds**: List task IDs that contributed to this section
-
-**Suggested section structure** (adapt based on content):
-1. Market Overview and Landscape
-2. Market Size and Growth Analysis
-3. Competitive Landscape
-4. Key Trends and Drivers
-5. Regional/Segment Analysis (if applicable)
-6. Future Outlook and Forecasts
-
-### 3. CONSOLIDATED DATA
-- **allDataPoints**: Merge all data points from successful tasks
-  * Use consistent naming conventions (camelCase)
-  * When conflicts exist, use format: \`{key}_task1: value1, {key}_task2: value2\`
-  * Example: \`marketSize2024_task1: 384.7, marketSize2024_task2: 390.2\`
-  
-- **keyMetrics**: Highlight 5-15 most important metrics
-  * Market size, growth rates, market shares, etc.
-  * Choose metrics that best answer the research objective
-  
-- **dataSources**: List all unique sources from all tasks
-
-### 4. CONCLUSION
-- **summary** (100-800 words):
-  * Recap key findings and their implications
-  * Answer the original research objective
-  * Synthesize cross-task insights
-  
-- **strategicRecommendations** (2-5 items):
-  * Specific, actionable recommendations for stakeholders
-  * Based on evidence from the research
-  * Prioritized by importance
-  
-- **futureOutlook** (50-500 words):
-  * Trends to watch
-  * Potential opportunities or challenges ahead
-  * Market evolution expectations
-  
-- **limitations** (0-5 items):
-  * Acknowledge data gaps from failed tasks
-  * Note areas requiring further research
-  * Specify any assumptions made
-  * Mention data conflicts if unresolved
-
-====================
-CRITICAL GUIDELINES
-====================
-**Maintain Objectivity:**
-  - Base all statements on evidence from task results
-  - Distinguish between facts and inferences
-  - Use phrases like "data suggests" or "findings indicate" for inferences
-  - Avoid promotional or biased language
-
-**Handle Data Conflicts:**
-  - If tasks provide conflicting data, present both values
-  - Example: "Market size estimates vary: Task 1 reports $384.7B, Task 2 reports $390.2B"
-  - Explain potential reasons for discrepancies (different sources, methodologies, time periods)
-  - Do NOT arbitrarily choose one value
-
-**Address Data Gaps:**
-  - Clearly note missing information in limitations section
-  - If a failed task was critical, acknowledge the impact
-  - Do NOT fabricate data to fill gaps
-  - Be transparent about uncertainty
-
-**Build Coherent Narrative:**
-  - Connect sections logically with transitions
-  - Tell a story from market overview to future outlook
-  - Reference earlier sections when building on previous points
-  - Maintain consistent terminology throughout
-
-**Professional Quality:**
-  - Use industry-appropriate terminology
-  - Write clearly and concisely
-  - Avoid jargon unless necessary
-  - Proofread for coherence
-
-**DO NOT:**
-  - Fabricate data or statistics not in task results
-  - Make unsupported claims
-  - Ignore failed tasks (acknowledge them)
-  - Create overly promotional content
-  - Exceed word count limits
-  - Use vague language when data is available
-
-====================
-OUTPUT
-====================
-Return ONLY a valid JSON object (no markdown, no code blocks, no explanations):
-
-{
-  "reportTitle": "string",
-  "reportObjective": "string",
-  
-  "executiveSummary": {
-    "overview": "string (200-1500 words)",
-    "keyHighlights": ["string", ...],
-    "criticalInsights": ["string", ...],
-    "recommendations": ["string", ...]
-  },
-  
-  "sections": [
-    {
-      "sectionTitle": "string",
-      "content": "string (100-3000 words)",
-      "keyFindings": ["string", ...],
-      "dataPoints": { "key": value, ... },
-      "relatedTaskIds": ["task-id", ...]
-    },
-    ...
-  ],
-  
-  "consolidatedData": {
-    "allDataPoints": { "key": value, ... },
-    "keyMetrics": { "key": value, ... },
-    "dataSources": ["source", ...]
-  },
-  
-  "conclusion": {
-    "summary": "string (100-800 words)",
-    "strategicRecommendations": ["string", ...],
-    "futureOutlook": "string (50-500 words)",
-    "limitations": ["string", ...]
-  }
-}`;
-}
-
 /**
  * Generate report metadata
  */
@@ -911,21 +690,40 @@ export function createReportMetadataPrompt(
   userContext?: Record<string, any>
 ): string {
   const successfulTasks = Array.from(taskResults.values()).filter(r => r.status === "success");
-  
+  const researchHighlights = successfulTasks.map(r => {
+    const highlight = r.structuredContent.summary;
+    return `${highlight}`;
+  }).join("\n");
+
   return `You are refining the report title and objective based on executed research.
 
-**Original Framework:**
-- Title: ${reportFramework.reportTitle}
-- Objective: ${reportFramework.reportObjective}
+====================
+ORIGINAL PLAN
+====================
+**Title:** ${reportFramework.reportTitle}
+**Objective:** ${reportFramework.reportObjective}
+${userContext ? `**User Context:** ${JSON.stringify(userContext)}` : "Not provided"}
 
-**Research Context:**
-${userContext ? JSON.stringify(userContext, null, 2) : "Not provided"}
+====================
+ACTUAL RESEARCH HIGHLIGHTS
+====================
+(Use these findings to ensure the title/objective matches reality)
+${researchHighlights || "No successful research tasks completed."}
 
-**Execution Summary:**
-- Total tasks: ${taskResults.size}
-- Successful: ${successfulTasks.length}
+====================
+INSTRUCTIONS
+====================
+Refine the report metadata to accurately reflect the gathered data.
 
-Based on actual research findings, refine the title and objective to accurately reflect the report content.`;
+1. **Refine Report Title**:
+   - Make it professional, specific, and descriptive.
+   - **Crucial:** If the research found specific data (e.g., specific years "2024-2030", specific regions "North America", or specific segments), include them in the title.
+   - Avoid generic titles like "Market Research".
+
+2. **Refine Report Objective**:
+   - Summarize what this report *actually* delivers based on the highlights above.
+   - Mention the specific insights or data types included (e.g., "market sizing," "competitor analysis").
+   - Ensure it is a coherent, professional statement (1-3 sentences).`;
 }
 
 /**
@@ -940,116 +738,314 @@ export function createExecutiveSummaryPrompt(
 
   const taskSummaries = successfulTasks.map(result => {
     const task = reportFramework.tasks.find(t => t.taskId === result.taskId);
-    return `
-### Task: ${result.taskId}
-Name: ${task?.taskName || "Unknown"}
-Summary: ${result.structuredContent.summary}
-Key Findings: ${result.structuredContent.keyFindings.map((f, i) => `${i + 1}. ${f}`).join("; ")}
-Data Points: ${Object.entries(result.structuredContent.dataPoints).slice(0, 10).map(([k, v]) => `${k}: ${v}`).join("; ")}
+    
+    // Safety checks for data points
+    const dataPoints = result.structuredContent.dataPoints || {};
+    const dataPointsStr = Object.entries(dataPoints)
+      .slice(0, 8) // Limit to top 8 data points to save tokens
+      .map(([k, v]) => `${k}: ${v}`)
+      .join("; ");
+
+    // Truncate summary if it's too long to prevent context overflow
+    const conciseSummary = result.structuredContent.summary.length > 500 
+      ? result.structuredContent.summary.substring(0, 500) + "..." 
+      : result.structuredContent.summary;
+
+    // Limit key findings
+    const topFindings = (result.structuredContent.keyFindings || [])
+      .slice(0, 5)
+      .map((f) => `${f}`)
+      .join("\n");
+
+    return `### Task: ${task?.taskName || result.taskId} (Priority: ${task?.priority || 'Unknown'})
+Summary: ${conciseSummary}
+Key Findings:
+${topFindings}
+Data Points: ${dataPointsStr || "None"}
 `;
-  }).join("\n" + "=".repeat(40) + "\n");
+  }).join("\n" + "-".repeat(30) + "\n");
 
-  return `You are writing the executive summary for: "${reportFramework.reportTitle}".
 
+  return `You are writing the executive summary for a major market research report.
+
+**Report Title:** "${reportFramework.reportTitle}"
 **Report Objective:** ${reportFramework.reportObjective}
 
 **Top Task Results:**
 ${taskSummaries}
 
-**Requirements:**
-Create a concise executive summary with:
+**Output Requirements (Strict):**
 
-- **Overview** (200-1500 words):
-  * Synthesize the most important findings from all successful tasks
-  * Provide market context and research scope
-  * Highlight key trends and patterns identified
-  * Use objective, professional language
-  
-- **Key Highlights** (3-7 bullet points):
-  * Most significant findings that stakeholders need to know
-  * Include quantifiable results (market size, growth rates, market shares)
-  * Highlight market opportunities or threats
-  
-- **Critical Insights** (2-5 bullet points):
-  * Strategic insights requiring immediate attention
-  * Unexpected findings or deviations from expectations
-  * Competitive advantages or disadvantages identified
-  
-- **Recommendations** (2-5 bullet points):
-  * Action-oriented recommendations based on findings
-  * Prioritized by impact and urgency
-  * Evidence-based and specific`;
+1. **Overview** (200 - 2000 characters):
+   - A narrative synthesis of the market situation.
+   - Do NOT just list task results; connect the dots between tasks.
+   - Focus on the "So What?" - why does this data matter?
+
+2. **Key Highlights** (2-5 items, max 200 chars each):
+   - The most impressive numbers or facts found (e.g., Market Size, CAGR).
+   - Must be punchy and data-driven.
+
+3. **Critical Insights** (2-5 items, max 250 chars each):
+   - Deep strategic observations (e.g., "Competitor X is losing share due to Y").
+   - Focus on implications, not just facts.
+
+4. **Recommendations** (2-5 items, max 200 chars each):
+   - Actionable next steps based on the data.
+   - Start with a verb (e.g., "Invest in...", "Monitor...", "Pivot to...").
+
+**Tone Guidelines:**
+- Professional, objective, and authoritative.
+- Prioritize insights from "High Priority" tasks.
+- If data conflicts between tasks, acknowledge the range or prioritize the more specific source.`;
 }
+
+/**
+ * Generate section topics based on complete task results
+ */
+export function createSectionTopicsPrompt(
+  reportFramework: MarketingReportFramework,
+  taskResults: Map<string, TaskExecutionResult>
+): string {
+  const successfulTasks = Array.from(taskResults.values()).filter(r => r.status === "success");
+  
+  // Build detailed task information
+  const taskDetailsArray = successfulTasks.map(result => {
+    const taskMeta = reportFramework.tasks.find(t => t.taskId === result.taskId);
+    
+    // Truncate summary for grouping context (we don't need full details to decide sections)
+    const conciseSummary = result.structuredContent.summary.length > 300
+      ? result.structuredContent.summary.substring(0, 300) + "..."
+      : result.structuredContent.summary;
+
+    // Limit findings to top 3 just to give flavor of the content
+    const findings = (result.structuredContent.keyFindings || [])
+      .slice(0, 3)
+      .map(f => `    - ${f.substring(0, 100)}`) // Also truncate individual findings
+      .join('\n');
+    
+    // Only list data keys to show what kind of data is available (save tokens by omitting values)
+    const dataKeys = Object.keys(result.structuredContent.dataPoints || {}).slice(0, 5).join(", ");
+    const dataInfo = dataKeys ? `\n  Available Metrics: ${dataKeys}` : '';
+
+    return `Task ID: ${result.taskId}
+  Name: ${taskMeta?.taskName || result.taskName}
+  Priority: ${taskMeta?.priority || 'medium'}
+  Intent: ${taskMeta?.taskDescription || 'N/A'}
+  Result Summary: ${conciseSummary}
+  Key Insights:
+${findings}${dataInfo}`;
+  });
+
+  const taskDetails = taskDetailsArray.join('\n\n');
+
+  return `You are a professional marketing research analyst organizing the structure of a comprehensive market research report.
+
+# REPORT CONTEXT
+
+**Report Title:** ${reportFramework.reportTitle}
+**Report Objective:** ${reportFramework.reportObjective}
+
+# COMPLETED RESEARCH TASKS
+${taskDetails}
+
+
+# YOUR TASK
+Analyze ALL the research tasks above and organize them into a logical report structure with 3-8 thematic sections.
+
+## REQUIREMENTS
+
+1. **Comprehensive Coverage:** Every single task ID listed above MUST be assigned to exactly one section topic. Do not omit any task.
+
+2. **Logical Grouping:** Group tasks that share common themes, research dimensions, or analytical perspectives. Consider these common research dimensions:
+   - Market overview and landscape analysis
+   - Market sizing and quantitative analysis
+   - Competitive dynamics and player analysis
+   - Trend identification and drivers
+   - Regional/segment-specific insights
+   - Future outlook and forecasting
+   - Strategic implications
+
+3. **Logical Flow:** Organize topics in a narrative sequence that builds understanding progressively. Typically:
+   - Start with foundational/contextual topics (overview, definitions)
+   - Progress to analytical topics (sizing, competitive analysis)
+   - Move to insights (trends, drivers, opportunities)
+   - Conclude with forward-looking topics (forecasts, recommendations)
+
+4. **Naming Conventions:** 
+   - Section titles must be professional (e.g., "Global Market Sizing & Growth", "Competitive Landscape").
+   - Avoid generic names like "Section 1" or "Task Group A".
+
+5. **Balanced Distribution:** Aim for relatively balanced sections (avoid putting 10 tasks in one section and 1 in another unless there's a strong thematic reason).
+
+6. **Descriptive Context:** Each topic description should:
+   - Explain the analytical focus of the section (50-200 words)
+   - Indicate what insights readers should expect
+   - Connect to the overall report objective`;
+}
+
 
 /**
  * Generate a single section
  */
 export function createSingleSectionPrompt(
   reportTitle: string,
+  reportObjective: string,
   sectionIndex: number,
   sectionTopic: string,
-  relevantTasks: TaskExecutionResult[]
+  relevantTasks: TaskExecutionResult[],
 ): string {
-  const taskDetails = relevantTasks.map(result => {
-    return `### ${result.taskId}
-Summary: ${result.structuredContent.summary.substring(0, 400)}...
-Key Findings: ${result.structuredContent.keyFindings.map((f, i) => `${i + 1}. ${f}`).join("; ")}
-Data Points: ${Object.entries(result.structuredContent.dataPoints).slice(0, 10).map(([k, v]) => `${k}: ${v}`).join("; ")}`;
-  }).join("\n\n");
+  const taskDetails = relevantTasks.map((result) => {
+    const { structuredContent } = result;
+    const summary = structuredContent?.summary || "";
+    const truncatedSummary =
+      summary.length > 400 ? `${summary.slice(0, 400)}...` : summary;
 
-  return `You are writing section ${sectionIndex + 1} for report: "${reportTitle}".
+    const findings = (structuredContent?.keyFindings || [])
+      .slice(0, 5)
+      .map((f) => `${f.slice(0, 200)}`)
+      .join("\n");
 
-**Section Topic:** ${sectionTopic}
+    const dataKeys = Object.keys(structuredContent?.dataPoints || {})
+      .slice(0, 6)
+      .join(", ");
+    
+    const sources = (structuredContent?.sources || [])
+      .slice(0, 10)
+      .join(", ");
 
-**Relevant Research Results:**
-${taskDetails}
+    return `### Task ID: ${result.taskId}
+Task Name: ${result.taskName}
+Summary: ${truncatedSummary}
+Key Findings: ${findings || "No explicit findings reported."}
+Data Keys: ${dataKeys || "None"}
+Source: ${sources || "None"}`;
+  }).join("\n\n" + "-".repeat(40) + "\n\n");
 
-**Requirements:**
-- **sectionId**: Use format "section-{number}" (e.g., "section-1", "section-2")
-- **sectionTitle**: Clear, descriptive title
-- **content** (100-3000 words): Narrative that tells a story
-  * Start with context
-  * Present findings logically
-  * Connect to other sections where relevant
-  * Use professional language
-  * Reference specific data points
-- **keyFindings**: Extract 1-10 key insights from this section
-- **dataPoints**: Include relevant metrics from task results
-- **sources**: List snippet identifiers used
-- **relatedTaskIds**: List task IDs that contributed to this section
-`;
+  return `You are writing section ${sectionIndex + 1} for a strategic report.
+
+====================
+REPORT BACKGROUND
+====================
+Report Title: "${reportTitle}"
+Report Objective: "${reportObjective}"
+
+====================
+SECTION ASSIGNMENT
+====================
+Section Topic: "${sectionTopic}"
+Section Number: ${sectionIndex + 1}
+
+====================
+AVAILABLE RESEARCH INPUT
+====================
+${taskDetails || "No successful task results were provided."}
+
+====================
+GUIDELINES
+====================
+Use ONLY the information above to draft this section.
+
+Output must be a JSON object with these exact fields:
+{
+  "sectionTitle": string (3-100 chars),
+  "content": string (100-3000 chars),
+  "keyFindings": string[] (1-5 items, each ≤300 chars),
+  "dataPoints": { ... },
+  "relatedTaskIds": string[]
 }
 
+Detailed instructions:
+1. sectionTitle  
+   - Clear, professional title aligned with the topic.  
+   - Stay under 100 characters.
+
+2. content (100-3000 characters)  
+   - Structure: short intro → synthesized analysis → implications.  
+  - Reference key metrics and insights from the tasks.  
+   - Keep within the 3000-character schema limit.  
+   - Use paragraph formatting; avoid lists unless crucial.  
+   - If data is missing or conflicting, state it plainly.
+
+3. keyFindings (1-5 items)  
+   - Each finding ≤300 characters.  
+   - Highlight the most critical takeaways tied to the section topic.  
+   - Include quantitative evidence when available.
+
+4. dataPoints  
+   - Aggregate the most relevant metrics from the tasks.  
+   - Use camelCase keys (e.g., marketSize2024Usd).  
+   - Only include values explicitly present in the input.  
+   - For conflicting values, expose both with task suffixes (e.g., marketSize2024_task3).  
+   - Leave the object empty if no trustworthy numbers are present.
+
+5. relatedTaskIds  
+   - List every task ID included in the input block (no extra items).  
+   - Preserve the original format ("task-1", etc.).
+`;
+}
 
 /**
  * Generate consolidated data
  */
 export function createConsolidatedDataPrompt(
+  reportFramework: MarketingReportFramework,
   taskResults: Map<string, TaskExecutionResult>
 ): string {
   const successfulTasks = Array.from(taskResults.values()).filter(r => r.status === "success");
   
-  const allDataPoints = successfulTasks.slice(0, 10).map(result => {
-    return `### ${result.taskId}
-${Object.entries(result.structuredContent.dataPoints).slice(0, 8).map(([k, v]) => `${k}: ${v}`).join("\n")}`;
+  const taskDetailsArray = successfulTasks.map(result => {
+    const taskMeta = reportFramework.tasks.find(t => t.taskId === result.taskId);
+    
+    // Safety check for dataPoints
+    const dataPoints = result.structuredContent.dataPoints || {};
+    const dataEntries = Object.entries(dataPoints)
+      .slice(0, 15) 
+      .map(([key, value]) => `    - ${key}: ${JSON.stringify(value)}`)
+      .join("\n");
+    const sources = (result.structuredContent.sources || []).join(", ");
+
+    return `### Task: ${taskMeta?.taskName || result.taskName} (ID: ${result.taskId})
+Priority: ${taskMeta?.priority || "medium"}
+Data Points:
+${dataEntries || "    - No structured data found"}
+Sources: ${sources || "None"}
+`;
   }).join("\n\n");
 
-  return `You are consolidating data from research tasks.
+  return `You are a Data Analyst consolidating research findings into a master dataset.
 
-**Task Data Points (sample):**
-${allDataPoints}
+====================
+REPORT CONTEXT
+====================
+**Report Title:** "${reportFramework.reportTitle}"
+**Report Objective:** "${reportFramework.reportObjective}"
 
-**Requirements:**
-- **allDataPoints**: Merge all data points from successful tasks
-  * Use consistent naming conventions (camelCase)
-  * When conflicts exist, use format: \`{key}_task1: value1, {key}_task2: value2\`
-  * Example: \`marketSize2024_task1: 384.7, marketSize2024_task2: 390.2\`
-  
-- **keyMetrics**: Highlight 5-15 most important metrics
-  * Market size, growth rates, market shares, etc.
-  * Choose metrics that best answer the research objective
-  
-- **dataSources**: List all unique sources from all tasks`;
+====================
+RAW DATA FROM TASKS
+====================
+${taskDetailsArray || "No successful task data available."}
+
+====================
+CONSOLIDATION INSTRUCTIONS
+====================
+Analyze the raw data above and produce a consolidated JSON object.
+
+1. **allDataPoints** (Comprehensive Record):
+   - Merge ALL data points from the tasks above.
+   - Use camelCase keys (e.g., \`marketSize2024Usd\`).
+   - **Conflict Resolution**: If multiple tasks report the same metric with different values, preserve BOTH by appending the task ID.
+     - Example: \`marketSize_task1: 100, marketSize_task2: 105\`
+   - **Normalization**: Ensure units are clear in the keys (e.g., use \`revenueUsdBillions\` instead of just \`revenue\`).
+
+2. **keyMetrics** (Strategic Selection):
+   - Select the top 5-15 metrics that are MOST critical to the **Report Objective**.
+   - Prioritize data from "High Priority" tasks.
+   - These should be the "headline numbers" for the report.
+
+3. **dataSources** (Deduplication):
+   - Extract all source IDs (e.g., "snippet-1") listed in the "Sources" fields above.
+   - Return a single, deduplicated array of strings.
+   - Filter out "None" or empty strings.`;
 }
 
 /**
