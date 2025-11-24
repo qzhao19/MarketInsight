@@ -9,6 +9,7 @@ import {
   createStructuredContentPrompt,
   createReportMetadataPrompt,
   createExecutiveSummaryPrompt,
+  createSectionTopicsPrompt,
   createSingleSectionPrompt,
   createConsolidatedDataPrompt,
   createConclusionPrompt,
@@ -20,6 +21,7 @@ import {
   StructuredContentSchema,
   ReportMetadataSchema,
   ExecutiveSummaryOnlySchema,
+  SectionTopicsSchema,
   SingleSectionSchema,
   ConsolidatedDataSchema,
   ConclusionSchema,
@@ -42,6 +44,7 @@ import {
   TaskExecutionSchedule,
   SearchResultItem,
   FinalMarketingReport,
+  ReportSection,
 } from "../../types/agent/agent.types"
 
 // Instantiate logger at the top of the file.
@@ -285,7 +288,6 @@ async function executeSearchWithRetry(
       if (attempt > 1) {
         logger.debug(`Retry attempt ${attempt}/${config.maxRetries} for: "${query.substring(0, 60)}..."`);
       }
-
       // Pass the signal to the invoke method
       const rawResult = await serpApi.invoke(query, {
         signal: controller.signal
@@ -302,7 +304,6 @@ async function executeSearchWithRetry(
     } catch (error) {
       // Clear the timer regardless of success or failure.
       clearTimeout(timeoutId);
-
       const isTimeout = (error instanceof Error && error.name === 'AbortError') || controller.signal.aborted;
       const currentError = isTimeout ? new Error("Search timeout") : (error instanceof Error ? error : new Error(String(error)));
       
@@ -499,12 +500,15 @@ async function reportSynthesisNode(
     throw new Error(errorMsg);
   }
   const maxRetries = executionConfig.maxRetries || 3;
+  const successfulResults = Array.from(taskExecutionResults.values()).filter(
+    r => r.status === "success"
+  );
 
   const invokeWithRetry = async<T>(
     schema: any, prompt: string, name: string
   ): Promise<T> => {
     let lastErr: Error | null = null;
-    for (let attempt = 1; attempt < maxRetries; attempt++) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 1) {
           logger.warn(`${name}: retry ${attempt}/${maxRetries}`);
@@ -522,33 +526,86 @@ async function reportSynthesisNode(
 
   try {
     // Generate metadata
-    const metadata = await invokeWithRetry<any>(
+    const metadata = await invokeWithRetry<{ reportTitle: string; reportObjective: string }>(
       ReportMetadataSchema,
       createReportMetadataPrompt(reportFramework, taskExecutionResults, userContext),
       "ReportMetadata"
     );
 
-    // Step 2: Generate executive summary
-    const executiveSummary = await invokeWithRetry<any>(
+    // Generate executive summary
+    const executiveSummary = await invokeWithRetry<FinalMarketingReport["executiveSummary"]>(
       ExecutiveSummaryOnlySchema,
       createExecutiveSummaryPrompt(reportFramework, taskExecutionResults),
       "ExecutiveSummary"
+    );
+
+    // Generate section topics dynamically
+    const sectionTopicsResult = await invokeWithRetry<{
+      topics: Array<{ topicName: string; description: string; relevantTaskIds: string[] }> 
+    }>(
+      SectionTopicsSchema,
+      createSectionTopicsPrompt(reportFramework, taskExecutionResults),
+      "SectionTopics"
+    );
+
+    // Generate sections based on dynamic topics
+    const sections: ReportSection[] = [];
+    for (let i = 0; i < sectionTopicsResult.topics.length; i++) {
+      const topic = sectionTopicsResult.topics[i];
+      const relevantTasks = successfulResults.filter(
+        result => topic.relevantTaskIds.includes(result.taskId)
+      );
+      if (relevantTasks.length === 0) {
+        logger.warn(`No tasks found for topic "${topic.topicName}", skipping...`);
+        continue;
+      }
+
+      const section = await invokeWithRetry<ReportSection>(
+        SingleSectionSchema,
+        createSingleSectionPrompt(
+          metadata.reportTitle, metadata.reportObjective, i, topic.topicName, relevantTasks
+        ),
+        `Section_${i + 1}`
+      );
+      sections.push(section);
+    }
+
+    // Generate consolidated data
+    const consolidatedData = await invokeWithRetry<FinalMarketingReport["consolidatedData"]>(
+      ConsolidatedDataSchema,
+      createConsolidatedDataPrompt(reportFramework, taskExecutionResults),
+      "ConsolidatedData"
+    );
+    
+    // Generate conclusion
+    const conclusion = await invokeWithRetry<FinalMarketingReport["conclusion"]>(
+      ConclusionSchema,
+      createConclusionPrompt(
+        metadata.reportObjective,
+        sections.map(s => ({ sectionTitle: s.sectionTitle, keyFindings: s.keyFindings })),
+        taskExecutionResults
+      ),
+      "Conclusion"
     );
 
     const finalReport: FinalMarketingReport = {
       reportTitle: metadata.reportTitle,
       reportObjective: metadata.reportObjective,
       executiveSummary,
+      sections,
+      consolidatedData,
+      conclusion,
+      totalTasks: taskExecutionResults.size,
+      successfulTasks: successfulResults.length,
     };
 
-    return finalReport;
+    return { finalReport };
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.error(`Report synthesis failed: ${errorMsg}`);
     throw new Error(`Report synthesis failed: ${errorMsg}`);
   }
-
 }
 
 // Build graph
