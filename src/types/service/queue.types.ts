@@ -17,7 +17,6 @@ export interface QueueStats {
   completed: number;
   failed: number;
   delayed: number;
-  paused: number;
 }
 
 /**
@@ -27,7 +26,7 @@ export interface JobStatus {
   id: string;
   state: string;
   progress: number;
-  data: any;
+  data: CampaignJobData;
   returnvalue?: any;
   failedReason?: string;
   attemptsMade: number;
