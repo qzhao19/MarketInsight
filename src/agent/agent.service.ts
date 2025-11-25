@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { MarketingResearchGraph } from "./marketing_report_agent/graph"
+import { MarketingResearchGraph } from "./marketing-report-agent/graph"
 import { AppConfigService } from "../config/config.service";
 import { LLModelService } from "../llm/model.service";
 import { 
