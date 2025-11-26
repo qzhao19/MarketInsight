@@ -33,10 +33,10 @@ export interface SafeUser {
   username: string;
   // Related campaigns optional
   campaigns?: Campaign[];
-  createdAt: Date; // add this field
-  updatedAt: Date; // add this field
+  createdAt: Date;
+  updatedAt: Date;
   deletedAt?: Date | null; // add this optional/nullable field
-  // Note: The password hash should never be included in types used for API responses.
+  // The password hash should never be included in types used for API responses.
 }
 
 // Task entity, corresponding to the table model in the database.
