@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
-import { AppConfigModule } from "../config/config.module";
-import { AppConfigService } from "../config/config.service";
+import { AppConfigModule } from "../../config/config.module";
+import { AppConfigService } from "../../config/config.service";
 import { QueueService } from "./queue.service";
 
 @Module({
