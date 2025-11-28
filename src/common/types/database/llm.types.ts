@@ -1,17 +1,30 @@
-// ==================== LLM Related Types ====================
+import { 
+  TaskExecutionResult, 
+  FinalMarketingReport 
+} from "../agent/agent.types";
 
-// Defines the structure for the input sent to the LLM.
-export interface LLMInput {
-  prompt: string;
-  context?: Record<string, any>;
-  // Parameters for the LLM call, e.g., temperature, max_tokens
-  modelParameters?: Record<string, any>;
-};
+// ==================== Campaign Input/Result Types ====================
 
-// Defines the structure for the result received from the LLM.
-export interface LLMResult {
-  rawOutput: string;
-  processedOutput?: Record<string, any> | string;
-  // metadata from the LLM provider, e.g., token usage, model name
-  metadata?: Record<string, any>;
-};
+/**
+ * Campaign input structure - stored in Campaign.input
+ * Contains the user's prompt and context for Agent execution
+ */
+export interface CampaignInput {
+  userPrompt: string;
+  userContext?: Record<string, any>;
+}
+
+/**
+ * Campaign result - stored in Campaign.result
+ * Directly references FinalMarketingReport from agent.types
+ */
+export type CampaignResult = FinalMarketingReport;
+
+// ==================== Task Result Type ====================
+
+/**
+ * Task result - stored in Task.result
+ * Directly references TaskExecutionResult from agent.types
+ * Note: taskName can be obtained from result.taskName
+ */
+export type TaskResult = TaskExecutionResult;
