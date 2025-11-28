@@ -1,4 +1,4 @@
-import { MarketingTaskMetadata } from "../types/agent/agent.types"
+import { MarketingTaskMetadata } from "../common/types/agent/agent.types"
 
 /**
  * Validate task dependencies
