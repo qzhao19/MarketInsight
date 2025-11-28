@@ -1,5 +1,5 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { TokenPayload } from '../../types/service/user.types';
+import { createParamDecorator, ExecutionContext } from "@nestjs/common";
+import { TokenPayload } from "../../modules/user/types";
 
 /**
  * Custom parameter decorator to extract the current authenticated user from the request
@@ -7,24 +7,24 @@ import { TokenPayload } from '../../types/service/user.types';
  * This decorator works in conjunction with AuthGuard, which validates the JWT token
  * and attaches the decoded token payload to request.user
  * 
- * @returns The current user's token payload (userId, email, username)
+ * @returns The current user"s token payload (userId, email, username)
  * 
  * @example
  * // Usage in a controller
- * @Get('profile')
+ * @Get("profile")
  * @UseGuards(AuthGuard)
  * async getProfile(@CurrentUser() user: TokenPayload) {
  *   console.log(user.userId);    // UUID of the user
- *   console.log(user.email);     // User's email
- *   console.log(user.username);  // User's username
+ *   console.log(user.email);     // User"s email
+ *   console.log(user.username);  // User"s username
  *   return user;
  * }
  * 
  * @example
  * // Extract only specific fields
- * @Get('id')
+ * @Get("id")
  * @UseGuards(AuthGuard)
- * async getUserId(@CurrentUser('userId') userId: string) {
+ * async getUserId(@CurrentUser("userId") userId: string) {
  *   return { userId };
  * }
  */

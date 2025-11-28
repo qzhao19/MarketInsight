@@ -1,5 +1,5 @@
-import { SetMetadata } from '@nestjs/common';
-import { CustomDecorator } from '@nestjs/common';
+import { SetMetadata } from "@nestjs/common";
+import { CustomDecorator } from "@nestjs/common";
 
 export const IS_PUBLIC_KEY = "isPublic";
 
@@ -9,10 +9,10 @@ export const IS_PUBLIC_KEY = "isPublic";
  * 
  * @example
  * ```typescript
- * @Get('public')
+ * @Get("public")
  * @Public()
  * getPublicData() {
- *   return { message: 'This is public' };
+ *   return { message: "This is public" };
  * }
  * ```
  */
