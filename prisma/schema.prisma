@@ -44,9 +44,7 @@ model Task {
     campaign    Campaign    @relation(fields: [campaignId], references: [id])
     status      TaskStatus  @default(PENDING)
     priority    Int         @default(1)
-    input       Json
-    result      Json?
-    error       String?
+    result      Json?       // TaskExecutionResult
     createdAt   DateTime    @default(now())
     updatedAt   DateTime    @updatedAt
 
@@ -62,6 +60,8 @@ model Campaign {
     description String?
     status      CampaignStatus  @default(DRAFT) // e.g., DRAFT, ACTIVE, ARCHIVED
     tasks       Task[]
+    input       Json            // CampaignInput
+    result      Json?           // FinalMarketingReport
     createdAt   DateTime        @default(now())
     updatedAt   DateTime        @updatedAt
     deletedAt   DateTime?
