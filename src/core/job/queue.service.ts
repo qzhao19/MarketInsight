@@ -1,12 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue, Job, JobsOptions } from "bullmq";
-import { AppConfigService } from "../config/config.service";
+import { AppConfigService } from "../../config/config.service";
 import { 
   CampaignJobData, 
   QueueStats, 
   JobStatus 
-} from "../types/service/queue.types"
+} from "../../common/types/job/queue.types"
 
 @Injectable()
 export class QueueService {
