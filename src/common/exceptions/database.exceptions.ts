@@ -1,4 +1,4 @@
-import { CampaignStatus } from "../../types/database/entities.types";
+import { CampaignStatus } from "../types/database/entity.types";
 
 // Custom exceptions
 export class UserNotFoundException extends Error {
