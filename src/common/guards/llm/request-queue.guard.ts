@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { RequestQueueConfig } from "../../../types/llm/client.types"
+import { RequestQueueConfig } from "../../types/llm/client.types"
 
 interface QueueItem<T> {
   func: () => Promise<T>;
