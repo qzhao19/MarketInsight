@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { RetryConfig } from "../../../types/llm/client.types"
+import { RetryConfig } from "../../types/llm/client.types"
 
 // Helper function for sleeping
 const sleep = (ms: number) => 
