@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnApplicationShutdown } from "@nestjs/common";
-import { CircuitBreakerConfig } from "../../../types/llm/client.types"
+import { CircuitBreakerConfig } from "../../types/llm/client.types"
 import { toOpossumOptions } from "../../../utils/llm.utils"
 import CircuitBreaker from "opossum";
 
