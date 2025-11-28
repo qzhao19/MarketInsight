@@ -1,4 +1,4 @@
-import { LLMInput, LLMResult } from "./llm.types"
+import { CampaignInput, CampaignResult, TaskResult } from "./llm.types"
 
 // ==================== Enums ====================
 
@@ -46,9 +46,7 @@ export interface Task {
   campaign?: Campaign; // Add the related campaign object, make it optional
   status: TaskStatus;
   priority: number;
-  input: LLMInput;
-  result: LLMResult | null;
-  error: string | null; // error message if the task fails.
+  result: TaskResult | null;  // TaskExecutionResult
   createdAt: Date;
   updatedAt: Date;
 };
@@ -62,6 +60,8 @@ export interface Campaign {
   description: string | null;
   status: CampaignStatus;
   tasks?: Task[]; // Add the related tasks array, make it optional
+  input: CampaignInput;
+  result: CampaignResult | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null; 
