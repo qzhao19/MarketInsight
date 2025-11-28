@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { RateLimiterConfig } from "../../../types/llm/client.types"
+import { RateLimiterConfig } from "../../types/llm/client.types"
 
 // A type for items in our internal queue
 type WaitingResolver = {
