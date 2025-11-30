@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import { TokenPayload } from "../../modules/user/types";
+import { TokenPayload } from "../../modules/user/types/user.service-types";
 
 /**
  * Custom parameter decorator to extract the current authenticated user from the request
