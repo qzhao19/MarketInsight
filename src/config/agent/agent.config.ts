@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { TaskExecutionConfig } from '../../types/agent/agent.types';
+import { Injectable } from "@nestjs/common";
+import { TaskExecutionConfig } from "../../common/types/agent/agent.types";
 
 @Injectable()
 export class AgentConfigService {
