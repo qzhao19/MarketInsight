@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule as NestConfigModule } from "@nestjs/config";
 import { AppConfigService } from "./config.service";
-import { AgentConfigService } from './agent/agent.config';
+import { AgentConfigService } from "./agent/agent.config";
 import { ClientConfigService } from "./llm/client.config";
 import { ModelConfigService } from "./llm/model.config";
 import * as path from "path";
