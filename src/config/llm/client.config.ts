@@ -5,7 +5,7 @@ import {
   RateLimiterConfig,
   RequestQueueConfig,
   RetryConfig,
-} from "../../types/llm/client.types";
+} from "../../common/types/llm/client.types";
 
 /**
  * Client configuration service
