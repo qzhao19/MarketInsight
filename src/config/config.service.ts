@@ -87,7 +87,7 @@ export class AppConfigService {
   getNumber(key: string, defaultValue: number): number {
     const value = this.nestConfigService.get<string>(key);
     
-    if (value === undefined || value === null || value === '') {
+    if (value === undefined || value === null || value === "") {
       this.logger.debug(`Using default value for ${key}: ${defaultValue}`);
       return defaultValue;
     }
@@ -390,9 +390,9 @@ export class AppConfigService {
   /**
    * Get queue job retry backoff type
    */
-  get queueJobRetryBackoffType(): 'fixed' | 'exponential' {
+  get queueJobRetryBackoffType(): "fixed" | "exponential" {
     const type = this.getString("QUEUE_JOB_RETRY_BACKOFF_TYPE", "exponential");
-    return type as 'fixed' | 'exponential';
+    return type as "fixed" | "exponential";
   }
 
   /**
