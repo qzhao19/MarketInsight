@@ -599,7 +599,7 @@ async function reportSynthesisNode(
       successfulTasks: successfulResults.length,
     };
 
-    return { finalReport };
+    return { finalReport, taskExecutionResults };
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
