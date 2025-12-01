@@ -153,8 +153,15 @@ export interface FinalMarketingReport {
  */
 export interface AgentInvokeOptions {
   userContext?: Record<string, any>;
-    
   modelConfig?: LLModelConfig;
-
   taskExecutionConfig?: TaskExecutionConfig;
+}
+
+/**
+ * Result returned by the Agent Service
+ * Contains both the final report and the individual task execution results
+ */
+export interface AgentRunResult {
+  finalReport: FinalMarketingReport;
+  taskExecutionResults: TaskExecutionResult[];
 }
