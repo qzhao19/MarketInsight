@@ -5,8 +5,9 @@ import { AppConfigService } from "../../config/config.service";
 import { LLModelService } from "../../core/llm/model.service";
 import { 
   AgentInvokeOptions, 
-  FinalMarketingReport,
-  TaskExecutionConfig
+  TaskExecutionConfig,
+  TaskExecutionResult,
+  AgentRunResult,
 } from "../../common/types/agent/agent.types";
 
 @Injectable()
@@ -58,7 +59,7 @@ export class AgentService implements OnModuleInit {
   public async invoke(
     userInput: string, 
     agentInvokeOptions: AgentInvokeOptions,
-  ): Promise<FinalMarketingReport> {
+  ): Promise<AgentRunResult> {
 
     this.logger.log(`Starting marketing research...`);
 
@@ -99,8 +100,15 @@ export class AgentService implements OnModuleInit {
         throw new Error("Workflow completed but no final report was generated");
       }
 
-      return result.finalReport;
+      // Extract task execution results from the state (Map -> Array)
+      const taskExecutionResults: TaskExecutionResult[] = result.taskExecutionResults 
+        ? Array.from(result.taskExecutionResults.values()) 
+        : [];
 
+      return {
+        finalReport: result.finalReport,
+        taskExecutionResults
+      };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Marketing research workflow failed: ${errorMsg}`);
