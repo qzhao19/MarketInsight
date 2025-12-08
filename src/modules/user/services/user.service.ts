@@ -14,7 +14,7 @@ import {
   UserAlreadyExistsException,
 } from "../../../common/exceptions/database.exceptions";
 import { SafeUser } from "../../../common/types/database/entity.types";
-import { TokenPayload, RefreshTokenPayload } from "../types/user.service-types"
+import { TokenPayload, RefreshTokenPayload } from "../types/user.types"
 import {
   ListUsersRequestDto,
   LoginRequestDto,
