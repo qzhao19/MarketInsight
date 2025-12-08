@@ -20,7 +20,7 @@ import {
   ListCampaignsOptions,
   ListTasksOptions,
   AggregateCampaignResultData,
-} from "../../../src/modules/campaign/types/campaign.repo-types";
+} from "../../../src/modules/campaign/types/campaign.types";
 import { CampaignInput, CampaignResult, TaskResult } from "../../../src/common/types/database/llm.types";
 
 // ==================== Mock Data ====================
