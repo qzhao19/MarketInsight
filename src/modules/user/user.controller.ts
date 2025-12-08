@@ -25,7 +25,7 @@ import {
 import { AuthGuard } from "../../common/guards/api/auth.guard";
 import { Public } from "../../common/decorators/auth.decorator";
 import { CurrentUser } from "../../common/decorators/user.decorator";
-import { TokenPayload } from "./types/user.service-types"
+import { TokenPayload } from "./types/user.types"
 
 /**
  * User controller - handles HTTP requests for user-related operations
