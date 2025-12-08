@@ -2,7 +2,7 @@ import { User as PrismaUser } from "@prisma/client";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../core/database/prisma.service";
 import { UserAlreadyExistsException, UserNotFoundException } from "../../../common/exceptions/database.exceptions";
-import { CreateUserData, UpdateUserData, ListUsersOptions, PaginatedUsersResponse } from "../types/user.repo-types";
+import { CreateUserData, UpdateUserData, ListUsersOptions, PaginatedUsersResponse } from "../types/user.types";
 import { SafeUser } from "../../../common/types/database/entity.types";
 import { UserMapper } from "../domains/user.mapper";
 
