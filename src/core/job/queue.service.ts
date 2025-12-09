@@ -20,6 +20,8 @@ export class QueueService {
     private readonly configService: AppConfigService,
   ) {
     this.logger.log("QueueService initialized");
+    this.defaultPriority = Number(this.configService.queueDefaultPriority) || 5;
+    this.maxPriority = Number(this.configService.queueMaxPriority) || 10;
   }
 
   private normalizePriority(priority?: number): number {
