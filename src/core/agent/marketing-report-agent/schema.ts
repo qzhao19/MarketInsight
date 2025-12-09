@@ -77,7 +77,7 @@ const TimeFrameSchema = z.object({
 export const TaskPlanSchema = z.object({
   researchGoal: z.string()
     .min(10, "Research goal must be at least 10 characters")
-    .max(1000, "Research goal cannot exceed 1000 characters")
+    .max(5000, "Research goal cannot exceed 5000 characters")
     .trim()
     .describe("Clear and specific research objective for this task"),
   
@@ -149,6 +149,14 @@ export const OptimizedQueriesSchema = z.object({
 .strict()
 .describe("Batch query optimization output");
 
+export const SearchQueryResponseSchema = z.object({
+  synthesizedAnswer: z.string()
+    .min(50, "Answer must be at least 50 characters")
+    .max(5000, "Answer cannot exceed 5000 characters")
+    .describe("Synthesized answer based on LLM knowledge (50-5000 words)"),
+})
+.strict()
+.describe("LLM fallback response when SerpAPI is unavailable");
 
 /**
  * Schema for structured content output (simplified, direct generation)
@@ -156,7 +164,7 @@ export const OptimizedQueriesSchema = z.object({
 export const StructuredContentSchema = z.object({
   summary: z.string()
     .min(100, "Summary must be at least 100 characters")
-    .max(2000, "Summary cannot exceed 2000 characters")
+    .max(5000, "Summary cannot exceed 5000 characters")
     .describe("Comprehensive narrative summary of research findings"),
   
   keyFindings: z.array(z.string())
@@ -180,12 +188,12 @@ export const StructuredContentSchema = z.object({
 export const ReportMetadataSchema = z.object({
   reportTitle: z.string()
     .min(5, "Report title must be at least 5 characters")
-    .max(150, "Report title cannot exceed 150 characters")
+    .max(1500, "Report title cannot exceed 1500 characters")
     .describe("Report title (5-150 characters)"),
 
   reportObjective: z.string()
     .min(20, "Report objective must be at least 20 characters")
-    .max(500, "Report objective cannot exceed 500 characters")
+    .max(5000, "Report objective cannot exceed 5000 characters")
     .describe("Report objective (20-500 characters)"),
 })
 .strict()
@@ -197,13 +205,13 @@ export const ReportMetadataSchema = z.object({
 export const ExecutiveSummaryOnlySchema = z.object({
   overview: z.string()
     .min(200, "Overview must be at least 200 characters")
-    .max(2000, "Overview cannot exceed 2000 characters")
+    .max(2500, "Overview cannot exceed 2000 characters")
     .describe("Executive overview (200-2500 characters)"),
 
   keyHighlights: z.array(
     z.string()
       .min(20, "Each highlight must be at least 20 characters")
-      .max(200, "Each highlight cannot exceed 200 characters")
+      .max(2000, "Each highlight cannot exceed 2000 characters")
     )
     .min(2, "Must have at least 2 key highlights")
     .max(5, "Cannot have more than 5 key highlights")
@@ -212,11 +220,11 @@ export const ExecutiveSummaryOnlySchema = z.object({
   criticalInsights: z.array(
     z.string()
       .min(20, "Each insight must be at least 20 characters")
-      .max(250, "Each insight cannot exceed 250 characters") 
+      .max(500, "Each insight cannot exceed 500 characters") 
   )
     .min(2, "Must have at least 2 critical insights")
     .max(5, "Cannot have more than 5 critical insights")
-    .describe("Critical insights (2-5 items, each 20-250 chars)"),
+    .describe("Critical insights (2-5 items, each 20-500 chars)"),
   
   recommendations: z.array(
     z.string()
@@ -236,9 +244,9 @@ export const ExecutiveSummaryOnlySchema = z.object({
 export const SectionTopicsSchema = z.object({
   topics: z.array(
     z.object({
-      topicName: z.string().min(5).max(100)
+      topicName: z.string().min(5).max(1000)
         .describe("The name of the topic, must be concise and meaningful"),
-      description: z.string().min(20).max(300)
+      description: z.string().min(20).max(3000)
         .describe("A brief explanation of what this topic covers"),
       relevantTaskIds: z.array(z.string()).min(1).max(10)
         .describe("List of task IDs that are related to this topic"),
@@ -255,15 +263,15 @@ export const SectionTopicsSchema = z.object({
 export const SingleSectionSchema = z.object({
   sectionTitle: z.string()
     .min(3, "Section title must be at least 3 characters")
-    .max(100, "Section title cannot exceed 100 characters")
+    .max(1000, "Section title cannot exceed 100 characters")
     .describe("Section title (3-100 characters)"),
   
   content: z.string()
     .min(100, "Section content must be at least 100 characters")
-    .max(3000, "Section content cannot exceed 3000 characters")
-    .describe("Main content (100-3000 characters, focus on concise narrative)"),
+    .max(5000, "Section content cannot exceed 5000 characters")
+    .describe("Main content (100-5000 characters, focus on concise narrative)"),
   
-  keyFindings: z.array(z.string().max(300, "Each finding cannot exceed 300 characters"))
+  keyFindings: z.array(z.string().max(3000, "Each finding cannot exceed 3000 characters"))
     .min(1, "Must have at least 1 key finding")
     .max(5, "Cannot have more than 8 key findings")
     .describe("Key findings (1-8 items, each max 300 chars)"),
@@ -301,30 +309,30 @@ export const ConsolidatedDataSchema = z.object({
 export const ConclusionSchema = z.object({
   summary: z.string()
     .min(100, "Summary must be at least 100 characters")
-    .max(1500, "Summary cannot exceed 1500 characters")
-    .describe("Conclusion summary (100-1500 characters)"),
+    .max(5000, "Summary cannot exceed 5000 characters")
+    .describe("Conclusion summary (100-5000 characters)"),
 
   strategicRecommendations: z.array(
     z.string()
       .min(20, "Each recommendation must be at least 20 characters")
-      .max(250, "Each recommendation cannot exceed 250 characters") 
+      .max(5000, "Each recommendation cannot exceed 5000 characters") 
   )
     .min(2, "Must have at least 2 strategic recommendations")
     .max(5, "Cannot have more than 5 strategic recommendations")
-    .describe("Strategic recommendations (2-5 items, each 20-250 chars)"),
+    .describe("Strategic recommendations (2-5 items, each 20-1000 chars)"),
 
   futureOutlook: z.string()
     .min(50, "Future outlook must be at least 50 characters")
-    .max(1000, "Future outlook cannot exceed 1000 characters")
-    .describe("Future outlook (50-1000 characters)"),
+    .max(5000, "Future outlook cannot exceed 5000 characters")
+    .describe("Future outlook (50-5000 characters)"),
 
   limitations: z.array(
     z.string()
       .min(10, "Each limitation must be at least 10 characters")
-      .max(200, "Each limitation cannot exceed 200 characters")
+      .max(5000, "Each limitation cannot exceed 5000 characters")
   )
     .max(5, "Cannot have more than 5 limitations")
-    .describe("Limitations (0-5 items, each 10-200 chars)"),
+    .describe("Limitations (0-5 items, each 10-2000 chars)"),
 })
 .strict()
 .describe("Conclusion with strict length limits");
