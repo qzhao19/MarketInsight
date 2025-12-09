@@ -416,5 +416,22 @@ export class AppConfigService {
     return this.getNumber("QUEUE_KEEP_FAILED_JOBS", 500);
   }
 
+  /**
+   * Get default job priority for campaign queue
+   * Lower number = higher priority (BullMQ convention)
+   * Default: 5 (middle priority)
+   */
+  get queueDefaultPriority(): number {
+    return this.getNumber("QUEUE_DEFAULT_PRIORITY", 5);
+  }
+
+  /**
+   * Get maximum job priority value
+   * BullMQ supports 1-unlimited, but we cap it for fairness
+   * Default: 10 (higher numbers = lower priority)
+   */
+  get queueMaxPriority(): number {
+    return this.getNumber("QUEUE_MAX_PRIORITY", 10);
+  }
 
 }
