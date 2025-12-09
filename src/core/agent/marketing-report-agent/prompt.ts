@@ -508,6 +508,34 @@ Output ONLY a valid JSON array with this exact structure:
 - Preserve the order of original queries`;
 }
 
+export function createSearchQueryResponsePrompt(query: string): string {
+  return `You are a marketing research assistant. The search API quota is exhausted.
+Based on your training knowledge, provide a concise, factual answer to this query.
+
+**Guidelines:**
+1. Acknowledge this is synthesized from training data, not live web search
+2. Provide accurate information based on your knowledge cutoff
+3. Include relevant facts, statistics, or trends if known
+4. Be specific and concise (50-400 words)
+5. If uncertain about specific recent data, state assumptions clearly
+
+**Character Budget Management:**
+- Aim for 200-350 characters to be safe
+- Skip long explanations
+- Use compact phrasing (e.g., "2020-2024 CAGR: 18%" vs "The compound annual growth rate from 2020 to 2024 was 18%")
+
+**Research Query:**
+${query}
+
+**Instructions:**
+Return a structured JSON object with a single field "synthesizedAnswer" containing your response.
+
+Example:
+{
+  "synthesizedAnswer": "Based on industry trends up to 2023, electric vehicle battery energy density has improved from approximately 250 Wh/kg in 2020 to around 280-300 Wh/kg by 2024, representing roughly 4-5% annual improvement. Cost reductions have been more dramatic, with battery pack costs declining from ~$140/kWh in 2020 to an estimated $100-110/kWh by 2024, driven by economies of scale and improved manufacturing. Note: These are estimates based on pre-2024 trends; actual 2024 figures may vary."
+}`;
+}
+
 /**
  * Generate structured content from searched results
  */
@@ -882,7 +910,6 @@ Analyze ALL the research tasks above and organize them into a logical report str
    - Indicate what insights readers should expect
    - Connect to the overall report objective`;
 }
-
 
 /**
  * Generate a single section
