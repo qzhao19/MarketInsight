@@ -6,6 +6,7 @@ import {
   createReportPlanningPrompt, 
   createTaskPlanPrompt,
   createQueryOptimizationPrompt,
+  createSearchQueryResponsePrompt,
   createStructuredContentPrompt,
   createReportMetadataPrompt,
   createExecutiveSummaryPrompt,
@@ -18,6 +19,7 @@ import {
   ReportFrameworkSchema, 
   TaskPlanSchema, 
   OptimizedQueriesSchema,
+  SearchQueryResponseSchema,
   StructuredContentSchema,
   ReportMetadataSchema,
   ExecutiveSummaryOnlySchema,
@@ -25,7 +27,6 @@ import {
   SingleSectionSchema,
   ConsolidatedDataSchema,
   ConclusionSchema,
-
 } from "./schema";
 import { 
   validateTaskDependencies, 
@@ -76,7 +77,7 @@ async function reportPlanningNode(
     }
 
     logger.log(
-      `  Report Framework Generated:\n` +
+      `Report Framework Generated:\n` +
       `  - Title: ${rawReportFramework.reportTitle}\n` +
       `  - Objective: ${rawReportFramework.reportObjective.substring(0, 100)}...\n` +
       `  - Total Tasks: ${rawReportFramework.tasks.length}`
@@ -90,7 +91,7 @@ async function reportPlanningNode(
       throw new Error(errorMsg);
     }
 
-    logger.debug(`Task dependencies validated successfully`);
+    logger.log(`Task dependencies validated successfully`);
 
     // Add taskId to each task
     const taskWithIdList: MarketingTaskMetadata[] = rawReportFramework.tasks.map(
@@ -144,8 +145,8 @@ async function generateSingleTaskPlan(
     ...taskPlanOutput,
   };
 
-  logger.debug(
-    `    Plan generated:\n` +
+  logger.log(
+    `Plan generated:\n` +
     `    - Research Goal: ${completeTaskPlan.researchGoal.substring(0, 80)}...\n` +
     `    - Search Directions: ${completeTaskPlan.searchDirections.length}\n` +
     `    - Search Queries: ${completeTaskPlan.searchQueries.length}\n` +
@@ -213,11 +214,11 @@ async function taskSchedulingNode(
 
   try {
     // Perform topological sort
-    logger.debug(`Performing topological sort...`);
+    logger.log(`Performing topological sort...`);
     const sortedTaskIds = topologicalSort(tasks);
 
     // Group tasks into execution batches
-    logger.debug(`Grouping tasks into execution batches...`);
+    logger.log(`Grouping tasks into execution batches...`);
     const batchGroups = groupIntoBatches(tasks, sortedTaskIds);
 
     // Sort tasks within each batch by priority
@@ -253,7 +254,7 @@ async function taskSchedulingNode(
       totalBatches: executionBatches.length,
     };
     
-    logger.log(`\nExecution Schedule Created:`);
+    logger.log(`Execution Schedule Created:`);
     executionBatches.forEach((batch, index) => {
       logger.log(
         `\n  Batch ${index + 1}/${executionBatches.length}:\n` +
@@ -273,27 +274,34 @@ async function taskSchedulingNode(
 async function executeSearchWithRetry(
   query: string,
   serpApi: SerpAPI,
+  model: any,
   config: TaskExecutionConfig
 ): Promise<SearchResultItem[]> {
 
-  let errorMsg: Error | null = null;
+  let lastError: Error | null = null;
+  let serpApiExhausted = false;
+  const isSerpApiQuotaExhausted = (msg: string) => {
+    const m = msg.toLowerCase();
+    return (
+      m.includes("run out of searches") ||
+      m.includes("quota") ||
+      m.includes("limit exceeded") ||
+      m.includes("account has run out")
+    );
+  };
+
   for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
     // create AbortController
     const controller = new AbortController();
-
     // Set a timeout timer; if the timeout occurs, trigger an abort.
     const timeoutId = setTimeout(() => { controller.abort() }, config.searchTimeout);
 
     try {
       if (attempt > 1) {
-        logger.debug(`Retry attempt ${attempt}/${config.maxRetries} for: "${query.substring(0, 60)}..."`);
+        logger.log(`Retry attempt ${attempt}/${config.maxRetries} for: "${query.substring(0, 60)}..."`);
       }
-      // Pass the signal to the invoke method
-      const rawResult = await serpApi.invoke(query, {
-        signal: controller.signal
-      });
-
-      // Clear the timer immediately upon success.
+      // Pass the signal to the invoke method and clear the timer immediately upon success.
+      const rawResult = await serpApi.invoke(query, { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (rawResult && typeof rawResult === "string") {
@@ -304,10 +312,22 @@ async function executeSearchWithRetry(
     } catch (error) {
       // Clear the timer regardless of success or failure.
       clearTimeout(timeoutId);
+
+      // Check if SerpAPI quota is exhausted
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorString = errorMsg.toLowerCase();
+      if (isSerpApiQuotaExhausted(errorString)) {
+        logger.warn(`SerpAPI quota exhausted: ${errorMsg}`);
+        serpApiExhausted = true;
+        break; 
+      }
+
+      // Handle timeout
       const isTimeout = (error instanceof Error && error.name === 'AbortError') || controller.signal.aborted;
-      const currentError = isTimeout ? new Error("Search timeout") : (error instanceof Error ? error : new Error(String(error)));
-      
-      errorMsg = currentError;
+      const currentError = isTimeout 
+        ? new Error("Search timeout") 
+        : (error instanceof Error ? error : new Error(String(error)));
+      lastError = currentError;
       logger.warn(`Attempt ${attempt} failed: ${currentError.message}`);
 
       if (attempt < config.maxRetries) {
@@ -316,7 +336,28 @@ async function executeSearchWithRetry(
       }
     }
   }
-  throw errorMsg || new Error("Search failed after all retries");
+
+  if (serpApiExhausted) {
+    logger.log(`Falling back to LLM synthesis for query: "${query.substring(0, 60)}..."`);
+    try {
+      const prompt = createSearchQueryResponsePrompt(query);
+      const structuredModel = model.withStructuredOutput(SearchQueryResponseSchema, {
+        name: `LLMFallback_${Date.now()}`,
+      });      
+      const response = await structuredModel.invoke(prompt);
+      const synthesizedText = response?.synthesizedAnswer || String(response);
+      
+      return [{ query, result: synthesizedText }];
+    } catch (error) {
+      const llmErrorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`LLM fallback also failed: ${llmErrorMsg}`);
+      throw new Error(
+        `Both SerpAPI and LLM fallback failed. SerpAPI: ${lastError?.message || 'quota exhausted'}, LLM: ${llmErrorMsg}`
+      );
+    }
+  }
+
+  throw lastError || new Error("Search failed after all retries");
 }
 
 async function executeSingleTask(
@@ -350,9 +391,9 @@ async function executeSingleTask(
 
     // Limit queries and execute searches: parallel or sequential
     const queriesToExecute = optimizedQueries.slice(0, config.maxQueriesPerTask);
-    logger.debug(`Executing ${queriesToExecute.length} searches (${config.parallelSearches ? 'parallel' : 'sequential'})...`);
+    logger.log(`Executing ${queriesToExecute.length} searches (${config.parallelSearches ? 'parallel' : 'sequential'})...`);
     const searchPromises = queriesToExecute.map((oq: OptimizedQuery) =>
-      executeSearchWithRetry(oq.optimizedQuery, serpApi, config).catch((error) => {
+      executeSearchWithRetry(oq.optimizedQuery, serpApi, model, config).catch((error) => {
         logger.error(`Search failed for "${oq.optimizedQuery}": ${error}`);
         return [] as SearchResultItem[];
       })
@@ -470,7 +511,7 @@ async function taskExecutionNode(
   }
 
   logger.log(`Task execution completed successfully`);
-  logger.debug(
+  logger.log(
     `Execution results summary:\n` +
     `  - Total tasks: ${taskExecutionResults.size}\n` +
     `  - Success: ${Array.from(taskExecutionResults.values()).filter(r => r.status === "success").length}\n` +
@@ -599,7 +640,7 @@ async function reportSynthesisNode(
       successfulTasks: successfulResults.length,
     };
 
-    return { finalReport, taskExecutionResults };
+    return { reportFramework, finalReport, taskExecutionResults };
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
