@@ -13,7 +13,6 @@ import {
   InvalidStatusTransitionException,
   UserNotFoundException 
 } from "../../../common/exceptions/database.exceptions";
-
 import {
   CreateCampaignData,
   UpdateCampaignData,
@@ -23,7 +22,7 @@ import {
   PaginatedCampaignsResponse,
   PaginatedTasksResponse,
   AggregateCampaignResultData,
-} from "../types/campaign.repo-types";
+} from "../types/campaign.types";
 import { CampaignMapper } from "../domains/campaign.mapper";
 
 
@@ -265,10 +264,8 @@ export class CampaignRepository {
       return CampaignMapper.mapPrismaTaskToDomainTask(updatedTask as any) as Task;
 
     } catch (error) {
-      throw this.prisma.handlePrismaError(error, "Failed to list campaigns with options");
-    }
+      throw this.prisma.handlePrismaError(error, `Failed to update task: ${taskId}`);    }
   }
-
 
   /**
    * Gets tasks for a campaign
