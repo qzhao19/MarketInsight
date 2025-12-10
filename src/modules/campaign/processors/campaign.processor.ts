@@ -4,13 +4,15 @@ import { Job } from "bullmq";
 import { CampaignRepository } from "../repositories/campaign.repository";
 import { AgentService } from "../../../core/agent/agent.service";
 import { CampaignJobData } from "../../../common/types/job/queue.types";
-import { AggregateCampaignResultData } from "../types/campaign.repo-types";
+import { 
+  CampaignStatus,
+  AggregateCampaignResultData,
+} from "../types/campaign.types";
 import { 
   AgentInvokeOptions,
   AgentRunResult,
   TaskExecutionResult,
 } from "../../../common/types/agent/agent.types";
-import { CampaignStatus } from "../../../common/types/database/entity.types";
 
 @Processor("campaign-processing")
 export class CampaignProcessor extends WorkerHost {
@@ -24,14 +26,14 @@ export class CampaignProcessor extends WorkerHost {
   }
 
   /**
-   * Transform Agent's TaskExecutionResult[] to repository format
+   * Transform Agent"s TaskExecutionResult[] to repository format
    */
   private transformTaskResults(
     taskExecutionResults: TaskExecutionResult[]
-  ): AggregateCampaignResultData['tasks'] {
+  ): AggregateCampaignResultData["tasks"] {
     return taskExecutionResults.map((result, index) => ({
       priority: index + 1,
-      result: result, // TaskExecutionResult is compatible with TaskResult
+      result: result,
     }));
   }
 
@@ -40,7 +42,6 @@ export class CampaignProcessor extends WorkerHost {
    */
   private async handleCampaignFailure(
     campaignId: string,
-    error: string
   ): Promise<void> {
     try {
       await this.campaignRepository.updateCampaign(campaignId, {
@@ -57,7 +58,6 @@ export class CampaignProcessor extends WorkerHost {
     }
   }
 
-
   public async process(job: Job<CampaignJobData>): Promise<any> {
     const { campaignId, userId, metadata } = job.data;
 
@@ -66,8 +66,17 @@ export class CampaignProcessor extends WorkerHost {
     try {
       // Get Campaign data from database 
       await job.updateProgress(5);
-
       const campaign = await this.campaignRepository.findCampaignById(campaignId);
+
+      // Skip if not ACTIVE (avoid duplicate processing)
+      if (campaign.status !== CampaignStatus.ACTIVE) {
+        this.logger.warn(`Campaign ${campaignId} status=${campaign.status}, skip processing`);
+        return { finalReport: null as any, taskExecutionResults: [] };
+      }
+
+      if (!campaign.input?.userPrompt) {
+        throw new Error(`Campaign ${campaignId} missing userPrompt in input`);
+      }
 
       // Extract user input from Campaign.input (stored in DB)
       const userPrompt = campaign.input.userPrompt;
@@ -78,7 +87,6 @@ export class CampaignProcessor extends WorkerHost {
         userContext,
         ...(metadata?.agentInvokeOptions || {}),
       };
-      
       await job.updateProgress(10);
 
       // Agent will generate automatically multiply Tasks and excute
@@ -90,7 +98,6 @@ export class CampaignProcessor extends WorkerHost {
       );
 
       await job.updateProgress(80);
-
       this.logger.log(`Saving results for campaign: ${campaignId}`);
       
       // Transform TaskExecutionResult[] to the format expected by repository
@@ -105,7 +112,6 @@ export class CampaignProcessor extends WorkerHost {
 
       // Atomic save: Update Campaign.result + Batch create Tasks
       await this.campaignRepository.aggregateCampaignResult(aggregateData);
-
       await job.updateProgress(100);
 
       this.logger.log(
@@ -113,46 +119,41 @@ export class CampaignProcessor extends WorkerHost {
       );
 
       return agentResult;
-
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Campaign ${campaignId} failed: ${errorMsg}`);
 
       // Mark Campaign as failed (ARCHIVED without result)
-      await this.handleCampaignFailure(campaignId, errorMsg);
-
-      // Re-throw to let BullMQ record the failure
+      await this.handleCampaignFailure(campaignId);
       throw error;
     } 
   }
 
   // ==================== Worker Lifecycle Events ====================
 
-  @OnWorkerEvent('completed')
+  @OnWorkerEvent("completed")
   onCompleted(job: Job<CampaignJobData>) {
     this.logger.log(
       `Job ${job.id} completed for campaign: ${job.data.campaignId}`
     );
   }
 
-  @OnWorkerEvent('failed')
+  @OnWorkerEvent("failed")
   onFailed(job: Job<CampaignJobData>, error: Error) {
     this.logger.error(
       `Job ${job.id} failed for campaign: ${job.data.campaignId}: ${error.message}`
     );
   }
 
-  @OnWorkerEvent('progress')
+  @OnWorkerEvent("progress")
   onProgress(job: Job<CampaignJobData>, progress: number | object) {
-    const progressValue = typeof progress === 'number' ? progress : 0;
+    const progressValue = typeof progress === "number" ? progress : 0;
     this.logger.debug(`Job ${job.id} progress: ${progressValue}%`);
   }
 
-  @OnWorkerEvent('active')
+  @OnWorkerEvent("active")
   onActive(job: Job<CampaignJobData>) {
     this.logger.log(`Job ${job.id} started for campaign: ${job.data.campaignId}`);
   }
 
 }
-
-
