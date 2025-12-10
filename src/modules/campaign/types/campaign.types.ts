@@ -24,8 +24,6 @@ export interface CreateCampaignInput {
   name: string;
   userPrompt: string;
   description?: string;
-  priority?: number;
-  delay?: number;
   agentInvokeOptions?: AgentInvokeOptions;
 }
 
