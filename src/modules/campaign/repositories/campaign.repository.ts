@@ -19,6 +19,7 @@ import {
   UpdateTaskData,
   ListCampaignsOptions,
   ListTasksOptions,
+  ListTasksByCampaignWithOptions,
   PaginatedCampaignsResponse,
   PaginatedTasksResponse,
   AggregateCampaignResultData,
@@ -75,37 +76,6 @@ export class CampaignRepository {
       throw this.prisma.handlePrismaError(
         error,
         `Failed to create campaign for user ${data.userId}`
-      );
-    }
-  }
-
-  /**
-   * Retrieves a single campaign's basic information by its ID.
-   */
-  public async findCampaignById(
-    campaignId: string,
-    includeTasks: boolean = false,
-    includeUser: boolean = false
-  ): Promise<Campaign> {
-    try {
-      const campaign = await this.prisma.campaign.findUnique({
-        where: { id: campaignId },
-        include: {
-          tasks: includeTasks, 
-          user: includeUser
-        }
-      });
-
-      if (!campaign) {
-        throw new CampaignNotFoundException(campaignId);
-      }
-
-      // call the mapping function directly without any type casting
-      return CampaignMapper.mapPrismaCampaignToDomainCampaign(campaign) as Campaign;
-    } catch (error) {
-      throw this.prisma.handlePrismaError(
-        error, 
-        `Failed to get campaign with ID: ${campaignId}`
       );
     }
   }
@@ -229,50 +199,43 @@ export class CampaignRepository {
     });
   }
 
-  // ==================== Task Operations (Internal) ====================
-  
   /**
-   * Updates a task
+   * Retrieves a single campaign's basic information by its ID.
    */
-  public async updateTask(taskId: string, data: UpdateTaskData): Promise<Task> {
+  public async findCampaignById(
+    campaignId: string,
+    includeTasks: boolean = false,
+    includeUser: boolean = false
+  ): Promise<Campaign> {
     try {
-      const updateData: Prisma.TaskUpdateInput = {};
-
-      if (data.status !== undefined) updateData.status = data.status;
-      if (data.priority !== undefined) updateData.priority = data.priority;
-      if (data.result !== undefined) {
-        updateData.result = data.result === null
-          ? Prisma.JsonNull
-          : data.result as unknown as Prisma.JsonObject;
-      }
-
-      if (Object.keys(updateData).length === 0) {
-        this.logger.warn(`Attempted to update task ${taskId} with empty data. No action taken.`)
-        const task = await this.prisma.task.findUnique({ 
-          where: { id: taskId },
-        });
-        if (!task) {
-          throw new Error(`Task with ID ${taskId} not found`);
+      const campaign = await this.prisma.campaign.findUnique({
+        where: { id: campaignId },
+        include: {
+          tasks: includeTasks, 
+          user: includeUser
         }
-        return CampaignMapper.mapPrismaTaskToDomainTask(task as any) as Task;
+      });
+
+      if (!campaign) {
+        throw new CampaignNotFoundException(campaignId);
       }
 
-      const updatedTask = await this.prisma.task.update({
-        where: { id: taskId },
-        data: updateData,
-      });
-      return CampaignMapper.mapPrismaTaskToDomainTask(updatedTask as any) as Task;
-
+      // call the mapping function directly without any type casting
+      return CampaignMapper.mapPrismaCampaignToDomainCampaign(campaign) as Campaign;
     } catch (error) {
-      throw this.prisma.handlePrismaError(error, `Failed to update task: ${taskId}`);    }
+      throw this.prisma.handlePrismaError(
+        error, 
+        `Failed to get campaign with ID: ${campaignId}`
+      );
+    }
   }
 
   /**
    * Gets tasks for a campaign
    */
-  public async findTasksByCampaignIdWithOptions(
+  public async findManyTasksByCampaignWithOptions(
     campaignId: string,
-    options: Omit<ListTasksOptions, "campaignId">
+    options: Omit<ListTasksByCampaignWithOptions, "campaignId">
   ): Promise<PaginatedTasksResponse> {
     try {
       // Extract and validate pagination parameters
@@ -337,6 +300,114 @@ export class CampaignRepository {
     }
   }
 
+  /**
+   * Retrieves a paginated list of tasks across multiple campaigns
+   * Useful for global task management and user task overview
+   */
+  public async findManyTasksByUserWithOptions(
+    userId: string,
+    options: ListTasksOptions = {}
+  ): Promise<PaginatedTasksResponse> {
+    try {
+      // 
+      const skip = Math.max(0, options.skip ?? 0);
+      const take = Math.min(100, Math.max(1, options.take ?? 20));
+
+      // Build where clause and filter by user through campaign relation
+      const whereClause: Prisma.TaskWhereInput = {};
+      whereClause.campaign = { userId: userId };
+      if (options.where) {
+        // Campaign filters
+        // Single campaign: must belong to userId
+        if (options.where.campaignId) {
+          whereClause.campaignId = options.where.campaignId;
+        } else if (options.where.campaignIds && options.where.campaignIds.length > 0) {
+          // Multiple campaigns: all must belong to userId
+          whereClause.campaignId = { in: options.where.campaignIds };
+        }
+        
+        // Task status filters
+        if (options.where.status) whereClause.status = options.where.status;
+        if (options.where.statusIn) whereClause.status = { in: options.where.statusIn };
+
+        // Priority filters
+        if (options.where.priority !== undefined) whereClause.priority = options.where.priority;
+        if (options.where.priorityRange) {
+          whereClause.priority = {
+            ...(options.where.priorityRange.gte !== undefined && { gte: options.where.priorityRange.gte }),
+            ...(options.where.priorityRange.lte !== undefined && { lte: options.where.priorityRange.lte }),
+          };
+        }
+
+        // Result filter
+        if (options.where.hasResult !== undefined) {
+          whereClause.result = options.where.hasResult
+            ? { not: Prisma.JsonNull }
+            : { equals: Prisma.JsonNull };
+        }
+
+        // Date range filters
+        if (options.where.createdAt) {
+          whereClause.createdAt = {
+            ...(options.where.createdAt.gte && { gte: options.where.createdAt.gte }),
+            ...(options.where.createdAt.lte && { lte: options.where.createdAt.lte }),
+          };
+        }
+        if (options.where.updatedAt) {
+          whereClause.updatedAt = {
+            ...(options.where.updatedAt.gte && { gte: options.where.updatedAt.gte }),
+            ...(options.where.updatedAt.lte && { lte: options.where.updatedAt.lte }),
+          };
+        }
+      }
+
+      // Build order by clause
+      const orderByField = options.orderBy?.field ?? "createdAt";
+      const orderByDirection = options.orderBy?.direction ?? "desc";
+      const orderByClause = { [orderByField]: orderByDirection };
+
+      // Execute queries in parallel
+      const [tasks, totalCount] = await Promise.all([
+        this.prisma.task.findMany({
+          skip,
+          take,
+          where: whereClause,
+          orderBy: orderByClause,
+          include: {
+            campaign: true, // Include campaign info for context
+          },
+        }),
+        this.prisma.task.count({ where: whereClause }),
+      ]);
+
+      // Map to domain tasks
+      const mappedTasks = CampaignMapper.mapPrismaTasksToDomainTasks(tasks as any);
+
+      // Calculate pagination metadata
+      const totalPages = totalCount > 0 ? Math.ceil(totalCount / take) : 0;
+      const currentPage = totalCount > 0 ? Math.floor(skip / take) + 1 : 1;
+      const hasMore = skip + take < totalCount;
+
+      return {
+        data: mappedTasks,
+        pagination: {
+          total: totalCount,
+          skip,
+          take,
+          hasMore,
+          totalPages,
+          currentPage,
+        },
+      };
+
+    } catch (error) {
+      throw this.prisma.handlePrismaError(
+        error,
+        "Failed to list tasks with options"
+      );
+    } 
+
+  }
 
   /**
    * Retrieves a paginated list of campaigns with flexible filtering, sorting, and relations.
@@ -394,6 +465,44 @@ export class CampaignRepository {
         "Failed to list campaigns with options"
       );
     }
+  }
+
+  // ==================== Task Operations (Internal) ====================
+  
+  /**
+   * Updates a task
+   */
+  public async updateTask(taskId: string, data: UpdateTaskData): Promise<Task> {
+    try {
+      const updateData: Prisma.TaskUpdateInput = {};
+
+      if (data.status !== undefined) updateData.status = data.status;
+      if (data.priority !== undefined) updateData.priority = data.priority;
+      if (data.result !== undefined) {
+        updateData.result = data.result === null
+          ? Prisma.JsonNull
+          : data.result as unknown as Prisma.JsonObject;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        this.logger.warn(`Attempted to update task ${taskId} with empty data. No action taken.`)
+        const task = await this.prisma.task.findUnique({ 
+          where: { id: taskId },
+        });
+        if (!task) {
+          throw new Error(`Task with ID ${taskId} not found`);
+        }
+        return CampaignMapper.mapPrismaTaskToDomainTask(task as any) as Task;
+      }
+
+      const updatedTask = await this.prisma.task.update({
+        where: { id: taskId },
+        data: updateData,
+      });
+      return CampaignMapper.mapPrismaTaskToDomainTask(updatedTask as any) as Task;
+
+    } catch (error) {
+      throw this.prisma.handlePrismaError(error, `Failed to update task: ${taskId}`);    }
   }
 
   // ==================== Aggregate Operations ====================
