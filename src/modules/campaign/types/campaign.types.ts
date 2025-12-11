@@ -145,11 +145,23 @@ export interface ListCampaignsOptions extends PaginationOptions {
 /**
  * Options for listing tasks by campaign
  */
-export interface ListTasksOptions extends PaginationOptions {
+export interface ListTasksByCampaignWithOptions extends PaginationOptions {
   campaignId: string;
   orderBy?: SortOptions<TaskSortField>;
   where?: TaskWhereOptions;
 }
+
+/**
+ * Options for listing all tasks (across campaigns)
+ */
+export interface ListTasksOptions extends PaginationOptions {
+  orderBy?: SortOptions<TaskSortField>;
+  where?: TaskWhereOptions & {
+    campaignId?: string;
+    campaignIds?: string[];
+  };
+}
+
 
 // ==================== Response Types ====================
 
@@ -183,23 +195,3 @@ export type PaginatedCampaignsResponse = PaginatedResponse<Campaign>;
  */
 export type PaginatedTasksResponse = PaginatedResponse<Task>;
 
-/**
- * Campaign with tasks (guaranteed to have tasks array)
- */
-export interface CampaignWithTasks extends Campaign {
-  tasks: Task[];
-}
-
-/**
- * Campaign progress information
- */
-export interface CampaignProgress {
-  campaignId: string;
-  status: CampaignStatus;
-  message: string;
-  taskStats?: {
-    total: number;
-    completed: number;
-    failed: number;
-  };
-}
