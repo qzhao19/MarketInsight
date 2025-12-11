@@ -6,10 +6,12 @@ import {
   CampaignStatus,
   CreateCampaignInput,
   CreateCampaignData,
-  CampaignProgress,
-  CampaignWithTasks,
+  ListCampaignsOptions,
+  ListTasksOptions,
+  ListTasksByCampaignWithOptions,
+  PaginatedCampaignsResponse,
+  PaginatedTasksResponse,
 } from "../types/campaign.types";
-import { JobStatus } from "../../../common/types/job/queue.types";
 
 @Injectable()
 export class CampaignService {
@@ -62,7 +64,7 @@ export class CampaignService {
   // ==================== Query and progress ====================
 
   /**
-   * Get the single Campaign
+   * Get the single Campaign by ID
    */
   public async getCampaignById(
     campaignId: string,
@@ -77,86 +79,66 @@ export class CampaignService {
 
     // Only access to user"s owned Campaign
     if (campaign.userId !== userId) {
+      this.logger.warn(
+        `User ${userId} attempted to access campaign ${campaignId} owned by ${campaign.userId}`
+      );
       throw new ForbiddenException("You do not have permission to access this campaign");
     }
     return campaign;
   }
 
-  private getProgressMessage(
-    jobStatus: JobStatus | null
-  ): string {
-    if (!jobStatus) {
-      return "Campaign is pending";
-    }
-
-    switch (jobStatus.state) {
-      case "waiting":
-        return "Waiting in queue";
-      case "active":
-        return `Processing... ${jobStatus.progress}%`;
-      case "completed":
-        return "Completed";
-      case "failed":
-        return `Failed: ${jobStatus.failedReason || "Unknown error"}`;
-      default:
-        return "Unknown status";
-    }
-  }
-
-  public async getCampaignProgress(
-    campaignId: string,
-    userId: string
-  ): Promise<CampaignProgress> {
-    // Get Campaign
-    const campaign = await this.getCampaignById(campaignId, userId, { 
-      includeTasks: true 
-    });
-
-    // If the database already shows it as completed or archived, return it
-    if (campaign.status === CampaignStatus.ARCHIVED) {
-      return {
-        campaignId,
-        status: campaign.status,
-        message: "Campaign completed",
-        taskStats: {
-          total: campaign.tasks?.length || 0,
-          completed: campaign.tasks?.filter(t => t.status === "COMPLETED").length || 0,
-          failed: campaign.tasks?.filter(t => t.status === "FAILED").length || 0,
-        }
-      };
-    }
-
-    // Retrieve the status of a job in the queue
-    const jobStatus = await this.queueService.getJobStatus(`campaign-${campaignId}`);
-
-    // Build progress information
-    const progress: CampaignProgress = {
-      campaignId,
-      status: campaign.status,
-      message: this.getProgressMessage(jobStatus),
+  /**
+   * List campaigns with filtering, sorting, and pagination
+   */
+  public async getCampaignsByOptions(
+    userId: string,
+    options: Omit<ListCampaignsOptions, "where"> & {
+      where?: Omit<ListCampaignsOptions["where"], "userId">;
+    } = {}
+  ): Promise<PaginatedCampaignsResponse> {
+    // Enforce userId filter for security
+    const secureOptions: ListCampaignsOptions = {
+      ...options,
+      where: {
+        ...options.where,
+        userId, // Always filter by userId
+      },
     };
-    return progress;
+
+    return this.campaignRepository.findManyCampaignsByOptions(secureOptions);
   }
 
   /**
-   * Retrieve completed Campaigns (including Tasks)
+   * List tasks for a specific campaign
    */
-  public async getCompletedCampaignWithTasks(
+  public async getTasksByCampaignWithOptions(
     campaignId: string,
-    userId: string
-  ): Promise<CampaignWithTasks> {
-    const campaign = await this.getCampaignById(campaignId, userId, { 
-      includeTasks: true 
-    });
+    userId: string,
+    options: Omit<ListTasksByCampaignWithOptions, "campaignId"> = {}
+  ): Promise<PaginatedTasksResponse> {
 
-    // Only archived ones will have complete results
-    if (campaign.status !== CampaignStatus.ARCHIVED) {
-      throw new ForbiddenException("Campaign is not yet completed");
-    }
+    // Verify user has access to this campaign (authorization check)
+    await this.getCampaignById(campaignId, userId);
 
-    return campaign as CampaignWithTasks;
+    this.logger.log(`Listing tasks for campaign ${campaignId} (user: ${userId})`);
+
+    return this.campaignRepository.findManyTasksByCampaignWithOptions(
+      campaignId,
+      options
+    );
   }
 
+  /**
+   * List all tasks across campaigns for the authenticated user
+   */
+  public async getTasksByUserWithOptions(
+    userId: string,
+    options: ListTasksOptions = {}
+  ): Promise<PaginatedTasksResponse> {
+    // Pass userId as first parameter (enforced by repository)
+    return this.campaignRepository.findManyTasksByUserWithOptions(userId, options);
+  }
+  
   // ==================== Manager Operation ====================
 
   /**
