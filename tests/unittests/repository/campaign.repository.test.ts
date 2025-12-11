@@ -635,16 +635,16 @@ describe("CampaignRepository", () => {
     });
   });
 
-  // ==================== findTasksByCampaignIdWithOptions Tests ====================
+  // ==================== findManyTasksByCampaignWithOptions Tests ====================
 
-  describe("findTasksByCampaignIdWithOptions", () => {
+  describe("findManyTasksByCampaignWithOptions", () => {
     const mockTasks = [mockTask, { ...mockTask, id: "task-2" }];
 
     it("should find tasks with default pagination", async () => {
       mockPrismaService.task.findMany.mockResolvedValue(mockTasks);
       mockPrismaService.task.count.mockResolvedValue(2);
 
-      const result = await campaignRepository.findTasksByCampaignIdWithOptions("campaign-1", {});
+      const result = await campaignRepository.findManyTasksByCampaignWithOptions("campaign-1", {});
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
         skip: 0,
@@ -664,7 +664,7 @@ describe("CampaignRepository", () => {
       mockPrismaService.task.findMany.mockResolvedValue(mockTasks);
       mockPrismaService.task.count.mockResolvedValue(2);
 
-      await campaignRepository.findTasksByCampaignIdWithOptions("campaign-1", options);
+      await campaignRepository.findManyTasksByCampaignWithOptions("campaign-1", options);
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -681,7 +681,7 @@ describe("CampaignRepository", () => {
       mockPrismaService.task.findMany.mockResolvedValue(mockTasks);
       mockPrismaService.task.count.mockResolvedValue(2);
 
-      await campaignRepository.findTasksByCampaignIdWithOptions("campaign-1", options);
+      await campaignRepository.findManyTasksByCampaignWithOptions("campaign-1", options);
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -701,7 +701,7 @@ describe("CampaignRepository", () => {
       mockPrismaService.task.findMany.mockResolvedValue(mockTasks);
       mockPrismaService.task.count.mockResolvedValue(2);
 
-      await campaignRepository.findTasksByCampaignIdWithOptions("campaign-1", options);
+      await campaignRepository.findManyTasksByCampaignWithOptions("campaign-1", options);
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -721,7 +721,7 @@ describe("CampaignRepository", () => {
       mockPrismaService.task.findMany.mockResolvedValue(mockTasks);
       mockPrismaService.task.count.mockResolvedValue(2);
 
-      await campaignRepository.findTasksByCampaignIdWithOptions("campaign-1", options);
+      await campaignRepository.findManyTasksByCampaignWithOptions("campaign-1", options);
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -741,7 +741,7 @@ describe("CampaignRepository", () => {
       mockPrismaService.task.findMany.mockResolvedValue(mockTasks);
       mockPrismaService.task.count.mockResolvedValue(2);
 
-      await campaignRepository.findTasksByCampaignIdWithOptions("campaign-1", options);
+      await campaignRepository.findManyTasksByCampaignWithOptions("campaign-1", options);
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -752,119 +752,631 @@ describe("CampaignRepository", () => {
 
   });
 
-  // ==================== aggregateCampaignResult Tests ====================
+  // ==================== findManyTasksByUserWithOptions Tests ====================
 
-  describe("aggregateCampaignResult", () => {
-    it("should aggregate campaign result and create tasks in transaction", async () => {
-      const aggregateData: AggregateCampaignResultData = {
-        campaignId: "campaign-1",
-        result: mockCampaignResult,
-        tasks: [
-          { priority: 1, result: mockTaskResult },
-          { priority: 2, result: mockTaskResult },
-        ],
-      };
+  describe("findManyTasksByUserWithOptions", () => {
+    // const mockTasksForUser = [
+    //   mockTask,
+    //   { ...mockTask, id: "task-2", priority: 2 },
+    //   { ...mockTask, id: "task-3", priority: 3, status: TaskStatus.FAILED },
+    // ];
 
-      mockPrismaService.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          campaign: {
-            findUnique: jest.fn().mockResolvedValue(mockCampaign),
-            update: jest.fn().mockResolvedValue(mockCompletedCampaign),
-          },
-          task: {
-            createMany: jest.fn().mockResolvedValue({ count: 2 }),
-          },
-        };
-        await callback(tx);
-        return mockCompletedCampaign;
+    // const mockTaskWithCampaign = {
+    //   ...mockTask,
+    //   campaign: mockCampaign,
+    // };
+
+    const mockTasksWithCampaigns = [
+      { ...mockTask, campaign: mockCampaign },
+      { ...mockTask, id: "task-2", priority: 2, campaign: mockCampaign },
+      {
+        ...mockTask,
+        id: "task-3",
+        priority: 3,
+        status: TaskStatus.FAILED,
+        campaign: mockCampaign,
+      },
+    ];
+
+    it("should find all tasks for a user with default pagination", async () => {
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      const result = await campaignRepository.findManyTasksByUserWithOptions(
+        "user-1",
+        {}
+      );
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
+        skip: 0,
+        take: 20,
+        where: {
+          campaign: { userId: "user-1" },
+        },
+        orderBy: { createdAt: "desc" },
+        include: { campaign: true },
       });
-
-      const result = await campaignRepository.aggregateCampaignResult(aggregateData);
-
-      expect(mockPrismaService.$transaction).toHaveBeenCalled();
-      expect(result.status).toBe(CampaignStatus.ARCHIVED);
-      expect(result.result).toEqual(mockCampaignResult);
+      expect(result.data).toHaveLength(3);
+      expect(result.pagination.total).toBe(3);
     });
 
-    it("should handle aggregate with no tasks", async () => {
-      const aggregateData: AggregateCampaignResultData = {
-        campaignId: "campaign-1",
-        result: mockCampaignResult,
-        tasks: [],
+    it("should find tasks with custom pagination", async () => {
+      const options: ListTasksOptions = {
+        skip: 5,
+        take: 10,
       };
 
-      mockPrismaService.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          campaign: {
-            findUnique: jest.fn().mockResolvedValue(mockCampaign),
-            update: jest.fn().mockResolvedValue({ ...mockCampaign, result: mockCampaignResult, status: CampaignStatus.ARCHIVED }),
-          },
-          task: {
-            createMany: jest.fn(),
-          },
-        };
-        await callback(tx);
-        return { ...mockCampaign, result: mockCampaignResult, status: CampaignStatus.ARCHIVED, tasks: [] };
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(50);
+
+      const result = await campaignRepository.findManyTasksByUserWithOptions(
+        "user-1",
+        options
+      );
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
+        skip: 5,
+        take: 10,
+        where: {
+          campaign: { userId: "user-1" },
+        },
+        orderBy: { createdAt: "desc" },
+        include: { campaign: true },
       });
-
-      const result = await campaignRepository.aggregateCampaignResult(aggregateData);
-
-      expect(result.status).toBe(CampaignStatus.ARCHIVED);
+      expect(result.pagination.skip).toBe(5);
+      expect(result.pagination.take).toBe(10);
+      expect(result.pagination.total).toBe(50);
+      expect(result.pagination.totalPages).toBe(5);
+      expect(result.pagination.currentPage).toBe(1);
+      expect(result.pagination.hasMore).toBe(true);
     });
 
-    it("should throw CampaignNotFoundException when campaign does not exist", async () => {
-      const aggregateData: AggregateCampaignResultData = {
-        campaignId: "non-existent",
-        result: mockCampaignResult,
-        tasks: [],
+    it("should enforce maximum take limit of 100", async () => {
+      const options: ListTasksOptions = {
+        take: 150,
       };
 
-      mockPrismaService.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          campaign: {
-            findUnique: jest.fn().mockResolvedValue(null),
-          },
-        };
-        return callback(tx);
-      });
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
 
-      await expect(
-        campaignRepository.aggregateCampaignResult(aggregateData)
-      ).rejects.toThrow(CampaignNotFoundException);
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 100,
+        })
+      );
     });
 
-    it("should assign default priority based on index when not provided", async () => {
-      const aggregateData: AggregateCampaignResultData = {
-        campaignId: "campaign-1",
-        result: mockCampaignResult,
-        tasks: [
-          { result: mockTaskResult },
-          { result: mockTaskResult },
-        ],
+    it("should filter tasks by single status", async () => {
+      const options: ListTasksOptions = {
+        where: { status: TaskStatus.COMPLETED },
       };
 
-      let capturedCreateManyData: any;
-      mockPrismaService.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
-        const tx = {
-          campaign: {
-            findUnique: jest.fn().mockResolvedValue(mockCampaign),
-            update: jest.fn().mockResolvedValue(mockCompletedCampaign),
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            status: TaskStatus.COMPLETED,
           },
-          task: {
-            createMany: jest.fn().mockImplementation((args: any) => {
-              capturedCreateManyData = args.data;
-              return { count: 2 };
-            }),
+        })
+      );
+    });
+
+    it("should filter tasks by multiple statuses (statusIn)", async () => {
+      const options: ListTasksOptions = {
+        where: {
+          statusIn: [TaskStatus.COMPLETED, TaskStatus.FAILED],
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            status: { in: [TaskStatus.COMPLETED, TaskStatus.FAILED] },
           },
-        };
-        await callback(tx);
-        return mockCompletedCampaign;
+        })
+      );
+    });
+
+    it("should prioritize statusIn over status when both provided", async () => {
+      const options: ListTasksOptions = {
+        where: {
+          status: TaskStatus.COMPLETED,
+          statusIn: [TaskStatus.FAILED],
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue([mockTasksWithCampaigns[2]]);
+      mockPrismaService.task.count.mockResolvedValue(1);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            status: { in: [TaskStatus.FAILED] },
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by priority", async () => {
+      const options: ListTasksOptions = {
+        where: { priority: 2 },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue([mockTasksWithCampaigns[1]]);
+      mockPrismaService.task.count.mockResolvedValue(1);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            priority: 2,
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by priority range", async () => {
+      const options: ListTasksOptions = {
+        where: {
+          priorityRange: { gte: 1, lte: 5 },
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            priority: { gte: 1, lte: 5 },
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by priority range with only gte", async () => {
+      const options: ListTasksOptions = {
+        where: {
+          priorityRange: { gte: 2 },
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns.slice(1));
+      mockPrismaService.task.count.mockResolvedValue(2);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            priority: { gte: 2 },
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by hasResult (true)", async () => {
+      const options: ListTasksOptions = {
+        where: { hasResult: true },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            result: { not: expect.anything() },
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by hasResult (false)", async () => {
+      const options: ListTasksOptions = {
+        where: { hasResult: false },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue([]);
+      mockPrismaService.task.count.mockResolvedValue(0);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            result: { equals: expect.anything() },
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by single campaignId (must belong to user)", async () => {
+      const options: ListTasksOptions = {
+        where: { campaignId: "campaign-1" },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            campaignId: "campaign-1",
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by multiple campaignIds (all must belong to user)", async () => {
+      const options: ListTasksOptions = {
+        where: {
+          campaignIds: ["campaign-1", "campaign-2", "campaign-3"],
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            campaignId: { in: ["campaign-1", "campaign-2", "campaign-3"] },
+          },
+        })
+      );
+    });
+
+    it("should ignore empty campaignIds array", async () => {
+      const options: ListTasksOptions = {
+        where: {
+          campaignIds: [],
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by createdAt date range", async () => {
+      const startDate = new Date("2024-01-01");
+      const endDate = new Date("2024-12-31");
+
+      const options: ListTasksOptions = {
+        where: {
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        })
+      );
+    });
+
+    it("should filter tasks by updatedAt date range", async () => {
+      const startDate = new Date("2024-01-01");
+      const endDate = new Date("2024-12-31");
+
+      const options: ListTasksOptions = {
+        where: {
+          updatedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            updatedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        })
+      );
+    });
+
+    it("should sort tasks by priority ascending", async () => {
+      const options: ListTasksOptions = {
+        orderBy: { field: "priority", direction: "asc" },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { priority: "asc" },
+        })
+      );
+    });
+
+    it("should sort tasks by status descending", async () => {
+      const options: ListTasksOptions = {
+        orderBy: { field: "status", direction: "desc" },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { status: "desc" },
+        })
+      );
+    });
+
+    it("should default to sorting by createdAt descending", async () => {
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", {});
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { createdAt: "desc" },
+        })
+      );
+    });
+
+    it("should include campaign relation in results", async () => {
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      const result = await campaignRepository.findManyTasksByUserWithOptions(
+        "user-1",
+        {}
+      );
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: { campaign: true },
+        })
+      );
+      
+      // Verify campaign info is in the results
+      result.data.forEach((task) => {
+        expect(task).toHaveProperty("campaignId");
+      });
+    });
+
+    it("should handle empty results for user with no tasks", async () => {
+      mockPrismaService.task.findMany.mockResolvedValue([]);
+      mockPrismaService.task.count.mockResolvedValue(0);
+
+      const result = await campaignRepository.findManyTasksByUserWithOptions(
+        "user-with-no-tasks",
+        {}
+      );
+
+      expect(result.data).toHaveLength(0);
+      expect(result.pagination.total).toBe(0);
+      expect(result.pagination.totalPages).toBe(0);
+      expect(result.pagination.currentPage).toBe(1);
+      expect(result.pagination.hasMore).toBe(false);
+    });
+
+    it("should handle pagination calculation correctly", async () => {
+      const options: ListTasksOptions = {
+        skip: 20,
+        take: 10,
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(95);
+
+      const result = await campaignRepository.findManyTasksByUserWithOptions(
+        "user-1",
+        options
+      );
+
+      expect(result.pagination).toEqual({
+        total: 95,
+        skip: 20,
+        take: 10,
+        hasMore: true,
+        totalPages: 10,
+        currentPage: 3,
+      });
+    });
+
+    it("should handle last page pagination correctly", async () => {
+      const options: ListTasksOptions = {
+        skip: 90,
+        take: 10,
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(95);
+
+      const result = await campaignRepository.findManyTasksByUserWithOptions(
+        "user-1",
+        options
+      );
+
+      expect(result.pagination.hasMore).toBe(false);
+      expect(result.pagination.currentPage).toBe(10);
+    });
+
+    it("should handle complex query with multiple filters", async () => {
+      const startDate = new Date("2024-01-01");
+      const options: ListTasksOptions = {
+        skip: 5,
+        take: 15,
+        where: {
+          campaignIds: ["campaign-1", "campaign-2"],
+          statusIn: [TaskStatus.COMPLETED, TaskStatus.FAILED],
+          priorityRange: { gte: 1, lte: 3 },
+          hasResult: true,
+          createdAt: {
+            gte: startDate,
+          },
+        },
+        orderBy: {
+          field: "priority",
+          direction: "asc",
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(50);
+
+      const result = await campaignRepository.findManyTasksByUserWithOptions(
+        "user-1",
+        options
+      );
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith({
+        skip: 5,
+        take: 15,
+        where: {
+          campaign: { userId: "user-1" },
+          campaignId: { in: ["campaign-1", "campaign-2"] },
+          status: { in: [TaskStatus.COMPLETED, TaskStatus.FAILED] },
+          priority: { gte: 1, lte: 3 },
+          result: { not: expect.anything() },
+          createdAt: {
+            gte: startDate,
+          },
+        },
+        orderBy: { priority: "asc" },
+        include: { campaign: true },
       });
 
-      await campaignRepository.aggregateCampaignResult(aggregateData);
+      expect(result.data).toHaveLength(3);
+      expect(result.pagination.total).toBe(50);
+      expect(result.pagination.totalPages).toBe(4);
+      expect(result.pagination.hasMore).toBe(true);
+    });
 
-      expect(capturedCreateManyData[0].priority).toBe(1);
-      expect(capturedCreateManyData[1].priority).toBe(2);
+    it("should filter for specific user only (security)", async () => {
+      const options: ListTasksOptions = {
+        where: {
+          campaignId: "campaign-1",
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      // Query for user-1
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      const firstCall = mockPrismaService.task.findMany.mock.calls[0][0];
+      expect(firstCall.where.campaign.userId).toBe("user-1");
+
+      // Reset mock
+      mockPrismaService.task.findMany.mockReset();
+      mockPrismaService.task.count.mockReset();
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(3);
+
+      // Query for user-2 should have different userId filter
+      await campaignRepository.findManyTasksByUserWithOptions("user-2", options);
+
+      const secondCall = mockPrismaService.task.findMany.mock.calls[0][0];
+      expect(secondCall.where.campaign.userId).toBe("user-2");
+    });
+
+    it("should handle date range with both gte and lte", async () => {
+      const startDate = new Date("2024-06-01");
+      const endDate = new Date("2024-12-31");
+
+      const options: ListTasksOptions = {
+        where: {
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      };
+
+      mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
+      mockPrismaService.task.count.mockResolvedValue(2);
+
+      await campaignRepository.findManyTasksByUserWithOptions("user-1", options);
+
+      expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            campaign: { userId: "user-1" },
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        })
+      );
     });
   });
 
@@ -1497,4 +2009,121 @@ describe("CampaignRepository", () => {
       expect(result.data).toHaveLength(1);
     });
   });
+
+  // ==================== aggregateCampaignResult Tests ====================
+
+  describe("aggregateCampaignResult", () => {
+    it("should aggregate campaign result and create tasks in transaction", async () => {
+      const aggregateData: AggregateCampaignResultData = {
+        campaignId: "campaign-1",
+        result: mockCampaignResult,
+        tasks: [
+          { priority: 1, result: mockTaskResult },
+          { priority: 2, result: mockTaskResult },
+        ],
+      };
+
+      mockPrismaService.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          campaign: {
+            findUnique: jest.fn().mockResolvedValue(mockCampaign),
+            update: jest.fn().mockResolvedValue(mockCompletedCampaign),
+          },
+          task: {
+            createMany: jest.fn().mockResolvedValue({ count: 2 }),
+          },
+        };
+        await callback(tx);
+        return mockCompletedCampaign;
+      });
+
+      const result = await campaignRepository.aggregateCampaignResult(aggregateData);
+
+      expect(mockPrismaService.$transaction).toHaveBeenCalled();
+      expect(result.status).toBe(CampaignStatus.ARCHIVED);
+      expect(result.result).toEqual(mockCampaignResult);
+    });
+
+    it("should handle aggregate with no tasks", async () => {
+      const aggregateData: AggregateCampaignResultData = {
+        campaignId: "campaign-1",
+        result: mockCampaignResult,
+        tasks: [],
+      };
+
+      mockPrismaService.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          campaign: {
+            findUnique: jest.fn().mockResolvedValue(mockCampaign),
+            update: jest.fn().mockResolvedValue({ ...mockCampaign, result: mockCampaignResult, status: CampaignStatus.ARCHIVED }),
+          },
+          task: {
+            createMany: jest.fn(),
+          },
+        };
+        await callback(tx);
+        return { ...mockCampaign, result: mockCampaignResult, status: CampaignStatus.ARCHIVED, tasks: [] };
+      });
+
+      const result = await campaignRepository.aggregateCampaignResult(aggregateData);
+
+      expect(result.status).toBe(CampaignStatus.ARCHIVED);
+    });
+
+    it("should throw CampaignNotFoundException when campaign does not exist", async () => {
+      const aggregateData: AggregateCampaignResultData = {
+        campaignId: "non-existent",
+        result: mockCampaignResult,
+        tasks: [],
+      };
+
+      mockPrismaService.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          campaign: {
+            findUnique: jest.fn().mockResolvedValue(null),
+          },
+        };
+        return callback(tx);
+      });
+
+      await expect(
+        campaignRepository.aggregateCampaignResult(aggregateData)
+      ).rejects.toThrow(CampaignNotFoundException);
+    });
+
+    it("should assign default priority based on index when not provided", async () => {
+      const aggregateData: AggregateCampaignResultData = {
+        campaignId: "campaign-1",
+        result: mockCampaignResult,
+        tasks: [
+          { result: mockTaskResult },
+          { result: mockTaskResult },
+        ],
+      };
+
+      let capturedCreateManyData: any;
+      mockPrismaService.$transaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          campaign: {
+            findUnique: jest.fn().mockResolvedValue(mockCampaign),
+            update: jest.fn().mockResolvedValue(mockCompletedCampaign),
+          },
+          task: {
+            createMany: jest.fn().mockImplementation((args: any) => {
+              capturedCreateManyData = args.data;
+              return { count: 2 };
+            }),
+          },
+        };
+        await callback(tx);
+        return mockCompletedCampaign;
+      });
+
+      await campaignRepository.aggregateCampaignResult(aggregateData);
+
+      expect(capturedCreateManyData[0].priority).toBe(1);
+      expect(capturedCreateManyData[1].priority).toBe(2);
+    });
+  });
+
 });
