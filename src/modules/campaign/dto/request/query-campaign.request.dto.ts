@@ -188,6 +188,18 @@ export class ListTasksQueryDto extends PaginationQueryDto {
   @IsOptional()
   status?: TaskStatus;
 
+  // Filter by multiple statuses
+  @ApiPropertyOptional({
+    description: "Filter by multiple task statuses",
+    enum: TaskStatus,
+    isArray: true,
+    example: [TaskStatus.COMPLETED, TaskStatus.FAILED],
+  })
+  @IsArray()
+  @IsEnum(TaskStatus, { each: true })
+  @IsOptional()
+  statusIn?: TaskStatus[];
+
   // Sort field: createdAt", "updatedAt", "priority", "status"
   @ApiPropertyOptional({
     description: "Sort field",
