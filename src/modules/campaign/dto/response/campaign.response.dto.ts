@@ -125,28 +125,5 @@ export class CampaignListResponseDto {
   pagination: PaginationMetaDto;
 }
 
-/**
- * DTO for campaign progress response
- */
-export class CampaignProgressResponseDto {
-  @ApiProperty({ description: "Campaign ID", example: "clx123abc456" })
-  @Expose()
-  campaignId: string;
 
-  @ApiProperty({ description: "Current status", enum: CampaignStatus, example: CampaignStatus.ACTIVE })
-  @Expose()
-  status: CampaignStatus;
-
-  @ApiProperty({ description: "Progress message", example: "Processing... 45%" })
-  @Expose()
-  message: string;
-
-  @ApiPropertyOptional({ description: "Task statistics" })
-  @Expose()
-  taskStats?: {
-    total: number;
-    completed: number;
-    failed: number;
-  };
-}
 
