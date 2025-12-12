@@ -5,3 +5,4 @@ export * from "./request/query-campaign.request.dto";
 
 // ==================== Response DTOs ====================
 export * from "./response/campaign.response.dto";
+export * from "./response/task.response.dto"; // ✅ 新增
