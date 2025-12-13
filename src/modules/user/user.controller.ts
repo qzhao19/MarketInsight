@@ -13,6 +13,14 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiParam,
+} from "@nestjs/swagger";
 import { UserService } from "./services/user.service";
 import { AppConfigService } from "../../config/config.service";
 import { 
@@ -47,8 +55,10 @@ import { TokenPayload } from "./types/user.types"
  * - DELETE /api/v1/users/:userId - Hard delete user account
  * - POST /api/v1/users/:userId/soft-delete - Soft delete user account
  */
+@ApiTags("Users")
 @Controller("users")
 @UseGuards(AuthGuard) // Apply AuthGuard globally, public routes bypass it via @Public().
+@ApiBearerAuth()
 export class UserController {
   private readonly logger = new Logger(UserController.name);
 
@@ -65,36 +75,65 @@ export class UserController {
 
   /**
    * Register a new user
-   * POST /api/v1/users/register
-   * 
-   * @Public - No authentication required
-   * 
-   * @example
-   * Request:
-   * POST /api/v1/users/register
-   * {
-   *   "username": "johndoe",
-   *   "email": "john@example.com",
-   *   "password": "SecurePass123!"
-   * }
-   * 
-   * Response: 201 Created
-   * {
-   *   "success": true,
-   *   "message": "User registered successfully",
-   *   "data": {
-   *     "id": "uuid",
-   *     "username": "johndoe",
-   *     "email": "john@example.com",
-   *     "createdAt": "2024-01-01T00:00:00.000Z",
-   *     "updatedAt": "2024-01-01T00:00:00.000Z"
-   *   }
-   * }
    */
   @Public()
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterRequestDto): Promise<{
+  @ApiOperation({ 
+    summary: "Register a new user",
+    description: `Creates a new user account with username, email, and password.
+    
+**Validation Rules:**
+- Username: 3-20 chars, starts with letter, alphanumeric + underscore only
+- Email: Valid email format, max 100 chars
+- Password: Min 8 chars, must contain uppercase, lowercase, digit, and special character
+
+**Response:**
+- Returns created user data (without password)
+- Status 201 on success`,
+  })
+  @ApiBody({ type: RegisterRequestDto })
+  @ApiResponse({ 
+    status: HttpStatus.CREATED, 
+    description: "User registered successfully",
+    type: UserResponseDto,
+    schema: {
+      example: {
+        success: true,
+        message: "User registered successfully",
+        data: {
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          username: "johndoe",
+          email: "john.doe@example.com",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+      },
+    },
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: "Validation error or user already exists",
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ["Username must be at least 3 characters"],
+        error: "Bad Request",
+      },
+    },
+  })
+  @ApiResponse({ 
+    status: HttpStatus.CONFLICT, 
+    description: "Username or email already exists",
+    schema: {
+      example: {
+        statusCode: 409,
+        message: "Email already registered",
+        error: "Conflict",
+      },
+    },
+  })
+  public async register(@Body() dto: RegisterRequestDto): Promise<{
     success: boolean;
     message: string;
     data: UserResponseDto;
@@ -112,41 +151,63 @@ export class UserController {
 
   /**
    * User login
-   * POST /api/v1/users/login
-   * 
-   * @Public - No authentication required
-   * 
-   * @example
-   * Request:
-   * POST /api/v1/users/login
-   * {
-   *   "emailOrUsername": "john@example.com",
-   *   "password": "SecurePass123!"
-   * }
-   * 
-   * Response: 200 OK
-   * {
-   *   "success": true,
-   *   "message": "Login successful",
-   *   "data": {
-   *     "user": {
-   *       "id": "uuid",
-   *       "username": "johndoe",
-   *       "email": "john@example.com",
-   *       "createdAt": "2024-01-01T00:00:00.000Z",
-   *       "updatedAt": "2024-01-01T00:00:00.000Z"
-   *     },
-   *     "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-   *     "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
-   *     "expiresAt": "2024-01-01T00:15:00.000Z",
-   *     "tokenType": "Bearer"
-   *   }
-   * }
    */
   @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginRequestDto): Promise<{
+  @ApiOperation({ 
+    summary: "User login",
+    description: `Authenticates a user with email/username and password.
+    
+**Authentication:**
+- Accepts either email or username
+- Returns JWT access token and refresh token
+- Access token expires in 15 minutes (configurable)
+- Refresh token expires in 7 days (configurable)
+
+**Usage:**
+1. Call this endpoint with credentials
+2. Store the accessToken for subsequent authenticated requests
+3. Include token in Authorization header: \`Bearer <accessToken>\`
+4. Use refreshToken to get new accessToken when expired`,
+  })
+  @ApiBody({ type: LoginRequestDto })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "Login successful",
+    type: LoginResponseDto,
+    schema: {
+      example: {
+        success: true,
+        message: "Login successful",
+        data: {
+          user: {
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            username: "johndoe",
+            email: "john.doe@example.com",
+            createdAt: "2024-01-01T00:00:00.000Z",
+            updatedAt: "2024-01-01T00:00:00.000Z",
+          },
+          accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          expiresAt: "2024-01-01T00:15:00.000Z",
+          tokenType: "Bearer",
+        },
+      },
+    },
+  })
+  @ApiResponse({ 
+    status: HttpStatus.UNAUTHORIZED, 
+    description: "Invalid credentials",
+    schema: {
+      example: {
+        statusCode: 401,
+        message: "Invalid email or password",
+        error: "Unauthorized",
+      },
+    },
+  })
+  public async login(@Body() dto: LoginRequestDto): Promise<{
     success: boolean;
     message: string;
     data: LoginResponseDto;
@@ -164,34 +225,51 @@ export class UserController {
 
   /**
    * Refresh access token
-   * POST /api/v1/users/refresh
-   * 
-   * @Public - No authentication required
-   * 
-   * @example
-   * Request:
-   * POST /api/v1/users/refresh
-   * {
-   *   "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
-   * }
-   * 
-   * Response: 200 OK
-   * {
-   *   "success": true,
-   *   "message": "Token refreshed successfully",
-   *   "data": {
-   *     "user": { "id": "...", "username": "...", "email": "..." },
-   *     "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-   *     "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
-   *     "expiresAt": "2024-01-01T00:15:00.000Z",
-   *     "tokenType": "Bearer"
-   *   }
-   * }
    */
   @Public()
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
-  async refreshToken(@Body("refreshToken") refreshToken: string): Promise<{
+  @ApiOperation({ 
+    summary: "Refresh access token",
+    description: `Generates a new access token using a valid refresh token.
+    
+**When to Use:**
+- When accessToken expires (typically after 15 minutes)
+- Before making authenticated requests with an expired token
+
+**Process:**
+1. Client detects access token expiration (401 response)
+2. Calls this endpoint with stored refreshToken
+3. Receives new accessToken and refreshToken
+4. Updates stored tokens and retries original request`,
+  })
+  @ApiBody({ 
+    schema: { 
+      type: "object",
+      properties: { 
+        refreshToken: { 
+          type: "string", 
+          description: "Valid refresh token from login",
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
+        } 
+      },
+      required: ["refreshToken"],
+    } 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "Token refreshed successfully",
+    type: LoginResponseDto,
+  })
+  @ApiResponse({ 
+    status: HttpStatus.UNAUTHORIZED, 
+    description: "Invalid or expired refresh token",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: "Refresh token is required",
+  })
+  public async refreshToken(@Body("refreshToken") refreshToken: string): Promise<{
     success: boolean;
     message: string;
     data: LoginResponseDto;
@@ -213,30 +291,56 @@ export class UserController {
 
   /**
    * Reset password using reset token
-   * POST /api/v1/users/reset-password
-   * 
-   * Note: The reset token should be sent to the user"s email first
-   * 
-   * @Public - No authentication required
-   * 
-   * @example
-   * Request:
-   * POST /api/v1/users/reset-password
-   * {
-   *   "resetToken": "eyJhbGciOiJIUzI1NiIs...",
-   *   "newPassword": "NewSecurePass123!"
-   * }
-   * 
-   * Response: 200 OK
-   * {
-   *   "success": true,
-   *   "message": "Password reset successfully"
-   * }
    */
   @Public()
   @Post("reset-password")
   @HttpCode(HttpStatus.OK)
-  async resetPassword(
+  @ApiOperation({ 
+    summary: "Reset password with reset token",
+    description: `Resets user password using a password reset token.
+    
+**Prerequisites:**
+- User must have requested a password reset (generates reset token)
+- Reset token sent to user's email
+- Token valid for limited time (typically 1 hour)
+
+**Security:**
+- Reset tokens are single-use
+- Tokens expire after configured duration
+- New password must meet strength requirements`,
+  })
+  @ApiBody({ 
+    schema: { 
+      type: "object",
+      properties: { 
+        resetToken: { 
+          type: "string",
+          description: "Password reset token from email",
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        },
+        newPassword: { 
+          type: "string",
+          description: "New password (must meet strength requirements)",
+          example: "NewSecurePass123!",
+          minLength: 8,
+        },
+      },
+      required: ["resetToken", "newPassword"],
+    } 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "Password reset successfully",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: "Invalid request or weak password",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.UNAUTHORIZED, 
+    description: "Invalid or expired reset token",
+  })
+  public async resetPassword(
     @Body("resetToken") resetToken: string,
     @Body("newPassword") newPassword: string,
   ): Promise<{
@@ -265,27 +369,39 @@ export class UserController {
 
   /**
    * Get current user profile
-   * GET /api/v1/users/me
-   * 
-   * @example
-   * Request:
-   * GET /api/v1/users/me
-   * Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-   * 
-   * Response: 200 OK
-   * {
-   *   "success": true,
-   *   "data": {
-   *     "id": "uuid",
-   *     "username": "johndoe",
-   *     "email": "john@example.com",
-   *     "createdAt": "2024-01-01T00:00:00.000Z",
-   *     "updatedAt": "2024-01-01T00:00:00.000Z"
-   *   }
-   * }
    */
   @Get("me")
-  async getCurrentUser(@CurrentUser() currentUser: TokenPayload): Promise<{
+  @ApiOperation({ 
+    summary: "Get current user profile",
+    description: `Retrieves the profile of the authenticated user.
+    
+**Usage:**
+- Returns user data based on JWT token
+- No userId parameter needed
+- Useful for "My Profile" pages`,
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "Current user profile",
+    type: UserResponseDto,
+    schema: {
+      example: {
+        success: true,
+        data: {
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          username: "johndoe",
+          email: "john.doe@example.com",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+      },
+    },
+  })
+  @ApiResponse({ 
+    status: HttpStatus.UNAUTHORIZED, 
+    description: "Missing or invalid authentication token",
+  })
+  public async getCurrentUser(@CurrentUser() currentUser: TokenPayload): Promise<{
     success: boolean;
     data: UserResponseDto;
   }> {
@@ -298,32 +414,39 @@ export class UserController {
       data: user,
     };
   }
-
+  
   /**
    * Get user by ID
-   * GET /api/v1/users/:userId
-   * 
-   * Note: Users can only view their own profile unless they are admins
-   * 
-   * @example
-   * Request:
-   * GET /api/v1/users/uuid-123
-   * Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-   * 
-   * Response: 200 OK
-   * {
-   *   "success": true,
-   *   "data": {
-   *     "id": "uuid-123",
-   *     "username": "johndoe",
-   *     "email": "john@example.com",
-   *     "createdAt": "2024-01-01T00:00:00.000Z",
-   *     "updatedAt": "2024-01-01T00:00:00.000Z"
-   *   }
-   * }
    */
   @Get(":userId")
-  async getUserById(
+  @ApiOperation({ 
+    summary: "Get user by ID (self only)",
+    description: `Retrieves user information by user ID.
+    
+**Access Control:**
+- Users can only access their own profile
+- Attempting to access another user's profile returns 403`,
+  })
+  @ApiParam({ 
+    name: "userId", 
+    type: String,
+    description: "User unique identifier (UUID)",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "User found",
+    type: UserResponseDto,
+  })
+  @ApiResponse({ 
+    status: HttpStatus.FORBIDDEN, 
+    description: "Access denied - can only view own profile",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: "User not found",
+  })
+  public async getUserById(
     @Param("userId") userId: string,
     @CurrentUser() currentUser: TokenPayload,
   ): Promise<{
@@ -345,35 +468,49 @@ export class UserController {
     };
   }
 
-  /**
-   * Update user information
-   * PUT /api/v1/users/:userId
-   * 
-   * Note: Users can only update their own profile
-   * 
-   * @example
-   * Request:
-   * PUT /api/v1/users/uuid-123
-   * Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-   * {
-   *   "username": "johndoe_updated"
-   * }
-   * 
-   * Response: 200 OK
-   * {
-   *   "success": true,
-   *   "message": "User updated successfully",
-   *   "data": {
-   *     "id": "uuid-123",
-   *     "username": "johndoe_updated",
-   *     "email": "john@example.com",
-   *     "createdAt": "2024-01-01T00:00:00.000Z",
-   *     "updatedAt": "2024-01-01T00:15:00.000Z"
-   *   }
-   * }
-   */
+  
   @Put(":userId")
-  async updateUser(
+  @ApiOperation({ 
+    summary: "Update user (self only)",
+    description: `Updates user information (username and/or password).
+    
+**Updatable Fields:**
+- username (optional)
+- password (optional)
+
+**Access Control:**
+- Users can only update their own profile
+
+**Notes:**
+- All fields are optional
+- Only provided fields will be updated
+- Password must meet strength requirements if provided`,
+  })
+  @ApiParam({ 
+    name: "userId", 
+    type: String,
+    description: "User unique identifier (UUID)",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
+  @ApiBody({ type: UpdateUserRequestDto })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "User updated successfully",
+    type: UserResponseDto,
+  })
+  @ApiResponse({ 
+    status: HttpStatus.FORBIDDEN, 
+    description: "Access denied - can only update own profile",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: "Validation error",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.CONFLICT, 
+    description: "Username already taken",
+  })
+  public async updateUser(
     @Param("userId") userId: string,
     @Body() dto: UpdateUserRequestDto,
     @CurrentUser() currentUser: TokenPayload,
@@ -400,21 +537,46 @@ export class UserController {
 
   /**
    * Delete user account (hard delete)
-   * DELETE /api/v1/users/:userId
-   * 
-   * Note: Users can only delete their own account
-   * This performs a hard delete (permanent deletion)
-   * 
-   * @example
-   * Request:
-   * DELETE /api/v1/users/uuid-123
-   * Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-   * 
-   * Response: 204 No Content
    */
   @Delete(":userId")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteUser(
+  @ApiOperation({ 
+    summary: "Delete user (hard delete, self only)",
+    description: `Permanently deletes a user account and all associated data.
+    
+**Warning:** This action is irreversible!
+
+**What Gets Deleted:**
+- User account
+- All campaigns created by user
+- All tasks associated with campaigns
+- Session tokens
+
+**Access Control:**
+- Users can only delete their own account
+
+**Alternative:**
+- Consider using POST /users/:userId/soft-delete for reversible deletion`,
+  })
+  @ApiParam({ 
+    name: "userId", 
+    type: String,
+    description: "User unique identifier (UUID)",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NO_CONTENT, 
+    description: "User deleted successfully (no content returned)",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.FORBIDDEN, 
+    description: "Access denied - can only delete own account",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: "User not found",
+  })
+  public async deleteUser(
     @Param("userId") userId: string,
     @CurrentUser() currentUser: TokenPayload,
   ) {
@@ -430,25 +592,45 @@ export class UserController {
 
   /**
    * Soft delete user account
-   * POST /api/v1/users/:userId/soft-delete
-   * 
-   * Note: Soft delete marks the user as deleted but retains data
-   * User can potentially be restored later
-   * 
-   * @example
-   * Request:
-   * POST /api/v1/users/uuid-123/soft-delete
-   * Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-   * 
-   * Response: 200 OK
-   * {
-   *   "success": true,
-   *   "message": "User account deactivated successfully"
-   * }
    */
   @Post(":userId/soft-delete")
   @HttpCode(HttpStatus.OK)
-  async softDeleteUser(
+  @ApiOperation({ 
+    summary: "Soft delete user (self only)",
+    description: `Deactivates a user account without permanently deleting data.
+    
+**Soft Delete vs Hard Delete:**
+- Soft delete: Marks account as deleted, data retained
+- Hard delete: Permanently removes account and all data
+
+**Effects:**
+- User cannot log in
+- Account marked as deleted
+- Data retained for potential recovery
+- Can be restored by administrators
+
+**Access Control:**
+- Users can only soft delete their own account`,
+  })
+  @ApiParam({ 
+    name: "userId", 
+    type: String,
+    description: "User unique identifier (UUID)",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "User account deactivated successfully",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.FORBIDDEN, 
+    description: "Access denied - can only deactivate own account",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: "User not found",
+  })
+  public async softDeleteUser(
     @Param("userId") userId: string,
     @CurrentUser() currentUser: TokenPayload,
   ): Promise<{
@@ -476,7 +658,64 @@ export class UserController {
    */
   @Post(":userId/change-password")
   @HttpCode(HttpStatus.OK)
-  async changePassword(
+  @ApiOperation({ 
+    summary: "Change password (self only)",
+    description: `Changes user password after verifying current password.
+    
+**Security:**
+- Requires current password for verification
+- New password must meet strength requirements
+- Invalidates all existing sessions (requires re-login)
+
+**Access Control:**
+- Users can only change their own password
+
+**Difference from Reset:**
+- change-password: Requires current password (user is logged in)
+- reset-password: Uses reset token (user forgot password)`,
+  })
+  @ApiParam({ 
+    name: "userId", 
+    type: String,
+    description: "User unique identifier (UUID)",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
+  @ApiBody({ 
+    schema: { 
+      type: "object",
+      properties: { 
+        currentPassword: { 
+          type: "string",
+          description: "Current password for verification",
+          example: "OldSecurePass123!",
+        },
+        newPassword: { 
+          type: "string",
+          description: "New password (must meet strength requirements)",
+          example: "NewSecurePass456!",
+          minLength: 8,
+        },
+      },
+      required: ["currentPassword", "newPassword"],
+    } 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "Password changed successfully",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.UNAUTHORIZED, 
+    description: "Current password is incorrect",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.FORBIDDEN, 
+    description: "Access denied - can only change own password",
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: "Invalid request or weak new password",
+  })
+  public async changePassword(
     @Param("userId") userId: string,
     @Body("currentPassword") currentPassword: string,
     @Body("newPassword") newPassword: string,
