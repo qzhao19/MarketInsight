@@ -1,4 +1,5 @@
 import { Expose, Transform } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 /**
  * Statistics data structure for user
@@ -20,43 +21,99 @@ export interface UserStatsData {
  * User statistics response DTO
  */
 export class UserStatsResponseDto {
+  @ApiProperty({
+    description: "User unique identifier",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
   @Expose()
   userId: string;
 
+  @ApiProperty({
+    description: "Total number of tasks created by the user",
+    example: 150,
+  })
   @Expose()
   totalTasks: number;
 
+  @ApiProperty({
+    description: "Number of completed tasks",
+    example: 120,
+  })
   @Expose()
   completedTasks: number;
 
+  @ApiProperty({
+    description: "Number of failed tasks",
+    example: 15,
+  })
   @Expose()
   failedTasks: number;
 
+  @ApiProperty({
+    description: "Number of pending tasks",
+    example: 15,
+  })
   @Expose()
   pendingTasks: number;
 
+  @ApiProperty({
+    description: "Total number of campaigns created by the user",
+    example: 12,
+  })
   @Expose()
   totalCampaigns: number;
 
+  @ApiProperty({
+    description: "Number of active campaigns",
+    example: 3,
+  })
   @Expose()
   activeCampaigns: number;
 
+  @ApiProperty({
+    description: "Number of draft campaigns",
+    example: 2,
+  })
   @Expose()
   draftCampaigns: number;
 
+  @ApiProperty({
+    description: "Number of archived campaigns",
+    example: 7,
+  })
   @Expose()
   archivedCampaigns: number;
 
+  @ApiPropertyOptional({
+    description: "Last activity timestamp (ISO 8601)",
+    example: "2024-01-15T10:30:00.000Z",
+  })
   @Expose()
   @Transform(({ value }) => value instanceof Date ? value.toISOString() : value)
   lastActivityAt?: string | null;
 
+  @ApiProperty({
+    description: "Task success rate as percentage (0-100)",
+    example: 80.0,
+    minimum: 0,
+    maximum: 100,
+  })
   @Expose()
   successRate: number;
 
+  @ApiProperty({
+    description: "Task failure rate as percentage (0-100)",
+    example: 10.0,
+    minimum: 0,
+    maximum: 100,
+  })
   @Expose()
   failureRate: number;
 
+  @ApiProperty({
+    description: "Average task completion time in human-readable format",
+    example: "1h 30m",
+  })
   @Expose()
   averageCompletionTime: string;
 
