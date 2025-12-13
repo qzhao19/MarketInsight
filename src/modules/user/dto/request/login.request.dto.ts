@@ -5,11 +5,18 @@ import {
   MaxLength, 
   Matches,
 } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
 
 /**
  * Data Transfer Object for user login requests
  */
 export class LoginRequestDto {
+  @ApiProperty({
+    description: "Email address or username",
+    example: "john.doe@example.com",
+    minLength: 3,
+    maxLength: 100,
+  })
   @IsString({ message: "Username or email must be a string" })
   @IsNotEmpty({ message: "Username or email cannot be empty" })
   @MinLength(3, { message: "Username or email must be at least 3 characters" })
@@ -22,6 +29,13 @@ export class LoginRequestDto {
   )
   emailOrUsername: string;
 
+  @ApiProperty({
+    description: "User password",
+    example: "SecurePass123!",
+    minLength: 8,
+    maxLength: 128,
+    format: "password",
+  })
   @IsString({ message: "Password must be a string" })
   @IsNotEmpty({ message: "Password cannot be empty" })
   @MinLength(8, { message: "Password must be at least 8 characters" })
