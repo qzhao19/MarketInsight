@@ -6,12 +6,20 @@ import {
   MaxLength, 
   Matches,
 } from "class-validator";
+import { ApiPropertyOptional } from "@nestjs/swagger";
 
 /**
  * Data Transfer Object for updating user information
  * All fields are optional - only provided fields will be updated
  */
 export class UpdateUserRequestDto {
+  @ApiPropertyOptional({
+    description: "Updated username",
+    example: "johndoe_updated",
+    minLength: 3,
+    maxLength: 20,
+    pattern: "^[a-zA-Z][a-zA-Z0-9_]*$",
+  })
   @IsOptional()
   @IsString({ message: "Username must be a string" })
   @IsNotEmpty({ message: "Username cannot be empty" })
@@ -25,6 +33,13 @@ export class UpdateUserRequestDto {
   )
   username?: string;
 
+  @ApiPropertyOptional({
+    description: "Updated password (must meet strength requirements)",
+    example: "NewSecurePass456!",
+    minLength: 8,
+    maxLength: 100,
+    format: "password",
+  })
   @IsOptional()
   @IsString({ message: "Password must be a string" })
   @IsNotEmpty({ message: "Password cannot be empty" })
