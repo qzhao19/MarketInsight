@@ -245,8 +245,17 @@ export class CampaignRepository {
       // Build where clause
       const  whereClause: Prisma.TaskWhereInput = { campaignId };
       if (options.where) {
-        if (options.where.status) whereClause.status = options.where.status;
-        if (options.where.statusIn) whereClause.status = { in: options.where.statusIn };
+        if (options.where.statusIn && options.where.statusIn.length > 0) {
+          whereClause.status = { in: options.where.statusIn };
+          if (options.where.status) {
+            this.logger.warn(
+              `Both status and statusIn provided for campaign ${campaignId}. ` +
+              `statusIn takes precedence.`
+            );
+          }
+        } else if (options.where.status) {
+          whereClause.status = options.where.status;
+        }
         if (options.where.priority) whereClause.priority = options.where.priority;
         if (options.where.priorityRange) {
           whereClause.priority = {
@@ -327,9 +336,17 @@ export class CampaignRepository {
         }
         
         // Task status filters
-        if (options.where.status) whereClause.status = options.where.status;
-        if (options.where.statusIn) whereClause.status = { in: options.where.statusIn };
-
+        if (options.where.statusIn && options.where.statusIn.length > 0) {
+          whereClause.status = { in: options.where.statusIn };
+          if (options.where.status) {
+            this.logger.warn(
+              `Both status and statusIn provided for user ${userId}. ` +
+              `statusIn takes precedence.`
+            );
+          }
+        } else if (options.where.status) {
+          whereClause.status = options.where.status;
+        }
         // Priority filters
         if (options.where.priority !== undefined) whereClause.priority = options.where.priority;
         if (options.where.priorityRange) {
@@ -526,7 +543,7 @@ export class CampaignRepository {
           where: { id: data.campaignId },
           data: {
             result: data.result as unknown as Prisma.JsonObject,
-            status: CampaignStatus.ARCHIVED,
+            status: CampaignStatus.COMPLETED,
           }
         });
 
@@ -536,7 +553,7 @@ export class CampaignRepository {
             data: data.tasks.map((task, index) => ({
               campaignId: data.campaignId,
               priority: task.priority ?? index + 1,
-              status: TaskStatus.COMPLETED,
+              status: task.result.status === 'success' ? TaskStatus.SUCCESS : TaskStatus.FAILED,
               result: task.result as unknown as Prisma.JsonObject
             })),
           });
@@ -573,6 +590,12 @@ export class CampaignRepository {
     if (where?.userId) whereClause.userId = where.userId;
     if (where?.statusIn && where.statusIn.length > 0) {
       whereClause.status = { in: where.statusIn };
+      if (where?.status) {
+        this.logger.warn(
+          `Both status and statusIn provided. statusIn takes precedence. ` +
+          `status=${where.status} ignored.`
+        );
+      }
     } else if (where?.status) {
       whereClause.status = where.status;
     }
