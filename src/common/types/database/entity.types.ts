@@ -4,9 +4,7 @@ import { CampaignInput, CampaignResult, TaskResult } from "./llm.types"
 
 // Defines the possible statuses of a task.
 export enum TaskStatus {
-  PENDING = "PENDING",
-  PROCESSING = "PROCESSING",
-  COMPLETED = "COMPLETED",
+  SUCCESS = "SUCCESS",
   FAILED = "FAILED",
 };
 
@@ -14,13 +12,30 @@ export enum TaskStatus {
 export enum CampaignStatus {
   DRAFT = "DRAFT",
   ACTIVE = "ACTIVE",
+  COMPLETED="COMPLETED",
   ARCHIVED = "ARCHIVED",
 }
 
-// Defines valid status transitions for campaigns
+/**
+ * Valid status transitions for campaigns
+ * 
+ * DRAFT can transition to:
+ *   - ACTIVE (user starts the campaign)
+ *   - ARCHIVED (user deletes before execution)
+ * 
+ * ACTIVE can transition to:
+ *   - COMPLETED (Agent finishes execution successfully)
+ *   - ARCHIVED (user cancels during execution)
+ * 
+ * COMPLETED can transition to:
+ *   - ARCHIVED (user archives after viewing results)
+ * 
+ * ARCHIVED cannot transition to anything (final state)
+ */
 export const VALID_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
   DRAFT: [CampaignStatus.ACTIVE, CampaignStatus.ARCHIVED],
-  ACTIVE: [CampaignStatus.ARCHIVED],
+  ACTIVE: [CampaignStatus.COMPLETED, CampaignStatus.ARCHIVED],
+  COMPLETED: [CampaignStatus.ARCHIVED],
   ARCHIVED: [],
 };
 
