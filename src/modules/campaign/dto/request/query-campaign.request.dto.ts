@@ -182,7 +182,7 @@ export class ListTasksQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     description: "Filter by task status",
     enum: TaskStatus,
-    example: TaskStatus.COMPLETED,
+    example: TaskStatus.SUCCESS,
   })
   @IsEnum(TaskStatus)
   @IsOptional()
@@ -193,7 +193,7 @@ export class ListTasksQueryDto extends PaginationQueryDto {
     description: "Filter by multiple task statuses",
     enum: TaskStatus,
     isArray: true,
-    example: [TaskStatus.COMPLETED, TaskStatus.FAILED],
+    example: [TaskStatus.SUCCESS, TaskStatus.FAILED],
   })
   @IsArray()
   @IsEnum(TaskStatus, { each: true })
