@@ -18,7 +18,7 @@ export class TaskResponseDto {
   @ApiProperty({ 
     description: "Task status", 
     enum: TaskStatus, 
-    example: TaskStatus.COMPLETED 
+    example: TaskStatus.SUCCESS 
   })
   @Expose()
   status: TaskStatus;
