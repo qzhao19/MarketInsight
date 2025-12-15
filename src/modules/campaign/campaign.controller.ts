@@ -11,7 +11,9 @@ import {
   HttpCode,
   HttpStatus,
   ValidationPipe,
+  ParseBoolPipe,
   Logger,
+  UnauthorizedException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -65,6 +67,15 @@ export class CampaignController {
     this.logger.log("CampaignController initialized");
   }
 
+  private getUserIdFromRequest(request: any): string {
+    const userId = request.user?.id;
+    if (!userId || userId.trim().length === 0) {
+      this.logger.error("Request made without authenticated user");
+      throw new UnauthorizedException("User authentication required");
+    }
+    return userId;
+  }
+
   // ==================== Campaign Creation ====================
 
   /**
@@ -111,9 +122,9 @@ export class CampaignController {
   })
   public async createCampaign(
     @Body(ValidationPipe) createCampaignDto: CreateCampaignDto,
-    @Request() req: any,
+    @Request() request: any,
   ): Promise<CampaignResponseDto> {
-    const userId = req.user?.id;
+    const userId = this.getUserIdFromRequest(request);
     this.logger.log(`Creating campaign for user: ${userId}`);
 
     // Create agentInvokeOptions
@@ -136,6 +147,74 @@ export class CampaignController {
   }
 
   // ==================== Campaign Retrieval ====================
+
+  /**
+   * List all tasks across campaigns
+   * GET /api/v1/campaigns/tasks/all
+   */
+  @Get("tasks/all")
+  @ApiOperation({ 
+    summary: "List all tasks across campaigns for current user",
+    description: `Retrieves a paginated list of all tasks for the authenticated user across all campaigns.
+    
+**Use Cases:**
+- Global task management dashboard
+- Task analytics and reporting
+- Cross-campaign task overview
+
+**Features:**
+- Filter by status (single or multiple)
+- Filter by specific campaign(s)
+- Pagination support
+- Sorting options
+- Includes campaign context for each task
+
+**Security:**
+- Only returns tasks from campaigns owned by the current user
+- Campaign context is always included for reference
+
+**Example Queries:**
+- \`GET /campaigns/tasks/all?status=FAILED\` - All failed tasks
+- \`GET /campaigns/tasks/all?statusIn=SUCCESS,FAILED\` - success or failed
+- \`GET /campaigns/tasks/all?sortBy=priority\` - Sort by priority`,
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: "Tasks retrieved successfully",
+    type: TaskListResponseDto,
+  })
+  @ApiResponse({ 
+    status: HttpStatus.UNAUTHORIZED, 
+    description: "Unauthorized - valid authentication token required",
+  })
+  public async getTasksByUser(
+    @Query(ValidationPipe) query: ListTasksQueryDto,
+    @Request() request: any,
+  ): Promise<TaskListResponseDto> {
+    const userId = request.user?.id;
+    this.logger.log(`Listing all tasks for user ${userId}`);
+
+    const options: ListTasksOptions = {
+      skip: query.skip,
+      take: query.take,
+      where: {
+        status: query.status,
+        statusIn: query.statusIn,
+      },
+      orderBy: {
+        field: query.sortBy || "createdAt",
+        direction: query.sortOrder || "desc",
+      },
+    } as ListTasksOptions;
+
+    // Call service method
+    const result = await this.campaignService.getTasksByUserWithOptions(userId, options);
+
+    return {
+      data: TaskResponseDto.fromEntities(result.data),
+      pagination: result.pagination,
+    };
+  }
 
   /**
    * List campaigns with filters
@@ -173,9 +252,9 @@ export class CampaignController {
   })
   public async getCampaignsByUser(
     @Query(ValidationPipe) query: ListCampaignsQueryDto,
-    @Request() req: any,
+    @Request() request: any,
   ): Promise<CampaignListResponseDto> {
-    const userId = req.user?.id;
+    const userId = request.user?.id;
     this.logger.log(`Listing campaigns for user ${userId}`);
 
     // Build options form query dto
@@ -268,11 +347,11 @@ export class CampaignController {
   })
   public async getCampaignById(
     @Param("id") campaignId: string,
-    @Query("includeTasks") includeTasks?: boolean,
-    @Query("includeUser") includeUser?: boolean,
-    @Request() req?: any,
+    @Query("includeTasks", new ParseBoolPipe({ optional: true })) includeTasks?: boolean,
+    @Query("includeUser", new ParseBoolPipe({ optional: true })) includeUser?: boolean,
+    @Request() request?: any,
   ): Promise<CampaignResponseDto> {
-    const userId = req.user?.id;
+    const userId = request.user?.id;
     this.logger.log(`Getting campaign ${campaignId} for user ${userId}`);
 
     const campaign = await this.campaignService.getCampaignById(
@@ -306,8 +385,8 @@ export class CampaignController {
 - Sorting by priority, status, or date
 
 **Example Queries:**
-- \`GET /campaigns/:id/tasks?status=COMPLETED\` - Only completed tasks
-- \`GET /campaigns/:id/tasks?statusIn=COMPLETED,FAILED\` - Completed or failed tasks
+- \`GET /campaigns/:id/tasks?status=SUCCESS\` - Only success tasks
+- \`GET /campaigns/:id/tasks?statusIn=SUCCESS,FAILED\` - success or failed tasks
 - \`GET /campaigns/:id/tasks?sortBy=priority&sortOrder=asc\` - Sort by priority`,
   })
   @ApiParam({ 
@@ -331,9 +410,9 @@ export class CampaignController {
   public async getTasksByCampaign(
     @Param("id") campaignId: string,
     @Query(ValidationPipe) query: ListTasksQueryDto,
-    @Request() req: any,
+    @Request() request: any,
   ): Promise<TaskListResponseDto> {
-    const userId = req.user?.id;
+    const userId = request.user?.id;
     this.logger.log(`Getting tasks for campaign ${campaignId}`);
 
     const options = {
@@ -354,74 +433,6 @@ export class CampaignController {
       userId,
       options
     );
-
-    return {
-      data: TaskResponseDto.fromEntities(result.data),
-      pagination: result.pagination,
-    };
-  }
-
-  /**
-   * List all tasks across campaigns
-   * GET /api/v1/campaigns/tasks/all
-   */
-  @Get('tasks/all')
-  @ApiOperation({ 
-    summary: 'List all tasks across campaigns for current user',
-    description: `Retrieves a paginated list of all tasks for the authenticated user across all campaigns.
-    
-**Use Cases:**
-- Global task management dashboard
-- Task analytics and reporting
-- Cross-campaign task overview
-
-**Features:**
-- Filter by status (single or multiple)
-- Filter by specific campaign(s)
-- Pagination support
-- Sorting options
-- Includes campaign context for each task
-
-**Security:**
-- Only returns tasks from campaigns owned by the current user
-- Campaign context is always included for reference
-
-**Example Queries:**
-- \`GET /campaigns/tasks/all?status=FAILED\` - All failed tasks
-- \`GET /campaigns/tasks/all?statusIn=COMPLETED,FAILED\` - Completed or failed
-- \`GET /campaigns/tasks/all?sortBy=priority\` - Sort by priority`,
-  })
-  @ApiResponse({ 
-    status: HttpStatus.OK, 
-    description: 'Tasks retrieved successfully',
-    type: TaskListResponseDto,
-  })
-  @ApiResponse({ 
-    status: HttpStatus.UNAUTHORIZED, 
-    description: 'Unauthorized - valid authentication token required',
-  })
-  public async getTasksByUser(
-    @Query(ValidationPipe) query: ListTasksQueryDto,
-    @Request() req: any,
-  ): Promise<TaskListResponseDto> {
-    const userId = req.user?.id;
-    this.logger.log(`Listing all tasks for user ${userId}`);
-
-    const options: ListTasksOptions = {
-      skip: query.skip,
-      take: query.take,
-      where: {
-        status: query.status,
-        statusIn: query.statusIn,
-      },
-      orderBy: {
-        field: query.sortBy || 'createdAt',
-        direction: query.sortOrder || 'desc',
-      },
-    } as ListTasksOptions;
-
-    // Call service method
-    const result = await this.campaignService.getTasksByUserWithOptions(userId, options);
 
     return {
       data: TaskResponseDto.fromEntities(result.data),
@@ -466,9 +477,9 @@ export class CampaignController {
   })
   public async archiveCampaign(
     @Param("id") campaignId: string,
-    @Request() req: any,
+    @Request() request: any,
   ): Promise<CampaignResponseDto> {
-    const userId = req.user?.id || "temp-user-id";
+    const userId = request.user?.id || "temp-user-id";
     this.logger.log(`Archiving campaign ${campaignId}`);
 
     const campaign = await this.campaignService.archiveCampaign(
@@ -526,9 +537,9 @@ export class CampaignController {
   })
   public async retryCampaign(
     @Param("id") campaignId: string,
-    @Request() req: any,
+    @Request() request: any,
   ): Promise<CampaignResponseDto> {
-    const userId = req.user?.id || "temp-user-id";
+    const userId = request.user?.id || "temp-user-id";
     this.logger.log(`Retrying campaign ${campaignId}`);
 
     const campaign = await this.campaignService.retryCampaign(
@@ -576,9 +587,9 @@ export class CampaignController {
   })
   public async deleteCampaign(
     @Param("id") campaignId: string,
-    @Request() req: any,
+    @Request() request: any,
   ): Promise<CampaignResponseDto> {
-    const userId = req.user?.id || "temp-user-id";
+    const userId = request.user?.id || "temp-user-id";
     this.logger.log(`Deleting campaign ${campaignId}`);
 
     const campaign = await this.campaignService.deleteCampaign(
