@@ -82,7 +82,7 @@ const mockUser: User = {
 const mockTask: Task = {
   id: "task-1",
   campaignId: "campaign-1",
-  status: TaskStatus.COMPLETED,
+  status: TaskStatus.SUCCESS,
   priority: 1,
   result: mockTaskResult,
   createdAt: new Date("2024-01-01"),
@@ -112,7 +112,7 @@ const mockCampaignWithUser: Campaign = {
   user: mockUser,
 };
 
-const mockCompletedCampaign: Campaign = {
+const mockSUCCESSCampaign: Campaign = {
   ...mockCampaign,
   status: CampaignStatus.ARCHIVED,
   result: mockCampaignResult,
@@ -584,21 +584,21 @@ describe("CampaignRepository", () => {
   describe("updateTask", () => {
     it("should update task status", async () => {
       const updateData: UpdateTaskData = {
-        status: TaskStatus.COMPLETED,
+        status: TaskStatus.SUCCESS,
       };
 
       mockPrismaService.task.update.mockResolvedValue({
         ...mockTask,
-        status: TaskStatus.COMPLETED,
+        status: TaskStatus.SUCCESS,
       });
 
       const result = await campaignRepository.updateTask("task-1", updateData);
 
       expect(mockPrismaService.task.update).toHaveBeenCalledWith({
         where: { id: "task-1" },
-        data: expect.objectContaining({ status: TaskStatus.COMPLETED }),
+        data: expect.objectContaining({ status: TaskStatus.SUCCESS }),
       });
-      expect(result.status).toBe(TaskStatus.COMPLETED);
+      expect(result.status).toBe(TaskStatus.SUCCESS);
     });
 
     it("should update task priority", async () => {
@@ -658,7 +658,7 @@ describe("CampaignRepository", () => {
 
     it("should filter tasks by status", async () => {
       const options: Omit<ListTasksOptions, "campaignId"> = {
-        where: { status: TaskStatus.COMPLETED },
+        where: { status: TaskStatus.SUCCESS },
       };
 
       mockPrismaService.task.findMany.mockResolvedValue(mockTasks);
@@ -668,14 +668,14 @@ describe("CampaignRepository", () => {
 
       expect(mockPrismaService.task.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { campaignId: "campaign-1", status: TaskStatus.COMPLETED },
+          where: { campaignId: "campaign-1", status: TaskStatus.SUCCESS },
         })
       );
     });
 
     it("should filter tasks by statusIn", async () => {
       const options: Omit<ListTasksOptions, "campaignId"> = {
-        where: { statusIn: [TaskStatus.COMPLETED, TaskStatus.FAILED] },
+        where: { statusIn: [TaskStatus.SUCCESS, TaskStatus.FAILED] },
       };
 
       mockPrismaService.task.findMany.mockResolvedValue(mockTasks);
@@ -687,7 +687,7 @@ describe("CampaignRepository", () => {
         expect.objectContaining({
           where: {
             campaignId: "campaign-1",
-            status: { in: [TaskStatus.COMPLETED, TaskStatus.FAILED] },
+            status: { in: [TaskStatus.SUCCESS, TaskStatus.FAILED] },
           },
         })
       );
@@ -850,7 +850,7 @@ describe("CampaignRepository", () => {
 
     it("should filter tasks by single status", async () => {
       const options: ListTasksOptions = {
-        where: { status: TaskStatus.COMPLETED },
+        where: { status: TaskStatus.SUCCESS },
       };
 
       mockPrismaService.task.findMany.mockResolvedValue(mockTasksWithCampaigns);
@@ -862,7 +862,7 @@ describe("CampaignRepository", () => {
         expect.objectContaining({
           where: {
             campaign: { userId: "user-1" },
-            status: TaskStatus.COMPLETED,
+            status: TaskStatus.SUCCESS,
           },
         })
       );
@@ -871,7 +871,7 @@ describe("CampaignRepository", () => {
     it("should filter tasks by multiple statuses (statusIn)", async () => {
       const options: ListTasksOptions = {
         where: {
-          statusIn: [TaskStatus.COMPLETED, TaskStatus.FAILED],
+          statusIn: [TaskStatus.SUCCESS, TaskStatus.FAILED],
         },
       };
 
@@ -884,7 +884,7 @@ describe("CampaignRepository", () => {
         expect.objectContaining({
           where: {
             campaign: { userId: "user-1" },
-            status: { in: [TaskStatus.COMPLETED, TaskStatus.FAILED] },
+            status: { in: [TaskStatus.SUCCESS, TaskStatus.FAILED] },
           },
         })
       );
@@ -893,7 +893,7 @@ describe("CampaignRepository", () => {
     it("should prioritize statusIn over status when both provided", async () => {
       const options: ListTasksOptions = {
         where: {
-          status: TaskStatus.COMPLETED,
+          status: TaskStatus.SUCCESS,
           statusIn: [TaskStatus.FAILED],
         },
       };
@@ -1275,7 +1275,7 @@ describe("CampaignRepository", () => {
         take: 15,
         where: {
           campaignIds: ["campaign-1", "campaign-2"],
-          statusIn: [TaskStatus.COMPLETED, TaskStatus.FAILED],
+          statusIn: [TaskStatus.SUCCESS, TaskStatus.FAILED],
           priorityRange: { gte: 1, lte: 3 },
           hasResult: true,
           createdAt: {
@@ -1302,7 +1302,7 @@ describe("CampaignRepository", () => {
         where: {
           campaign: { userId: "user-1" },
           campaignId: { in: ["campaign-1", "campaign-2"] },
-          status: { in: [TaskStatus.COMPLETED, TaskStatus.FAILED] },
+          status: { in: [TaskStatus.SUCCESS, TaskStatus.FAILED] },
           priority: { gte: 1, lte: 3 },
           result: { not: expect.anything() },
           createdAt: {
@@ -1886,7 +1886,7 @@ describe("CampaignRepository", () => {
       const options: ListCampaignsOptions = {
         include: {
           tasks: {
-            where: { status: TaskStatus.COMPLETED },
+            where: { status: TaskStatus.SUCCESS },
           },
         },
       };
@@ -1902,7 +1902,7 @@ describe("CampaignRepository", () => {
         expect.objectContaining({
           include: {
             tasks: {
-              where: { status: TaskStatus.COMPLETED },
+              where: { status: TaskStatus.SUCCESS },
             },
           },
         })
@@ -1970,7 +1970,7 @@ describe("CampaignRepository", () => {
         include: {
           user: { select: { id: true, username: true } },
           tasks: {
-            where: { status: TaskStatus.PENDING },
+            where: { status: TaskStatus.FAILED },
             orderBy: { field: "priority", direction: "asc" },
             take: 5,
           },
@@ -2000,7 +2000,7 @@ describe("CampaignRepository", () => {
         include: {
           user: { select: { id: true, username: true } },
           tasks: {
-            where: { status: TaskStatus.PENDING },
+            where: { status: TaskStatus.FAILED },
             orderBy: { priority: "asc" },
             take: 5,
           },
@@ -2027,14 +2027,14 @@ describe("CampaignRepository", () => {
         const tx = {
           campaign: {
             findUnique: jest.fn().mockResolvedValue(mockCampaign),
-            update: jest.fn().mockResolvedValue(mockCompletedCampaign),
+            update: jest.fn().mockResolvedValue(mockSUCCESSCampaign),
           },
           task: {
             createMany: jest.fn().mockResolvedValue({ count: 2 }),
           },
         };
         await callback(tx);
-        return mockCompletedCampaign;
+        return mockSUCCESSCampaign;
       });
 
       const result = await campaignRepository.aggregateCampaignResult(aggregateData);
@@ -2106,7 +2106,7 @@ describe("CampaignRepository", () => {
         const tx = {
           campaign: {
             findUnique: jest.fn().mockResolvedValue(mockCampaign),
-            update: jest.fn().mockResolvedValue(mockCompletedCampaign),
+            update: jest.fn().mockResolvedValue(mockSUCCESSCampaign),
           },
           task: {
             createMany: jest.fn().mockImplementation((args: any) => {
@@ -2116,7 +2116,7 @@ describe("CampaignRepository", () => {
           },
         };
         await callback(tx);
-        return mockCompletedCampaign;
+        return mockSUCCESSCampaign;
       });
 
       await campaignRepository.aggregateCampaignResult(aggregateData);
