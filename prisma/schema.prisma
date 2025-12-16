@@ -9,9 +9,7 @@ datasource db {
 
 // Enum for TaskStatus, mirroring the one in TypeScript
 enum TaskStatus {
-    PENDING
-    PROCESSING
-    COMPLETED
+    SUCCESS
     FAILED
 }
 
@@ -19,8 +17,8 @@ enum TaskStatus {
 enum CampaignStatus {
     DRAFT
     ACTIVE
+    COMPLETED
     ARCHIVED
-    FAILED
 }
 
 // User model
@@ -42,7 +40,7 @@ model Task {
     id          String      @id @default(cuid())
     campaignId  String      // Foreign key to Campaign
     campaign    Campaign    @relation(fields: [campaignId], references: [id])
-    status      TaskStatus  @default(PENDING)
+    status      TaskStatus  @default(FAILED)
     priority    Int         @default(1)
     result      Json?       // TaskExecutionResult
     createdAt   DateTime    @default(now())
