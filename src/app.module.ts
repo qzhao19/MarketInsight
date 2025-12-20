@@ -1,15 +1,13 @@
 import { Module } from "@nestjs/common";
 import { AppConfigModule } from "./config/config.module"; 
-import { AgentModule } from "./agent/agent.module";
-import { ApiModule } from "./api/api.module";
-import { LLModelModule } from "./llm/model.module";
+import { CampaignModule } from "./modules/campaign/campaign.module";
+import { UserModule } from "./modules/user/user.module";
 
 @Module({
   imports: [
     AppConfigModule,
-    AgentModule,
-    ApiModule,
-    LLModelModule,
+    CampaignModule,
+    UserModule,
   ],
   controllers: [], 
   providers: [],
