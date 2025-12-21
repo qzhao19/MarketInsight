@@ -7,12 +7,14 @@ import { CampaignProcessor } from "./processors/campaign.processor";
 import { QueueModule } from "../../core/job/queue.module";
 import { AgentModule } from "../../core/agent/agent.module";
 import { PrismaModule } from "../../core/database/prisma.module";
+import { UserModule } from "../user/user.module"; 
 
 @Module({
   imports: [
     PrismaModule,
     QueueModule,
     AgentModule,
+    UserModule,
     BullModule.registerQueue({
       name: "campaign-processing",
     }),
