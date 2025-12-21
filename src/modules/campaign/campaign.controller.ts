@@ -68,12 +68,33 @@ export class CampaignController {
   }
 
   private getUserIdFromRequest(request: any): string {
-    const userId = request.user?.id;
-    if (!userId || userId.trim().length === 0) {
-      this.logger.error("Request made without authenticated user");
-      throw new UnauthorizedException("User authentication required");
+    try {
+     if (!request) {
+        this.logger.error("Request object is null or undefined");
+        throw new UnauthorizedException("Invalid request object");
+      }
+
+      // Check if request.user exists
+      if (!request.user) {
+        this.logger.error("request.user is null or undefined");
+        this.logger.debug(`Request keys: ${Object.keys(request).join(", ")}`);
+        throw new UnauthorizedException("User not authenticated (request.user missing)");
+      }
+
+      const userId = request.user.userId;
+      if (!userId || typeof userId !== "string" || userId.trim().length === 0) {
+        this.logger.log(userId);
+        this.logger.error("Request made without authenticated user");
+        throw new UnauthorizedException("User authentication required");
+      }
+
+      return userId;
+    } catch (error) {
+      this.logger.error(
+        `Failed to extract user ID: ${error instanceof Error ? error.message : error}`
+      );
+      throw error;
     }
-    return userId;
   }
 
   // ==================== Campaign Creation ====================
@@ -191,7 +212,7 @@ export class CampaignController {
     @Query(ValidationPipe) query: ListTasksQueryDto,
     @Request() request: any,
   ): Promise<TaskListResponseDto> {
-    const userId = request.user?.id;
+    const userId = this.getUserIdFromRequest(request);
     this.logger.log(`Listing all tasks for user ${userId}`);
 
     const options: ListTasksOptions = {
@@ -254,7 +275,7 @@ export class CampaignController {
     @Query(ValidationPipe) query: ListCampaignsQueryDto,
     @Request() request: any,
   ): Promise<CampaignListResponseDto> {
-    const userId = request.user?.id;
+    const userId = this.getUserIdFromRequest(request);
     this.logger.log(`Listing campaigns for user ${userId}`);
 
     // Build options form query dto
@@ -351,7 +372,7 @@ export class CampaignController {
     @Query("includeUser", new ParseBoolPipe({ optional: true })) includeUser?: boolean,
     @Request() request?: any,
   ): Promise<CampaignResponseDto> {
-    const userId = request.user?.id;
+    const userId = this.getUserIdFromRequest(request);
     this.logger.log(`Getting campaign ${campaignId} for user ${userId}`);
 
     const campaign = await this.campaignService.getCampaignById(
@@ -412,7 +433,7 @@ export class CampaignController {
     @Query(ValidationPipe) query: ListTasksQueryDto,
     @Request() request: any,
   ): Promise<TaskListResponseDto> {
-    const userId = request.user?.id;
+    const userId = this.getUserIdFromRequest(request);
     this.logger.log(`Getting tasks for campaign ${campaignId}`);
 
     const options = {
@@ -479,7 +500,7 @@ export class CampaignController {
     @Param("id") campaignId: string,
     @Request() request: any,
   ): Promise<CampaignResponseDto> {
-    const userId = request.user?.id || "temp-user-id";
+    const userId = this.getUserIdFromRequest(request);
     this.logger.log(`Archiving campaign ${campaignId}`);
 
     const campaign = await this.campaignService.archiveCampaign(
@@ -539,7 +560,7 @@ export class CampaignController {
     @Param("id") campaignId: string,
     @Request() request: any,
   ): Promise<CampaignResponseDto> {
-    const userId = request.user?.id || "temp-user-id";
+    const userId = this.getUserIdFromRequest(request);
     this.logger.log(`Retrying campaign ${campaignId}`);
 
     const campaign = await this.campaignService.retryCampaign(
@@ -589,7 +610,7 @@ export class CampaignController {
     @Param("id") campaignId: string,
     @Request() request: any,
   ): Promise<CampaignResponseDto> {
-    const userId = request.user?.id || "temp-user-id";
+    const userId = this.getUserIdFromRequest(request);
     this.logger.log(`Deleting campaign ${campaignId}`);
 
     const campaign = await this.campaignService.deleteCampaign(
