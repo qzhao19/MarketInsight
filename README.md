@@ -126,7 +126,7 @@ MarketInsight follows a **Producer-Consumer** pattern to handle long-running LLM
 *   **Run Unit Tests:**
     ```bash
     npm test -- tests/*.test.ts
-    ``
+    ```
 
 ## 5. License
 
