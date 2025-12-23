@@ -40,22 +40,22 @@ TASK DESIGN GUIDELINES
 ====================
 
 For each research task, ensure:
-✓ **taskName**: Specific, action-oriented, and UNIQUE within the report
+  **taskName**: Specific, action-oriented, and UNIQUE within the report
   - Examples: "Global EV Market Size Assessment", "Competitive Landscape Analysis"
   - Length: 1-200 characters (typically 5-50 words)
   - Important: All task names MUST be unique (no duplicates)
 
-✓ **taskDescription** (optional but recommended): Clear research goal and what to investigate
+  **taskDescription** (optional but recommended): Clear research goal and what to investigate
   - Example: "Determine current market size, historical growth rates (2020-2024), and projections to 2030"
   - This helps clarify what each task should achieve
 
-✓ **priority**: Assign one of: high | medium | low
+  **priority**: Assign one of: high | medium | low
   - HIGH: Critical tasks directly answering key business questions
   - MEDIUM: Important supporting analysis
   - LOW: Optional or supplementary insights
   - Ensure high-priority tasks cover the most important aspects
 
-✓ **dependencies**: List of other task names this task depends on
+  **dependencies**: List of other task names this task depends on
   - Reference other tasks by their exact taskName
   - Leave empty array [] if no dependencies
   - Example: ["Global EV Market Size Assessment", "Regional Market Breakdown"]
